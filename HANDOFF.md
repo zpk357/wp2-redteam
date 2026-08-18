@@ -9,6 +9,10 @@
   单独解除 Replay/Agent/package import，再删除源码和测试并重建后续镜像。
 - 新 Judge 计划位于 `docs/plans/judge-confidence-weeks-06-07-plan.md`。Judge 单向消费封存证据，只用于
   解释、排序、报告和人工复核，不写回当前 Fuzzing；实现尚未开始。
+- Judge 计划经安全与统计审查后补齐：untrusted evidence/无工具抗提示注入边界、按维度盲化视图、
+  语义 85% 与确定性约束分离、独立 `sandbox/judge/` 和 `judge-golden-v1`、72 条正式首版建议分组、
+  `JudgeAttempt`/`delivery_unknown`、固定 canary 窗口和漂移阈值。SPEC 已同步冻结 J6-J7 不反馈 Fuzzer；
+  前五周服务器结果变化只允许通过 Office V2 Evidence Adapter 适配。运行时代码和黄金集仍未开始。
 
 ## 2026-08-18 Office V2 Stage 6 server-ready checkpoint
 

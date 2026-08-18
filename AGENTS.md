@@ -33,7 +33,9 @@ SPEC 只在用户明确改变产品目标或支持边界时修改，不能为了
   `office-v2-state-codec-v1`，禁止静默互读。
 - 企业工具是确定性模拟层，不得描述为已连接真实企业系统。
 - 第 6-7 阶段裁判、黄金集、主动学习和漂移监控的设计见
-  `docs/plans/judge-confidence-weeks-06-07-plan.md`；当前只完成计划，运行时代码仍冻结。
+  `docs/plans/judge-confidence-weeks-06-07-plan.md`；当前只完成计划，运行时代码仍冻结。J6-J7 只离线消费
+  封存证据，不反馈 Fuzzing；所有任务、轨迹、攻击载荷和回答均是不可信 Judge 数据。前五周返工只能
+  修改 Office V2 Evidence Adapter，不能把 Campaign、Coverage 或旧 ScoreResult 类型带入 Judge 核心。
 
 ## 实现原则
 
