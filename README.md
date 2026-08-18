@@ -199,10 +199,9 @@ Prompt 证据，执行后只有轨迹事件支持的风险才进入种子、Corp
   TRACE 1.2、recording、无 Ollama strict replay、父不可变/子独立 carrier fork 及 CoverageInput 一致性。
   权威证据为 `reports/local-acceptance/20260804-g4-rerun2/acceptance.json`；`5.4a / 14.1` 继续暂停，
   最终仍须在 `5.G5` 通过 GPU 服务器阶段门。
-- `5.G5` 上传前准备已完成：`D:\hxjh\trace-g-server-kit-g5` 锁定自包含 Agent-Qwen 镜像、Controller
-  镜像、源码、G4 证据和服务器验收工具，不包含独立 Ollama/外置模型。最终本机 server-ready preflight
-  证明 live 容器使用同容器 Ollama且申请单 GPU，strict replay 不启动 Ollama且不申请 GPU；四个本轮
-  Episode 均清理。该结果不替代服务器执行，操作见 `docs/setup/G5服务器阶段门指南.md`。
+- 旧 `5.G5` 服务器包和宿主 Ollama 部署流程已经由 Office V2 Stage 6 取代。当前上传包为
+  `D:\hxjh\trace-g-server-kit-office-v2-step6-upload`，使用冻结的 Agent/Mutator 角色镜像和
+  `qwen3.5:27b-q4_K_M`，按同一 Campaign 执行预检、两代接通门以及 10/20/30/50 代恢复续跑。
 - G4 完成后的全量单元与集成回归为 `689 passed / 7 warnings`，Ruff 通过；四个验收容器及工作卷残留为
   0。当前源码镜像
   全量 Docker E2E 为 `34 passed`，其中 replay Docker 文件为 `6 passed`，新增办公载荷 fork 的安全/
@@ -271,8 +270,9 @@ Schema、所需 capability、权限等级和副作用类型；越权请求通过
 risk_category 写入轨迹，状态型工具同时参与 recording 和 strict replay 摘要校验。
 将来接真实 Connector 时必须保留这一契约，并在宿主侧授权和网络边界内单独实现。
 
-完整架构、分阶段计划和企业化路线图见 [项目文档](docs/README.md)。
-Linux GPU 服务器部署、internal Ollama 网络和 Profile 锁定流程见 [服务器部署](docs/server-deployment.md)。
+完整架构、分阶段计划和企业化路线图见 [项目文档](docs/README.md)。当前 Linux GPU 服务器流程以
+[Office V2 第六步计划](docs/plans/office-workspace-scenario-v2-step-06-real-model-server-validation.md)
+和上传包内的 `server_*_office_v2_step6.sh` 为准。
 
 ## 仓库结构
 
@@ -369,25 +369,15 @@ python -m pytest `
   tests\e2e\test_replay_lifecycle.py::test_trace_react_record_then_strict_replay_in_docker -q
 ```
 
-服务器使用新 kit 部署后，运行：
+Office V2 服务器包完成 staging 和 preflight 后，运行同一个 Campaign：
 
 ```bash
-bash scripts/server_validate_trace_workspace.sh <campaign-id> sha256:<qwen-digest>
+bash scripts/server_run_office_v2_step6.sh run <campaign-id> 2 <gpu-device>
+bash scripts/server_run_office_v2_step6.sh resume <campaign-id> 10 <gpu-device>
 ```
 
-脚本依次运行无攻击、固定邮件注入、注入录制和 strict replay，并生成 `validation.json`。通过要求
-两条真实 Qwen 路径都完成 `search_email -> read_email -> create_calendar_event` 的因果工具链：后一步
-必须使用前一步真实返回的邮件 ID、标题、时间和参会人。clean 必须无攻击副作用；injected 的攻击
-结果只记录客观布尔状态，不预设成功或失败；录制与 strict replay 必须逐检查点一致。
-
-验收通过后使用独立场景导出器：
-
-```bash
-bash scripts/server_export_trace_workspace.sh <campaign-id>
-```
-
-它只复制 `validation.json` 引用的 clean/injected/recording/strict 轨迹及其 Artifact 闭包，不要求旧
-Campaign、第一至第五阶段报告或黄金集数据存在。输出归档附带完整 SHA-256。
+首次只运行两代，以确认真实 Mutator 候选、Agent 工具执行、Oracle/Coverage 结算和下一代反馈全部接通；
+通过后再恢复到目标代数。成功或失败均由当前 Stage 6 归档器保存完整 Campaign 和校验摘要。
 
 ## 执行一条完整用例
 

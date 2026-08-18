@@ -23,7 +23,6 @@
 .env
 .env.*
 !.env.example
-!.env.server.example
 
 **/__pycache__/
 *.py[cod]

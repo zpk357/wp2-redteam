@@ -356,6 +356,7 @@ RuleBased/Fake 组件只用于证明状态机、持久化、错误处理和恢�
 
 - 产品目标和最终验收合同：[`SPEC.md`](../SPEC.md)
 - 总体施工路线：[`project-roadmap.md`](plans/project-roadmap.md)
-- 办公场景细化计划：[`office-collaboration-scenario-v1.md`](plans/office-collaboration-scenario-v1.md)
+- Office V2 总计划：[`office-workspace-scenario-v2-master-plan.md`](plans/office-workspace-scenario-v2-master-plan.md)
+- 真实模型服务器验证：[`office-workspace-scenario-v2-step-06-real-model-server-validation.md`](plans/office-workspace-scenario-v2-step-06-real-model-server-validation.md)
 - 风险与行为计算细节：[`风险与行为覆盖设计.md`](architecture/风险与行为覆盖设计.md)
 - 当前验证与交接状态：[`HANDOFF.md`](../HANDOFF.md)

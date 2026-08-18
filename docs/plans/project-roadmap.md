@@ -101,10 +101,9 @@ TRACE-G 容器与 workspace volume 残留为 0。
 目标：从一个固定案例扩展为可组合的 `ScenarioTemplate + BenignTask + AttackObjective +
 InjectionCarrier`，再建立执行证据驱动的行为新颖度和风险覆盖。
 
-首个业务场景的范围、授权边界、预期成果和逐步验收以
-`docs/plans/office-collaboration-scenario-v1.md` 为准。该文档执行校准、Docker Episode、录制、严格
-重放和载荷 fork 已完成。后续合同已改为先完成同容器 Qwen + LangGraph 真实 Agent 和真实办公基线，
-再恢复 coverage/Corpus 闭环；先前外部 Ollama 与脚本控制校准不作为最终真实 Agent 证据。
+当前业务场景的范围、授权边界、预期成果和逐步验收以
+`docs/plans/office-workspace-scenario-v2-master-plan.md` 及各 Stage/Step 计划为准。V1 校准、外部
+Ollama 和脚本控制路径已经退役，只在 Git 与 `LOG.md` 中保留历史记录，不作为 Office V2 证据。
 
 ### `[完成] 4.1 定义场景与攻击目标 Schema`
 

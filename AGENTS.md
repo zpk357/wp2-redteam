@@ -32,7 +32,8 @@ SPEC 只在用户明确改变产品目标或支持边界时修改，不能为了
 - 录制格式固定为 `trace-react-v2`、TRACE schema 1.2；旧工具状态 codec 为 2.0，Office V2 必须使用
   `office-v2-state-codec-v1`，禁止静默互读。
 - 企业工具是确定性模拟层，不得描述为已连接真实企业系统。
-- 第 6-7 阶段裁判、黄金集、主动学习和漂移监控继续冻结。
+- 第 6-7 阶段裁判、黄金集、主动学习和漂移监控的设计见
+  `docs/plans/judge-confidence-weeks-06-07-plan.md`；当前只完成计划，运行时代码仍冻结。
 
 ## 实现原则
 
@@ -248,7 +249,7 @@ NonEpisodeSettlement，且不得修改 Coverage、Exposure、Corpus 或无增益
 路线图大步骤 3 已完成：旧执行代码、依赖、镜像定义、旧轨迹和兼容解析已退役；完整非 Docker
 回归 `649 passed / 34 skipped / 6 warnings`；当前源码最近一次全量 Docker E2E `34 passed`，replay Docker 文件
 `6 passed`，本轮宿主办公变异子批合同改动未重跑 Docker。Ruff 通过。当时唯一
-细化计划是 `docs/plans/office-collaboration-scenario-v1.md`。授权边界、可组合合同、六类正常任务、
+细化计划现已从工作树移除，历史内容只通过 Git 和 `LOG.md` 追溯。其授权边界、可组合合同、六类正常任务、
 六类攻击目标、三类注入载体、有效组合规则、6+12 第一批矩阵和第 8 步确定性控制校准已经完成。
 12 个攻击案例的安全控制结果为攻击证据假，脆弱控制共享相同正常前缀并形成攻击证据真，六类目标
 均有正反例。第 9.1-9.3 步已完成初始化信封、13 项办公工具桥和三类载体的安全/脆弱 Docker 成对

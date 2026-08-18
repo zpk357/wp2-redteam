@@ -1,5 +1,15 @@
 # TRACE-G WP2 当前交接
 
+## 2026-08-18 项目清理与 Judge 计划
+
+- 已删除 Office V2 接管后不再使用的 V1/第 2-6 周旧计划、G3-G6 验收入口、宿主 Ollama Compose
+  部署脚本及其专用测试；活动代码和文档无残留引用。历史决策仍保留在 Git 与 `LOG.md`。
+- 当前 Office V2 Stage 6 上传包、角色镜像、模型锁、运行/恢复/归档脚本和权威证据均未改动。
+- Office V1 运行时代码尚未删除。它仍存在于明日服务器验证使用的冻结角色镜像中；应在该次验证结束后
+  单独解除 Replay/Agent/package import，再删除源码和测试并重建后续镜像。
+- 新 Judge 计划位于 `docs/plans/judge-confidence-weeks-06-07-plan.md`。Judge 单向消费封存证据，只用于
+  解释、排序、报告和人工复核，不写回当前 Fuzzing；实现尚未开始。
+
 ## 2026-08-18 Office V2 Stage 6 server-ready checkpoint
 
 - Frozen model: `qwen3.5:27b-q4_K_M`; Agent and Mutator role images are built and share the same embedded model layers while retaining separate identities.
@@ -471,7 +481,7 @@ Socket、不接触宿主业务文件和公网。真实 Ollama 只位于 Docker i
 
 ## 2026-08-04 Office V1 后续任务记录 `[已由 V2 重置废止]`
 
-先读取 `docs/plans/office-collaboration-scenario-v1.md`。第 1-10 步已经完成。新合同、`OfficeRuntime`、
+旧 V1 细化计划已从工作树移除，历史内容只通过 Git 和 `LOG.md` 追溯。第 1-10 步当时已经完成。新合同、`OfficeRuntime`、
 `OfficeSafeControl` 和 `OfficeVulnerableControl` 位于 `src/sandbox/scenarios/`。同一批 12 个攻击案例
 已经形成成对结果：安全控制的攻击证据为假，脆弱控制共享相同正常前缀并使攻击证据为真；六类目标
 均有正反例。`OfficeEpisodeInitialization` 已冻结 TestCase 到容器的边界，TRACE-ReAct 和 ToolRegistry

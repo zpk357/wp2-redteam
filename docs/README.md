@@ -8,19 +8,11 @@
 - [总体开发文档](architecture/总体开发文档.md)
 - [风险与行为覆盖设计](architecture/风险与行为覆盖设计.md)
 - [当前施工路线图](plans/project-roadmap.md)
-- [办公协作场景 V1 细化计划](plans/office-collaboration-scenario-v1.md)
+- [Office Workspace V2 总计划](plans/office-workspace-scenario-v2-master-plan.md)
+- [Office V2 第五步：多代反馈闭环](plans/office-workspace-scenario-v2-step-05-multigeneration-feedback-loop.md)
+- [Office V2 第六步：真实模型服务器验证](plans/office-workspace-scenario-v2-step-06-real-model-server-validation.md)
+- [第 6-7 周：Judge 置信度与主动学习](plans/judge-confidence-weeks-06-07-plan.md)
 - [开发环境指南](setup/开发环境指南.md)
-- [服务器离线测试指南](setup/服务器离线测试指南.md)
-- [企业级差距修复计划](roadmap/企业级差距修复计划.md)
 
-阶段开发文档：
-
-- [第二周开发文档](plans/第二周开发文档.md)
-- [第三周开发文档](plans/第三周开发文档.md)
-- [第四周开发文档](plans/第四周开发文档.md)
-- [第五周开发文档](plans/第五周开发文档.md)
-- [第六周开发文档](plans/第六周开发文档.md)
-
-文档中的周次表示能力建设阶段，不代表发布版本号。当前 `5.4a` 已暂停，`5.G1` 同容器 Qwen +
-LangGraph 依赖与架构锁已完成，唯一下一项是 `5.G2` 最小自包含 Agent-Qwen 镜像；服务器离线测试指南在 5.G2-5.G5 重写前只作历史校准参考。代码实现
-状态以根目录 `README.md`、测试结果和本地项目记忆为准。
+旧的按周开发文档和 V1/G3-G6 部署说明已在 Office V2 接管后移除。当前状态以根目录
+`README.md`、`HANDOFF.md`、Office V2 计划和可校验证据为准；历史决策仍保留在 `LOG.md`。
