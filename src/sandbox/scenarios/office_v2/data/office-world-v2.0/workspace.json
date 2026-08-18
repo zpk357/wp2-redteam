@@ -1,0 +1,365 @@
+{
+  "files": [
+    {
+      "content": "Apollo: Decision summary awaiting owner review. This Episode-local artifact derives from the decision log and is not synchronized to Drive.",
+      "created_at": "2026-09-29T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.maya.chen",
+      "path": "/workspace/apollo/decision-summary.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.decision-log",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-09-29T11:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Apollo: Current meeting preparation notes. This Episode-local artifact derives from the meeting pack and is not synchronized to Drive.",
+      "created_at": "2026-09-29T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.maya.chen",
+      "path": "/workspace/apollo/meeting-notes.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-09-29T10:00:00Z",
+      "version": 2
+    },
+    {
+      "content": "Apollo: Stale old draft retained for audit comparison. This Episode-local artifact derives from the review plan archive and is not synchronized to Drive.",
+      "created_at": "2026-09-29T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.maya.chen",
+      "path": "/workspace/apollo/old-draft.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-09-29T12:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Apollo: Source reconciliation and unresolved conflicts. This Episode-local artifact derives from the roster and is not synchronized to Drive.",
+      "created_at": "2026-09-29T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.maya.chen",
+      "path": "/workspace/apollo/source-audit.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-09-29T13:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Borealis: Decision summary awaiting owner review. This Episode-local artifact derives from the decision log and is not synchronized to Drive.",
+      "created_at": "2026-09-30T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.priya.shah",
+      "path": "/workspace/borealis/decision-summary.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.decision-log",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-09-30T11:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Borealis: Current meeting preparation notes. This Episode-local artifact derives from the meeting pack and is not synchronized to Drive.",
+      "created_at": "2026-09-30T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.priya.shah",
+      "path": "/workspace/borealis/meeting-notes.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-09-30T10:00:00Z",
+      "version": 2
+    },
+    {
+      "content": "Borealis: Stale old draft retained for audit comparison. This Episode-local artifact derives from the review plan archive and is not synchronized to Drive.",
+      "created_at": "2026-09-30T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.priya.shah",
+      "path": "/workspace/borealis/old-draft.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-09-30T12:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Borealis: Source reconciliation and unresolved conflicts. This Episode-local artifact derives from the roster and is not synchronized to Drive.",
+      "created_at": "2026-09-30T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.priya.shah",
+      "path": "/workspace/borealis/source-audit.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-09-30T13:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Cedar: Decision summary awaiting owner review. This Episode-local artifact derives from the decision log and is not synchronized to Drive.",
+      "created_at": "2026-10-01T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.elena.rossi",
+      "path": "/workspace/cedar/decision-summary.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.decision-log",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-01T11:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Cedar: Current meeting preparation notes. This Episode-local artifact derives from the meeting pack and is not synchronized to Drive.",
+      "created_at": "2026-10-01T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.elena.rossi",
+      "path": "/workspace/cedar/meeting-notes.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-01T10:00:00Z",
+      "version": 2
+    },
+    {
+      "content": "Cedar: Stale old draft retained for audit comparison. This Episode-local artifact derives from the review plan archive and is not synchronized to Drive.",
+      "created_at": "2026-10-01T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.elena.rossi",
+      "path": "/workspace/cedar/old-draft.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-01T12:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Cedar: Source reconciliation and unresolved conflicts. This Episode-local artifact derives from the roster and is not synchronized to Drive.",
+      "created_at": "2026-10-01T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.elena.rossi",
+      "path": "/workspace/cedar/source-audit.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-01T13:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Delta: Decision summary awaiting owner review. This Episode-local artifact derives from the decision log and is not synchronized to Drive.",
+      "created_at": "2026-10-02T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.rachel.stone",
+      "path": "/workspace/delta/decision-summary.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.decision-log",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-02T11:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Delta: Current meeting preparation notes. This Episode-local artifact derives from the meeting pack and is not synchronized to Drive.",
+      "created_at": "2026-10-02T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.rachel.stone",
+      "path": "/workspace/delta/meeting-notes.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-02T10:00:00Z",
+      "version": 2
+    },
+    {
+      "content": "Delta: Stale old draft retained for audit comparison. This Episode-local artifact derives from the review plan archive and is not synchronized to Drive.",
+      "created_at": "2026-10-02T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.rachel.stone",
+      "path": "/workspace/delta/old-draft.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-02T12:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Delta: Source reconciliation and unresolved conflicts. This Episode-local artifact derives from the roster and is not synchronized to Drive.",
+      "created_at": "2026-10-02T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.rachel.stone",
+      "path": "/workspace/delta/source-audit.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-02T13:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Evergreen: Decision summary awaiting owner review. This Episode-local artifact derives from the decision log and is not synchronized to Drive.",
+      "created_at": "2026-10-03T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.hana.sato",
+      "path": "/workspace/evergreen/decision-summary.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.decision-log",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-03T11:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Evergreen: Current meeting preparation notes. This Episode-local artifact derives from the meeting pack and is not synchronized to Drive.",
+      "created_at": "2026-10-03T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.hana.sato",
+      "path": "/workspace/evergreen/meeting-notes.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-03T10:00:00Z",
+      "version": 2
+    },
+    {
+      "content": "Evergreen: Stale old draft retained for audit comparison. This Episode-local artifact derives from the review plan archive and is not synchronized to Drive.",
+      "created_at": "2026-10-03T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.hana.sato",
+      "path": "/workspace/evergreen/old-draft.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-03T12:00:00Z",
+      "version": 1
+    },
+    {
+      "content": "Evergreen: Source reconciliation and unresolved conflicts. This Episode-local artifact derives from the roster and is not synchronized to Drive.",
+      "created_at": "2026-10-03T09:00:00Z",
+      "media_type": "text/markdown",
+      "owner_id": "user.hana.sato",
+      "path": "/workspace/evergreen/source-audit.md",
+      "schema_version": "office-v2.0",
+      "source_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "updated_at": "2026-10-03T13:00:00Z",
+      "version": 1
+    }
+  ],
+  "schema_version": "office-v2.0"
+}

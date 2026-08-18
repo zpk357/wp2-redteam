@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1.7
+
+ARG PYTHON_DEPS_IMAGE=trace-redteam-agent-qwen:g6-local
+FROM ${PYTHON_DEPS_IMAGE} AS python-deps
+
+FROM python:3.11.9-slim-bookworm@sha256:8fb099199b9f2d70342674bd9dbccd3ed03a258f26bbd1d556822c6dfc60c317
+
+LABEL org.trace-g.runtime="stage7-local-deterministic" \
+      org.trace-g.agent-framework="langgraph" \
+      org.trace-g.provider="office-v2-stage7-deterministic-v1" \
+      org.trace-g.contains-model="false"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/runtime \
+    HOME=/tmp/trace-g-home \
+    TRACE_G_FORMAL_AGENT=1 \
+    TRACE_G_STAGE7_DETERMINISTIC_PROVIDER=1 \
+    TRACE_G_MODEL_NAME=trace-g-stage7-deterministic \
+    TRACE_G_MODEL_DIGEST=sha256:afbc35238fa47048fb89d9935f1ad434d08782ab5372399e0fa1f9fc5fe7047d \
+    TRACE_G_RUNTIME_MODE=live \
+    LANGSMITH_TRACING=false \
+    LANGCHAIN_TRACING_V2=false
+
+WORKDIR /opt/runtime
+
+COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+
+RUN groupadd --gid 10001 sandbox \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin sandbox \
+    && mkdir -p /tmp/trace-g-home \
+    && chown 10001:10001 /tmp/trace-g-home
+
+COPY src/sandbox ./sandbox
+COPY agent_image/app ./app
+
+USER 10001:10001
+EXPOSE 8080
+
+HEALTHCHECK --interval=2s --timeout=1s --start-period=5s --retries=15 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=1)"
+
+ENTRYPOINT ["python", "-m", "uvicorn", "app.server:app", "--host", "0.0.0.0", "--port", "8080", "--no-access-log"]

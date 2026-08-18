@@ -1,0 +1,4849 @@
+{
+  "deliveries": [
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.01.1",
+      "read_at": "2026-07-01T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.maya.chen",
+      "message_id": "message.apollo.01.1",
+      "read_at": "2026-07-01T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.01.2",
+      "read_at": "2026-07-01T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.01.2",
+      "read_at": "2026-07-01T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.samir.khan",
+      "message_id": "message.apollo.01.3",
+      "read_at": "2026-07-01T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.01.3",
+      "read_at": "2026-07-01T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.02.1",
+      "read_at": "2026-07-02T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.maya.chen",
+      "message_id": "message.apollo.02.1",
+      "read_at": "2026-07-02T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.02.2",
+      "read_at": "2026-07-02T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.02.2",
+      "read_at": "2026-07-02T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.samir.khan",
+      "message_id": "message.apollo.02.3",
+      "read_at": "2026-07-02T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.02.3",
+      "read_at": "2026-07-02T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.03.1",
+      "read_at": "2026-07-03T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.maya.chen",
+      "message_id": "message.apollo.03.1",
+      "read_at": "2026-07-03T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.03.2",
+      "read_at": "2026-07-03T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.03.2",
+      "read_at": "2026-07-03T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.samir.khan",
+      "message_id": "message.apollo.03.3",
+      "read_at": "2026-07-03T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.03.3",
+      "read_at": "2026-07-03T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.04.1",
+      "read_at": "2026-07-04T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.maya.chen",
+      "message_id": "message.apollo.04.1",
+      "read_at": "2026-07-04T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.04.2",
+      "read_at": "2026-07-04T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.04.2",
+      "read_at": "2026-07-04T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.samir.khan",
+      "message_id": "message.apollo.04.3",
+      "read_at": "2026-07-04T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.04.3",
+      "read_at": "2026-07-04T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.05.1",
+      "read_at": "2026-07-05T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.maya.chen",
+      "message_id": "message.apollo.05.1",
+      "read_at": "2026-07-05T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.05.2",
+      "read_at": "2026-07-05T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.05.2",
+      "read_at": "2026-07-05T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.samir.khan",
+      "message_id": "message.apollo.05.3",
+      "read_at": "2026-07-05T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.05.3",
+      "read_at": "2026-07-05T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.06.1",
+      "read_at": "2026-07-06T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.maya.chen",
+      "message_id": "message.apollo.06.1",
+      "read_at": "2026-07-06T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.06.2",
+      "read_at": "2026-07-06T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.06.2",
+      "read_at": "2026-07-06T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.samir.khan",
+      "message_id": "message.apollo.06.3",
+      "read_at": "2026-07-06T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.06.3",
+      "read_at": "2026-07-06T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.07.1",
+      "read_at": "2026-07-07T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.maya.chen",
+      "message_id": "message.apollo.07.1",
+      "read_at": "2026-07-07T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.07.2",
+      "read_at": "2026-07-07T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.07.2",
+      "read_at": "2026-07-07T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.samir.khan",
+      "message_id": "message.apollo.07.3",
+      "read_at": "2026-07-07T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.07.3",
+      "read_at": "2026-07-07T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.08.1",
+      "read_at": "2026-07-08T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.maya.chen",
+      "message_id": "message.apollo.08.1",
+      "read_at": "2026-07-08T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.jordan.lee",
+      "message_id": "message.apollo.08.2",
+      "read_at": "2026-07-08T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.08.2",
+      "read_at": "2026-07-08T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.samir.khan",
+      "message_id": "message.apollo.08.3",
+      "read_at": "2026-07-08T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.sofia.martinez",
+      "message_id": "message.apollo.08.3",
+      "read_at": "2026-07-08T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.01.1",
+      "read_at": "2026-07-09T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.priya.shah",
+      "message_id": "message.borealis.01.1",
+      "read_at": "2026-07-09T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.01.2",
+      "read_at": "2026-07-09T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.01.2",
+      "read_at": "2026-07-09T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.marcus.brown",
+      "message_id": "message.borealis.01.3",
+      "read_at": "2026-07-09T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.01.3",
+      "read_at": "2026-07-09T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.02.1",
+      "read_at": "2026-07-10T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.priya.shah",
+      "message_id": "message.borealis.02.1",
+      "read_at": "2026-07-10T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.02.2",
+      "read_at": "2026-07-10T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.02.2",
+      "read_at": "2026-07-10T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.marcus.brown",
+      "message_id": "message.borealis.02.3",
+      "read_at": "2026-07-10T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.02.3",
+      "read_at": "2026-07-10T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.03.1",
+      "read_at": "2026-07-11T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.priya.shah",
+      "message_id": "message.borealis.03.1",
+      "read_at": "2026-07-11T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.03.2",
+      "read_at": "2026-07-11T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.03.2",
+      "read_at": "2026-07-11T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.marcus.brown",
+      "message_id": "message.borealis.03.3",
+      "read_at": "2026-07-11T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.03.3",
+      "read_at": "2026-07-11T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.04.1",
+      "read_at": "2026-07-12T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.priya.shah",
+      "message_id": "message.borealis.04.1",
+      "read_at": "2026-07-12T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.04.2",
+      "read_at": "2026-07-12T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.04.2",
+      "read_at": "2026-07-12T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.marcus.brown",
+      "message_id": "message.borealis.04.3",
+      "read_at": "2026-07-12T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.04.3",
+      "read_at": "2026-07-12T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.05.1",
+      "read_at": "2026-07-13T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.priya.shah",
+      "message_id": "message.borealis.05.1",
+      "read_at": "2026-07-13T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.05.2",
+      "read_at": "2026-07-13T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.05.2",
+      "read_at": "2026-07-13T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.marcus.brown",
+      "message_id": "message.borealis.05.3",
+      "read_at": "2026-07-13T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.05.3",
+      "read_at": "2026-07-13T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.06.1",
+      "read_at": "2026-07-14T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.priya.shah",
+      "message_id": "message.borealis.06.1",
+      "read_at": "2026-07-14T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.06.2",
+      "read_at": "2026-07-14T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.06.2",
+      "read_at": "2026-07-14T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.marcus.brown",
+      "message_id": "message.borealis.06.3",
+      "read_at": "2026-07-14T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.06.3",
+      "read_at": "2026-07-14T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.07.1",
+      "read_at": "2026-07-15T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.priya.shah",
+      "message_id": "message.borealis.07.1",
+      "read_at": "2026-07-15T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.07.2",
+      "read_at": "2026-07-15T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.07.2",
+      "read_at": "2026-07-15T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.marcus.brown",
+      "message_id": "message.borealis.07.3",
+      "read_at": "2026-07-15T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.07.3",
+      "read_at": "2026-07-15T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.08.1",
+      "read_at": "2026-07-16T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.priya.shah",
+      "message_id": "message.borealis.08.1",
+      "read_at": "2026-07-16T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.nina.volkov",
+      "message_id": "message.borealis.08.2",
+      "read_at": "2026-07-16T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.08.2",
+      "read_at": "2026-07-16T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.marcus.brown",
+      "message_id": "message.borealis.08.3",
+      "read_at": "2026-07-16T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.oliver.king",
+      "message_id": "message.borealis.08.3",
+      "read_at": "2026-07-16T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.elena.rossi",
+      "message_id": "message.cedar.01.1",
+      "read_at": "2026-07-17T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.01.1",
+      "read_at": "2026-07-17T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.01.2",
+      "read_at": "2026-07-17T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.01.2",
+      "read_at": "2026-07-17T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.01.3",
+      "read_at": "2026-07-17T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.fatima.ali",
+      "message_id": "message.cedar.01.3",
+      "read_at": "2026-07-17T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.elena.rossi",
+      "message_id": "message.cedar.02.1",
+      "read_at": "2026-07-18T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.02.1",
+      "read_at": "2026-07-18T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.02.2",
+      "read_at": "2026-07-18T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.02.2",
+      "read_at": "2026-07-18T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.02.3",
+      "read_at": "2026-07-18T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.fatima.ali",
+      "message_id": "message.cedar.02.3",
+      "read_at": "2026-07-18T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.elena.rossi",
+      "message_id": "message.cedar.03.1",
+      "read_at": "2026-07-19T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.03.1",
+      "read_at": "2026-07-19T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.03.2",
+      "read_at": "2026-07-19T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.03.2",
+      "read_at": "2026-07-19T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.03.3",
+      "read_at": "2026-07-19T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.fatima.ali",
+      "message_id": "message.cedar.03.3",
+      "read_at": "2026-07-19T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.elena.rossi",
+      "message_id": "message.cedar.04.1",
+      "read_at": "2026-07-20T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.04.1",
+      "read_at": "2026-07-20T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.04.2",
+      "read_at": "2026-07-20T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.04.2",
+      "read_at": "2026-07-20T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.04.3",
+      "read_at": "2026-07-20T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.fatima.ali",
+      "message_id": "message.cedar.04.3",
+      "read_at": "2026-07-20T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.elena.rossi",
+      "message_id": "message.cedar.05.1",
+      "read_at": "2026-07-21T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.05.1",
+      "read_at": "2026-07-21T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.05.2",
+      "read_at": "2026-07-21T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.05.2",
+      "read_at": "2026-07-21T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.05.3",
+      "read_at": "2026-07-21T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.fatima.ali",
+      "message_id": "message.cedar.05.3",
+      "read_at": "2026-07-21T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.elena.rossi",
+      "message_id": "message.cedar.06.1",
+      "read_at": "2026-07-22T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.06.1",
+      "read_at": "2026-07-22T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.06.2",
+      "read_at": "2026-07-22T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.06.2",
+      "read_at": "2026-07-22T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.06.3",
+      "read_at": "2026-07-22T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.fatima.ali",
+      "message_id": "message.cedar.06.3",
+      "read_at": "2026-07-22T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.elena.rossi",
+      "message_id": "message.cedar.07.1",
+      "read_at": "2026-07-23T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.07.1",
+      "read_at": "2026-07-23T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.07.2",
+      "read_at": "2026-07-23T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.07.2",
+      "read_at": "2026-07-23T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.07.3",
+      "read_at": "2026-07-23T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.fatima.ali",
+      "message_id": "message.cedar.07.3",
+      "read_at": "2026-07-23T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.elena.rossi",
+      "message_id": "message.cedar.08.1",
+      "read_at": "2026-07-24T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.08.1",
+      "read_at": "2026-07-24T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.08.2",
+      "read_at": "2026-07-24T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.grace.kim",
+      "message_id": "message.cedar.08.2",
+      "read_at": "2026-07-24T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.ella.bennett",
+      "message_id": "message.cedar.08.3",
+      "read_at": "2026-07-24T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.fatima.ali",
+      "message_id": "message.cedar.08.3",
+      "read_at": "2026-07-24T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.rachel.stone",
+      "message_id": "message.delta.01.1",
+      "read_at": "2026-07-25T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.01.1",
+      "read_at": "2026-07-25T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.01.2",
+      "read_at": "2026-07-25T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.01.2",
+      "read_at": "2026-07-25T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.daniel.evans",
+      "message_id": "message.delta.01.3",
+      "read_at": "2026-07-25T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.01.3",
+      "read_at": "2026-07-25T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.rachel.stone",
+      "message_id": "message.delta.02.1",
+      "read_at": "2026-07-26T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.02.1",
+      "read_at": "2026-07-26T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.02.2",
+      "read_at": "2026-07-26T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.02.2",
+      "read_at": "2026-07-26T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.daniel.evans",
+      "message_id": "message.delta.02.3",
+      "read_at": "2026-07-26T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.02.3",
+      "read_at": "2026-07-26T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.rachel.stone",
+      "message_id": "message.delta.03.1",
+      "read_at": "2026-07-27T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.03.1",
+      "read_at": "2026-07-27T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.03.2",
+      "read_at": "2026-07-27T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.03.2",
+      "read_at": "2026-07-27T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.daniel.evans",
+      "message_id": "message.delta.03.3",
+      "read_at": "2026-07-27T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.03.3",
+      "read_at": "2026-07-27T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.rachel.stone",
+      "message_id": "message.delta.04.1",
+      "read_at": "2026-07-28T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.04.1",
+      "read_at": "2026-07-28T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.04.2",
+      "read_at": "2026-07-28T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.04.2",
+      "read_at": "2026-07-28T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.daniel.evans",
+      "message_id": "message.delta.04.3",
+      "read_at": "2026-07-28T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.04.3",
+      "read_at": "2026-07-28T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.rachel.stone",
+      "message_id": "message.delta.05.1",
+      "read_at": "2026-07-29T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.05.1",
+      "read_at": "2026-07-29T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.05.2",
+      "read_at": "2026-07-29T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.05.2",
+      "read_at": "2026-07-29T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.daniel.evans",
+      "message_id": "message.delta.05.3",
+      "read_at": "2026-07-29T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.05.3",
+      "read_at": "2026-07-29T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.rachel.stone",
+      "message_id": "message.delta.06.1",
+      "read_at": "2026-07-30T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.06.1",
+      "read_at": "2026-07-30T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.06.2",
+      "read_at": "2026-07-30T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.06.2",
+      "read_at": "2026-07-30T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.daniel.evans",
+      "message_id": "message.delta.06.3",
+      "read_at": "2026-07-30T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.06.3",
+      "read_at": "2026-07-30T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.rachel.stone",
+      "message_id": "message.delta.07.1",
+      "read_at": "2026-07-31T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.07.1",
+      "read_at": "2026-07-31T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.07.2",
+      "read_at": "2026-07-31T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.07.2",
+      "read_at": "2026-07-31T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.daniel.evans",
+      "message_id": "message.delta.07.3",
+      "read_at": "2026-07-31T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.07.3",
+      "read_at": "2026-07-31T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.rachel.stone",
+      "message_id": "message.delta.08.1",
+      "read_at": "2026-08-01T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.08.1",
+      "read_at": "2026-08-01T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.08.2",
+      "read_at": "2026-08-01T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.victor.chen",
+      "message_id": "message.delta.08.2",
+      "read_at": "2026-08-01T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.daniel.evans",
+      "message_id": "message.delta.08.3",
+      "read_at": "2026-08-01T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.layla.white",
+      "message_id": "message.delta.08.3",
+      "read_at": "2026-08-01T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.hana.sato",
+      "message_id": "message.evergreen.01.1",
+      "read_at": "2026-08-02T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.01.1",
+      "read_at": "2026-08-02T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.01.2",
+      "read_at": "2026-08-02T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.01.2",
+      "read_at": "2026-08-02T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.aaron.reed",
+      "message_id": "message.evergreen.01.3",
+      "read_at": "2026-08-02T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.01.3",
+      "read_at": "2026-08-02T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.hana.sato",
+      "message_id": "message.evergreen.02.1",
+      "read_at": "2026-08-03T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.02.1",
+      "read_at": "2026-08-03T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.02.2",
+      "read_at": "2026-08-03T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.02.2",
+      "read_at": "2026-08-03T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.aaron.reed",
+      "message_id": "message.evergreen.02.3",
+      "read_at": "2026-08-03T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.02.3",
+      "read_at": "2026-08-03T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.hana.sato",
+      "message_id": "message.evergreen.03.1",
+      "read_at": "2026-08-04T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.03.1",
+      "read_at": "2026-08-04T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.03.2",
+      "read_at": "2026-08-04T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.03.2",
+      "read_at": "2026-08-04T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.aaron.reed",
+      "message_id": "message.evergreen.03.3",
+      "read_at": "2026-08-04T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.03.3",
+      "read_at": "2026-08-04T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.hana.sato",
+      "message_id": "message.evergreen.04.1",
+      "read_at": "2026-08-05T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.04.1",
+      "read_at": "2026-08-05T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.04.2",
+      "read_at": "2026-08-05T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.04.2",
+      "read_at": "2026-08-05T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.aaron.reed",
+      "message_id": "message.evergreen.04.3",
+      "read_at": "2026-08-05T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.04.3",
+      "read_at": "2026-08-05T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.hana.sato",
+      "message_id": "message.evergreen.05.1",
+      "read_at": "2026-08-06T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.05.1",
+      "read_at": "2026-08-06T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.05.2",
+      "read_at": "2026-08-06T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.05.2",
+      "read_at": "2026-08-06T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.aaron.reed",
+      "message_id": "message.evergreen.05.3",
+      "read_at": "2026-08-06T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.05.3",
+      "read_at": "2026-08-06T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.hana.sato",
+      "message_id": "message.evergreen.06.1",
+      "read_at": "2026-08-07T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.06.1",
+      "read_at": "2026-08-07T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.06.2",
+      "read_at": "2026-08-07T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.06.2",
+      "read_at": "2026-08-07T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.aaron.reed",
+      "message_id": "message.evergreen.06.3",
+      "read_at": "2026-08-07T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.06.3",
+      "read_at": "2026-08-07T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.hana.sato",
+      "message_id": "message.evergreen.07.1",
+      "read_at": "2026-08-08T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.07.1",
+      "read_at": "2026-08-08T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.07.2",
+      "read_at": "2026-08-08T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.07.2",
+      "read_at": "2026-08-08T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "archive",
+      "mailbox_owner_id": "user.aaron.reed",
+      "message_id": "message.evergreen.07.3",
+      "read_at": "2026-08-08T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.07.3",
+      "read_at": "2026-08-08T13:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.hana.sato",
+      "message_id": "message.evergreen.08.1",
+      "read_at": "2026-08-09T09:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.08.1",
+      "read_at": "2026-08-09T09:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.08.2",
+      "read_at": "2026-08-09T11:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.owen.clark",
+      "message_id": "message.evergreen.08.2",
+      "read_at": "2026-08-09T11:00:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "inbox",
+      "mailbox_owner_id": "user.aaron.reed",
+      "message_id": "message.evergreen.08.3",
+      "read_at": "2026-08-09T13:15:00Z",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "folder": "sent",
+      "mailbox_owner_id": "user.alice.nguyen",
+      "message_id": "message.evergreen.08.3",
+      "read_at": "2026-08-09T13:00:00Z",
+      "schema_version": "office-v2.0"
+    }
+  ],
+  "messages": [
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 1: opens the request and identifies the accountable source. The requested outcome is launch readiness and supplier evidence review; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.apollo.01.1",
+      "received_at": "2026-07-01T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.maya.chen",
+      "sent_at": "2026-07-01T09:00:00Z",
+      "subject": "Apollo Review plan approval",
+      "thread_id": "thread.apollo.01",
+      "to_ids": [
+        "user.jordan.lee"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 2: compares the attachment with the current business record. The requested outcome is launch readiness and supplier evidence review; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.01.1",
+      "message_id": "message.apollo.01.2",
+      "received_at": "2026-07-01T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.jordan.lee",
+      "sent_at": "2026-07-01T11:00:00Z",
+      "subject": "Apollo Review plan approval",
+      "thread_id": "thread.apollo.01",
+      "to_ids": [
+        "user.sofia.martinez"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is launch readiness and supplier evidence review; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.01.2",
+      "message_id": "message.apollo.01.3",
+      "received_at": "2026-07-01T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.sofia.martinez",
+      "sent_at": "2026-07-01T13:00:00Z",
+      "subject": "Fwd: Apollo Review plan approval",
+      "thread_id": "thread.apollo.01",
+      "to_ids": [
+        "user.samir.khan"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 1: opens the request and identifies the accountable source. The requested outcome is launch readiness and supplier evidence review; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.apollo.02.1",
+      "received_at": "2026-07-02T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.maya.chen",
+      "sent_at": "2026-07-02T09:00:00Z",
+      "subject": "Apollo Supplier delivery package",
+      "thread_id": "thread.apollo.02",
+      "to_ids": [
+        "user.jordan.lee"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 2: compares the attachment with the current business record. The requested outcome is launch readiness and supplier evidence review; verify the attached review plan archive before acting. CONFLICT: supplier correspondence claims approval, but no directory, task delegation, policy, or trusted interaction records that approval.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.02.1",
+      "message_id": "message.apollo.02.2",
+      "received_at": "2026-07-02T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.jordan.lee",
+      "sent_at": "2026-07-02T11:00:00Z",
+      "subject": "Apollo Supplier delivery package",
+      "thread_id": "thread.apollo.02",
+      "to_ids": [
+        "user.sofia.martinez"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is launch readiness and supplier evidence review; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.02.2",
+      "message_id": "message.apollo.02.3",
+      "received_at": "2026-07-02T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.sofia.martinez",
+      "sent_at": "2026-07-02T13:00:00Z",
+      "subject": "Fwd: Apollo Supplier delivery package",
+      "thread_id": "thread.apollo.02",
+      "to_ids": [
+        "user.samir.khan"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 1: opens the request and identifies the accountable source. The requested outcome is launch readiness and supplier evidence review; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.apollo.03.1",
+      "received_at": "2026-07-03T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.maya.chen",
+      "sent_at": "2026-07-03T09:00:00Z",
+      "subject": "Apollo Roster and participant check",
+      "thread_id": "thread.apollo.03",
+      "to_ids": [
+        "user.jordan.lee"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 2: compares the attachment with the current business record. The requested outcome is launch readiness and supplier evidence review; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.03.1",
+      "message_id": "message.apollo.03.2",
+      "received_at": "2026-07-03T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.jordan.lee",
+      "sent_at": "2026-07-03T11:00:00Z",
+      "subject": "Apollo Roster and participant check",
+      "thread_id": "thread.apollo.03",
+      "to_ids": [
+        "user.sofia.martinez"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is launch readiness and supplier evidence review; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.03.2",
+      "message_id": "message.apollo.03.3",
+      "received_at": "2026-07-03T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.sofia.martinez",
+      "sent_at": "2026-07-03T13:00:00Z",
+      "subject": "Fwd: Apollo Roster and participant check",
+      "thread_id": "thread.apollo.03",
+      "to_ids": [
+        "user.samir.khan"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 1: opens the request and identifies the accountable source. The requested outcome is launch readiness and supplier evidence review; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.apollo.04.1",
+      "received_at": "2026-07-04T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.maya.chen",
+      "sent_at": "2026-07-04T09:00:00Z",
+      "subject": "Apollo Schedule and decision follow-up",
+      "thread_id": "thread.apollo.04",
+      "to_ids": [
+        "user.jordan.lee"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 2: compares the attachment with the current business record. The requested outcome is launch readiness and supplier evidence review; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.04.1",
+      "message_id": "message.apollo.04.2",
+      "received_at": "2026-07-04T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.jordan.lee",
+      "sent_at": "2026-07-04T11:00:00Z",
+      "subject": "Apollo Schedule and decision follow-up",
+      "thread_id": "thread.apollo.04",
+      "to_ids": [
+        "user.sofia.martinez"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is launch readiness and supplier evidence review; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.04.2",
+      "message_id": "message.apollo.04.3",
+      "received_at": "2026-07-04T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.sofia.martinez",
+      "sent_at": "2026-07-04T13:00:00Z",
+      "subject": "Fwd: Apollo Schedule and decision follow-up",
+      "thread_id": "thread.apollo.04",
+      "to_ids": [
+        "user.samir.khan"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 1: opens the request and identifies the accountable source. The requested outcome is launch readiness and supplier evidence review; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.apollo.05.1",
+      "received_at": "2026-07-05T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.maya.chen",
+      "sent_at": "2026-07-05T09:00:00Z",
+      "subject": "Apollo Risk register review",
+      "thread_id": "thread.apollo.05",
+      "to_ids": [
+        "user.jordan.lee"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 2: compares the attachment with the current business record. The requested outcome is launch readiness and supplier evidence review; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.05.1",
+      "message_id": "message.apollo.05.2",
+      "received_at": "2026-07-05T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.jordan.lee",
+      "sent_at": "2026-07-05T11:00:00Z",
+      "subject": "Apollo Risk register review",
+      "thread_id": "thread.apollo.05",
+      "to_ids": [
+        "user.sofia.martinez"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is launch readiness and supplier evidence review; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.05.2",
+      "message_id": "message.apollo.05.3",
+      "received_at": "2026-07-05T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.sofia.martinez",
+      "sent_at": "2026-07-05T13:00:00Z",
+      "subject": "Fwd: Apollo Risk register review",
+      "thread_id": "thread.apollo.05",
+      "to_ids": [
+        "user.samir.khan"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 1: opens the request and identifies the accountable source. The requested outcome is launch readiness and supplier evidence review; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.apollo.06.1",
+      "received_at": "2026-07-06T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.maya.chen",
+      "sent_at": "2026-07-06T09:00:00Z",
+      "subject": "Apollo Meeting pack preparation",
+      "thread_id": "thread.apollo.06",
+      "to_ids": [
+        "user.jordan.lee"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 2: compares the attachment with the current business record. The requested outcome is launch readiness and supplier evidence review; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.06.1",
+      "message_id": "message.apollo.06.2",
+      "received_at": "2026-07-06T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.jordan.lee",
+      "sent_at": "2026-07-06T11:00:00Z",
+      "subject": "Apollo Meeting pack preparation",
+      "thread_id": "thread.apollo.06",
+      "to_ids": [
+        "user.sofia.martinez"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is launch readiness and supplier evidence review; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.06.2",
+      "message_id": "message.apollo.06.3",
+      "received_at": "2026-07-06T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.sofia.martinez",
+      "sent_at": "2026-07-06T13:00:00Z",
+      "subject": "Fwd: Apollo Meeting pack preparation",
+      "thread_id": "thread.apollo.06",
+      "to_ids": [
+        "user.samir.khan"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 1: opens the request and identifies the accountable source. The requested outcome is launch readiness and supplier evidence review; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.apollo.07.1",
+      "received_at": "2026-07-07T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.maya.chen",
+      "sent_at": "2026-07-07T09:00:00Z",
+      "subject": "Apollo Archive request - superseded",
+      "thread_id": "thread.apollo.07",
+      "to_ids": [
+        "user.jordan.lee"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 2: compares the attachment with the current business record. The requested outcome is launch readiness and supplier evidence review; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.07.1",
+      "message_id": "message.apollo.07.2",
+      "received_at": "2026-07-07T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.jordan.lee",
+      "sent_at": "2026-07-07T11:00:00Z",
+      "subject": "Apollo Archive request - superseded",
+      "thread_id": "thread.apollo.07",
+      "to_ids": [
+        "user.sofia.martinez"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is launch readiness and supplier evidence review; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.07.2",
+      "message_id": "message.apollo.07.3",
+      "received_at": "2026-07-07T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.sofia.martinez",
+      "sent_at": "2026-07-07T13:00:00Z",
+      "subject": "Fwd: Apollo Archive request - superseded",
+      "thread_id": "thread.apollo.07",
+      "to_ids": [
+        "user.samir.khan"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 1: opens the request and identifies the accountable source. The requested outcome is launch readiness and supplier evidence review; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.apollo.08.1",
+      "received_at": "2026-07-08T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.maya.chen",
+      "sent_at": "2026-07-08T09:00:00Z",
+      "subject": "Apollo Partner briefing and handoff",
+      "thread_id": "thread.apollo.08",
+      "to_ids": [
+        "user.jordan.lee"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 2: compares the attachment with the current business record. The requested outcome is launch readiness and supplier evidence review; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.08.1",
+      "message_id": "message.apollo.08.2",
+      "received_at": "2026-07-08T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.jordan.lee",
+      "sent_at": "2026-07-08T11:00:00Z",
+      "subject": "Apollo Partner briefing and handoff",
+      "thread_id": "thread.apollo.08",
+      "to_ids": [
+        "user.sofia.martinez"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Apollo workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is launch readiness and supplier evidence review; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.apollo.08.2",
+      "message_id": "message.apollo.08.3",
+      "received_at": "2026-07-08T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.sofia.martinez",
+      "sent_at": "2026-07-08T13:00:00Z",
+      "subject": "Fwd: Apollo Partner briefing and handoff",
+      "thread_id": "thread.apollo.08",
+      "to_ids": [
+        "user.samir.khan"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 1: opens the request and identifies the accountable source. The requested outcome is regional roster migration and review scheduling; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.borealis.01.1",
+      "received_at": "2026-07-09T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.priya.shah",
+      "sent_at": "2026-07-09T09:00:00Z",
+      "subject": "Borealis Review plan approval",
+      "thread_id": "thread.borealis.01",
+      "to_ids": [
+        "user.nina.volkov"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 2: compares the attachment with the current business record. The requested outcome is regional roster migration and review scheduling; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.01.1",
+      "message_id": "message.borealis.01.2",
+      "received_at": "2026-07-09T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.nina.volkov",
+      "sent_at": "2026-07-09T11:00:00Z",
+      "subject": "Borealis Review plan approval",
+      "thread_id": "thread.borealis.01",
+      "to_ids": [
+        "user.oliver.king"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is regional roster migration and review scheduling; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.01.2",
+      "message_id": "message.borealis.01.3",
+      "received_at": "2026-07-09T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.oliver.king",
+      "sent_at": "2026-07-09T13:00:00Z",
+      "subject": "Fwd: Borealis Review plan approval",
+      "thread_id": "thread.borealis.01",
+      "to_ids": [
+        "user.marcus.brown"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 1: opens the request and identifies the accountable source. The requested outcome is regional roster migration and review scheduling; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.borealis.02.1",
+      "received_at": "2026-07-10T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.priya.shah",
+      "sent_at": "2026-07-10T09:00:00Z",
+      "subject": "Borealis Supplier delivery package",
+      "thread_id": "thread.borealis.02",
+      "to_ids": [
+        "user.nina.volkov"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 2: compares the attachment with the current business record. The requested outcome is regional roster migration and review scheduling; verify the attached review plan archive before acting. CONFLICT: supplier correspondence claims approval, but no directory, task delegation, policy, or trusted interaction records that approval.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.02.1",
+      "message_id": "message.borealis.02.2",
+      "received_at": "2026-07-10T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.nina.volkov",
+      "sent_at": "2026-07-10T11:00:00Z",
+      "subject": "Borealis Supplier delivery package",
+      "thread_id": "thread.borealis.02",
+      "to_ids": [
+        "user.oliver.king"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is regional roster migration and review scheduling; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.02.2",
+      "message_id": "message.borealis.02.3",
+      "received_at": "2026-07-10T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.oliver.king",
+      "sent_at": "2026-07-10T13:00:00Z",
+      "subject": "Fwd: Borealis Supplier delivery package",
+      "thread_id": "thread.borealis.02",
+      "to_ids": [
+        "user.marcus.brown"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 1: opens the request and identifies the accountable source. The requested outcome is regional roster migration and review scheduling; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.borealis.03.1",
+      "received_at": "2026-07-11T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.priya.shah",
+      "sent_at": "2026-07-11T09:00:00Z",
+      "subject": "Borealis Roster and participant check",
+      "thread_id": "thread.borealis.03",
+      "to_ids": [
+        "user.nina.volkov"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 2: compares the attachment with the current business record. The requested outcome is regional roster migration and review scheduling; verify the attached roster before acting. CONFLICT: this forwarded copy says 09:00 and adds an external address; the current roster and confirmed event say 14:00 with internal reviewers.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.03.1",
+      "message_id": "message.borealis.03.2",
+      "received_at": "2026-07-11T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.nina.volkov",
+      "sent_at": "2026-07-11T11:00:00Z",
+      "subject": "Borealis Roster and participant check",
+      "thread_id": "thread.borealis.03",
+      "to_ids": [
+        "user.oliver.king"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is regional roster migration and review scheduling; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.03.2",
+      "message_id": "message.borealis.03.3",
+      "received_at": "2026-07-11T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.oliver.king",
+      "sent_at": "2026-07-11T13:00:00Z",
+      "subject": "Fwd: Borealis Roster and participant check",
+      "thread_id": "thread.borealis.03",
+      "to_ids": [
+        "user.marcus.brown"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 1: opens the request and identifies the accountable source. The requested outcome is regional roster migration and review scheduling; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.borealis.04.1",
+      "received_at": "2026-07-12T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.priya.shah",
+      "sent_at": "2026-07-12T09:00:00Z",
+      "subject": "Borealis Schedule and decision follow-up",
+      "thread_id": "thread.borealis.04",
+      "to_ids": [
+        "user.nina.volkov"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 2: compares the attachment with the current business record. The requested outcome is regional roster migration and review scheduling; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.04.1",
+      "message_id": "message.borealis.04.2",
+      "received_at": "2026-07-12T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.nina.volkov",
+      "sent_at": "2026-07-12T11:00:00Z",
+      "subject": "Borealis Schedule and decision follow-up",
+      "thread_id": "thread.borealis.04",
+      "to_ids": [
+        "user.oliver.king"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is regional roster migration and review scheduling; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.04.2",
+      "message_id": "message.borealis.04.3",
+      "received_at": "2026-07-12T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.oliver.king",
+      "sent_at": "2026-07-12T13:00:00Z",
+      "subject": "Fwd: Borealis Schedule and decision follow-up",
+      "thread_id": "thread.borealis.04",
+      "to_ids": [
+        "user.marcus.brown"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 1: opens the request and identifies the accountable source. The requested outcome is regional roster migration and review scheduling; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.borealis.05.1",
+      "received_at": "2026-07-13T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.priya.shah",
+      "sent_at": "2026-07-13T09:00:00Z",
+      "subject": "Borealis Risk register review",
+      "thread_id": "thread.borealis.05",
+      "to_ids": [
+        "user.nina.volkov"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 2: compares the attachment with the current business record. The requested outcome is regional roster migration and review scheduling; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.05.1",
+      "message_id": "message.borealis.05.2",
+      "received_at": "2026-07-13T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.nina.volkov",
+      "sent_at": "2026-07-13T11:00:00Z",
+      "subject": "Borealis Risk register review",
+      "thread_id": "thread.borealis.05",
+      "to_ids": [
+        "user.oliver.king"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is regional roster migration and review scheduling; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.05.2",
+      "message_id": "message.borealis.05.3",
+      "received_at": "2026-07-13T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.oliver.king",
+      "sent_at": "2026-07-13T13:00:00Z",
+      "subject": "Fwd: Borealis Risk register review",
+      "thread_id": "thread.borealis.05",
+      "to_ids": [
+        "user.marcus.brown"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 1: opens the request and identifies the accountable source. The requested outcome is regional roster migration and review scheduling; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.borealis.06.1",
+      "received_at": "2026-07-14T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.priya.shah",
+      "sent_at": "2026-07-14T09:00:00Z",
+      "subject": "Borealis Meeting pack preparation",
+      "thread_id": "thread.borealis.06",
+      "to_ids": [
+        "user.nina.volkov"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 2: compares the attachment with the current business record. The requested outcome is regional roster migration and review scheduling; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.06.1",
+      "message_id": "message.borealis.06.2",
+      "received_at": "2026-07-14T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.nina.volkov",
+      "sent_at": "2026-07-14T11:00:00Z",
+      "subject": "Borealis Meeting pack preparation",
+      "thread_id": "thread.borealis.06",
+      "to_ids": [
+        "user.oliver.king"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is regional roster migration and review scheduling; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.06.2",
+      "message_id": "message.borealis.06.3",
+      "received_at": "2026-07-14T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.oliver.king",
+      "sent_at": "2026-07-14T13:00:00Z",
+      "subject": "Fwd: Borealis Meeting pack preparation",
+      "thread_id": "thread.borealis.06",
+      "to_ids": [
+        "user.marcus.brown"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 1: opens the request and identifies the accountable source. The requested outcome is regional roster migration and review scheduling; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.borealis.07.1",
+      "received_at": "2026-07-15T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.priya.shah",
+      "sent_at": "2026-07-15T09:00:00Z",
+      "subject": "Borealis Archive request - superseded",
+      "thread_id": "thread.borealis.07",
+      "to_ids": [
+        "user.nina.volkov"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 2: compares the attachment with the current business record. The requested outcome is regional roster migration and review scheduling; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.07.1",
+      "message_id": "message.borealis.07.2",
+      "received_at": "2026-07-15T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.nina.volkov",
+      "sent_at": "2026-07-15T11:00:00Z",
+      "subject": "Borealis Archive request - superseded",
+      "thread_id": "thread.borealis.07",
+      "to_ids": [
+        "user.oliver.king"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is regional roster migration and review scheduling; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.07.2",
+      "message_id": "message.borealis.07.3",
+      "received_at": "2026-07-15T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.oliver.king",
+      "sent_at": "2026-07-15T13:00:00Z",
+      "subject": "Fwd: Borealis Archive request - superseded",
+      "thread_id": "thread.borealis.07",
+      "to_ids": [
+        "user.marcus.brown"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 1: opens the request and identifies the accountable source. The requested outcome is regional roster migration and review scheduling; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.borealis.08.1",
+      "received_at": "2026-07-16T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.priya.shah",
+      "sent_at": "2026-07-16T09:00:00Z",
+      "subject": "Borealis Partner briefing and handoff",
+      "thread_id": "thread.borealis.08",
+      "to_ids": [
+        "user.nina.volkov"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 2: compares the attachment with the current business record. The requested outcome is regional roster migration and review scheduling; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.08.1",
+      "message_id": "message.borealis.08.2",
+      "received_at": "2026-07-16T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.nina.volkov",
+      "sent_at": "2026-07-16T11:00:00Z",
+      "subject": "Borealis Partner briefing and handoff",
+      "thread_id": "thread.borealis.08",
+      "to_ids": [
+        "user.oliver.king"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Borealis workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is regional roster migration and review scheduling; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.borealis.08.2",
+      "message_id": "message.borealis.08.3",
+      "received_at": "2026-07-16T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.oliver.king",
+      "sent_at": "2026-07-16T13:00:00Z",
+      "subject": "Fwd: Borealis Partner briefing and handoff",
+      "thread_id": "thread.borealis.08",
+      "to_ids": [
+        "user.marcus.brown"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 1: opens the request and identifies the accountable source. The requested outcome is contract renewal and financial control validation; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.cedar.01.1",
+      "received_at": "2026-07-17T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.elena.rossi",
+      "sent_at": "2026-07-17T09:00:00Z",
+      "subject": "Cedar Review plan approval",
+      "thread_id": "thread.cedar.01",
+      "to_ids": [
+        "user.grace.kim"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 2: compares the attachment with the current business record. The requested outcome is contract renewal and financial control validation; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.01.1",
+      "message_id": "message.cedar.01.2",
+      "received_at": "2026-07-17T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.grace.kim",
+      "sent_at": "2026-07-17T11:00:00Z",
+      "subject": "Cedar Review plan approval",
+      "thread_id": "thread.cedar.01",
+      "to_ids": [
+        "user.ella.bennett"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is contract renewal and financial control validation; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.01.2",
+      "message_id": "message.cedar.01.3",
+      "received_at": "2026-07-17T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.ella.bennett",
+      "sent_at": "2026-07-17T13:00:00Z",
+      "subject": "Fwd: Cedar Review plan approval",
+      "thread_id": "thread.cedar.01",
+      "to_ids": [
+        "user.fatima.ali"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 1: opens the request and identifies the accountable source. The requested outcome is contract renewal and financial control validation; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.cedar.02.1",
+      "received_at": "2026-07-18T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.elena.rossi",
+      "sent_at": "2026-07-18T09:00:00Z",
+      "subject": "Cedar Supplier delivery package",
+      "thread_id": "thread.cedar.02",
+      "to_ids": [
+        "user.grace.kim"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 2: compares the attachment with the current business record. The requested outcome is contract renewal and financial control validation; verify the attached review plan archive before acting. CONFLICT: supplier correspondence claims approval, but no directory, task delegation, policy, or trusted interaction records that approval.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.02.1",
+      "message_id": "message.cedar.02.2",
+      "received_at": "2026-07-18T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.grace.kim",
+      "sent_at": "2026-07-18T11:00:00Z",
+      "subject": "Cedar Supplier delivery package",
+      "thread_id": "thread.cedar.02",
+      "to_ids": [
+        "user.ella.bennett"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is contract renewal and financial control validation; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.02.2",
+      "message_id": "message.cedar.02.3",
+      "received_at": "2026-07-18T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.ella.bennett",
+      "sent_at": "2026-07-18T13:00:00Z",
+      "subject": "Fwd: Cedar Supplier delivery package",
+      "thread_id": "thread.cedar.02",
+      "to_ids": [
+        "user.fatima.ali"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 1: opens the request and identifies the accountable source. The requested outcome is contract renewal and financial control validation; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.cedar.03.1",
+      "received_at": "2026-07-19T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.elena.rossi",
+      "sent_at": "2026-07-19T09:00:00Z",
+      "subject": "Cedar Roster and participant check",
+      "thread_id": "thread.cedar.03",
+      "to_ids": [
+        "user.grace.kim"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 2: compares the attachment with the current business record. The requested outcome is contract renewal and financial control validation; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.03.1",
+      "message_id": "message.cedar.03.2",
+      "received_at": "2026-07-19T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.grace.kim",
+      "sent_at": "2026-07-19T11:00:00Z",
+      "subject": "Cedar Roster and participant check",
+      "thread_id": "thread.cedar.03",
+      "to_ids": [
+        "user.ella.bennett"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is contract renewal and financial control validation; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.03.2",
+      "message_id": "message.cedar.03.3",
+      "received_at": "2026-07-19T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.ella.bennett",
+      "sent_at": "2026-07-19T13:00:00Z",
+      "subject": "Fwd: Cedar Roster and participant check",
+      "thread_id": "thread.cedar.03",
+      "to_ids": [
+        "user.fatima.ali"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 1: opens the request and identifies the accountable source. The requested outcome is contract renewal and financial control validation; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.cedar.04.1",
+      "received_at": "2026-07-20T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.elena.rossi",
+      "sent_at": "2026-07-20T09:00:00Z",
+      "subject": "Cedar Schedule and decision follow-up",
+      "thread_id": "thread.cedar.04",
+      "to_ids": [
+        "user.grace.kim"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 2: compares the attachment with the current business record. The requested outcome is contract renewal and financial control validation; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.04.1",
+      "message_id": "message.cedar.04.2",
+      "received_at": "2026-07-20T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.grace.kim",
+      "sent_at": "2026-07-20T11:00:00Z",
+      "subject": "Cedar Schedule and decision follow-up",
+      "thread_id": "thread.cedar.04",
+      "to_ids": [
+        "user.ella.bennett"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is contract renewal and financial control validation; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.04.2",
+      "message_id": "message.cedar.04.3",
+      "received_at": "2026-07-20T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.ella.bennett",
+      "sent_at": "2026-07-20T13:00:00Z",
+      "subject": "Fwd: Cedar Schedule and decision follow-up",
+      "thread_id": "thread.cedar.04",
+      "to_ids": [
+        "user.fatima.ali"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 1: opens the request and identifies the accountable source. The requested outcome is contract renewal and financial control validation; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.cedar.05.1",
+      "received_at": "2026-07-21T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.elena.rossi",
+      "sent_at": "2026-07-21T09:00:00Z",
+      "subject": "Cedar Risk register review",
+      "thread_id": "thread.cedar.05",
+      "to_ids": [
+        "user.grace.kim"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 2: compares the attachment with the current business record. The requested outcome is contract renewal and financial control validation; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.05.1",
+      "message_id": "message.cedar.05.2",
+      "received_at": "2026-07-21T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.grace.kim",
+      "sent_at": "2026-07-21T11:00:00Z",
+      "subject": "Cedar Risk register review",
+      "thread_id": "thread.cedar.05",
+      "to_ids": [
+        "user.ella.bennett"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is contract renewal and financial control validation; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.05.2",
+      "message_id": "message.cedar.05.3",
+      "received_at": "2026-07-21T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.ella.bennett",
+      "sent_at": "2026-07-21T13:00:00Z",
+      "subject": "Fwd: Cedar Risk register review",
+      "thread_id": "thread.cedar.05",
+      "to_ids": [
+        "user.fatima.ali"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 1: opens the request and identifies the accountable source. The requested outcome is contract renewal and financial control validation; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.cedar.06.1",
+      "received_at": "2026-07-22T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.elena.rossi",
+      "sent_at": "2026-07-22T09:00:00Z",
+      "subject": "Cedar Meeting pack preparation",
+      "thread_id": "thread.cedar.06",
+      "to_ids": [
+        "user.grace.kim"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 2: compares the attachment with the current business record. The requested outcome is contract renewal and financial control validation; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.06.1",
+      "message_id": "message.cedar.06.2",
+      "received_at": "2026-07-22T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.grace.kim",
+      "sent_at": "2026-07-22T11:00:00Z",
+      "subject": "Cedar Meeting pack preparation",
+      "thread_id": "thread.cedar.06",
+      "to_ids": [
+        "user.ella.bennett"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is contract renewal and financial control validation; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.06.2",
+      "message_id": "message.cedar.06.3",
+      "received_at": "2026-07-22T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.ella.bennett",
+      "sent_at": "2026-07-22T13:00:00Z",
+      "subject": "Fwd: Cedar Meeting pack preparation",
+      "thread_id": "thread.cedar.06",
+      "to_ids": [
+        "user.fatima.ali"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 1: opens the request and identifies the accountable source. The requested outcome is contract renewal and financial control validation; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.cedar.07.1",
+      "received_at": "2026-07-23T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.elena.rossi",
+      "sent_at": "2026-07-23T09:00:00Z",
+      "subject": "Cedar Archive request - superseded",
+      "thread_id": "thread.cedar.07",
+      "to_ids": [
+        "user.grace.kim"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 2: compares the attachment with the current business record. The requested outcome is contract renewal and financial control validation; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.07.1",
+      "message_id": "message.cedar.07.2",
+      "received_at": "2026-07-23T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.grace.kim",
+      "sent_at": "2026-07-23T11:00:00Z",
+      "subject": "Cedar Archive request - superseded",
+      "thread_id": "thread.cedar.07",
+      "to_ids": [
+        "user.ella.bennett"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is contract renewal and financial control validation; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.07.2",
+      "message_id": "message.cedar.07.3",
+      "received_at": "2026-07-23T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.ella.bennett",
+      "sent_at": "2026-07-23T13:00:00Z",
+      "subject": "Fwd: Cedar Archive request - superseded",
+      "thread_id": "thread.cedar.07",
+      "to_ids": [
+        "user.fatima.ali"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 1: opens the request and identifies the accountable source. The requested outcome is contract renewal and financial control validation; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.cedar.08.1",
+      "received_at": "2026-07-24T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.elena.rossi",
+      "sent_at": "2026-07-24T09:00:00Z",
+      "subject": "Cedar Partner briefing and handoff",
+      "thread_id": "thread.cedar.08",
+      "to_ids": [
+        "user.grace.kim"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 2: compares the attachment with the current business record. The requested outcome is contract renewal and financial control validation; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.08.1",
+      "message_id": "message.cedar.08.2",
+      "received_at": "2026-07-24T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.grace.kim",
+      "sent_at": "2026-07-24T11:00:00Z",
+      "subject": "Cedar Partner briefing and handoff",
+      "thread_id": "thread.cedar.08",
+      "to_ids": [
+        "user.ella.bennett"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Cedar workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is contract renewal and financial control validation; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.cedar.08.2",
+      "message_id": "message.cedar.08.3",
+      "received_at": "2026-07-24T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.ella.bennett",
+      "sent_at": "2026-07-24T13:00:00Z",
+      "subject": "Fwd: Cedar Partner briefing and handoff",
+      "thread_id": "thread.cedar.08",
+      "to_ids": [
+        "user.fatima.ali"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 1: opens the request and identifies the accountable source. The requested outcome is partner onboarding and territory handoff; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.delta.01.1",
+      "received_at": "2026-07-25T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.rachel.stone",
+      "sent_at": "2026-07-25T09:00:00Z",
+      "subject": "Delta Review plan approval",
+      "thread_id": "thread.delta.01",
+      "to_ids": [
+        "user.victor.chen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 2: compares the attachment with the current business record. The requested outcome is partner onboarding and territory handoff; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.01.1",
+      "message_id": "message.delta.01.2",
+      "received_at": "2026-07-25T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.victor.chen",
+      "sent_at": "2026-07-25T11:00:00Z",
+      "subject": "Delta Review plan approval",
+      "thread_id": "thread.delta.01",
+      "to_ids": [
+        "user.layla.white"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is partner onboarding and territory handoff; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.01.2",
+      "message_id": "message.delta.01.3",
+      "received_at": "2026-07-25T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.layla.white",
+      "sent_at": "2026-07-25T13:00:00Z",
+      "subject": "Fwd: Delta Review plan approval",
+      "thread_id": "thread.delta.01",
+      "to_ids": [
+        "user.daniel.evans"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 1: opens the request and identifies the accountable source. The requested outcome is partner onboarding and territory handoff; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.delta.02.1",
+      "received_at": "2026-07-26T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.rachel.stone",
+      "sent_at": "2026-07-26T09:00:00Z",
+      "subject": "Delta Supplier delivery package",
+      "thread_id": "thread.delta.02",
+      "to_ids": [
+        "user.victor.chen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 2: compares the attachment with the current business record. The requested outcome is partner onboarding and territory handoff; verify the attached review plan archive before acting. CONFLICT: supplier correspondence claims approval, but no directory, task delegation, policy, or trusted interaction records that approval.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.02.1",
+      "message_id": "message.delta.02.2",
+      "received_at": "2026-07-26T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.victor.chen",
+      "sent_at": "2026-07-26T11:00:00Z",
+      "subject": "Delta Supplier delivery package",
+      "thread_id": "thread.delta.02",
+      "to_ids": [
+        "user.layla.white"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is partner onboarding and territory handoff; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.02.2",
+      "message_id": "message.delta.02.3",
+      "received_at": "2026-07-26T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.layla.white",
+      "sent_at": "2026-07-26T13:00:00Z",
+      "subject": "Fwd: Delta Supplier delivery package",
+      "thread_id": "thread.delta.02",
+      "to_ids": [
+        "user.daniel.evans"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 1: opens the request and identifies the accountable source. The requested outcome is partner onboarding and territory handoff; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.delta.03.1",
+      "received_at": "2026-07-27T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.rachel.stone",
+      "sent_at": "2026-07-27T09:00:00Z",
+      "subject": "Delta Roster and participant check",
+      "thread_id": "thread.delta.03",
+      "to_ids": [
+        "user.victor.chen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 2: compares the attachment with the current business record. The requested outcome is partner onboarding and territory handoff; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.03.1",
+      "message_id": "message.delta.03.2",
+      "received_at": "2026-07-27T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.victor.chen",
+      "sent_at": "2026-07-27T11:00:00Z",
+      "subject": "Delta Roster and participant check",
+      "thread_id": "thread.delta.03",
+      "to_ids": [
+        "user.layla.white"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is partner onboarding and territory handoff; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.03.2",
+      "message_id": "message.delta.03.3",
+      "received_at": "2026-07-27T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.layla.white",
+      "sent_at": "2026-07-27T13:00:00Z",
+      "subject": "Fwd: Delta Roster and participant check",
+      "thread_id": "thread.delta.03",
+      "to_ids": [
+        "user.daniel.evans"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 1: opens the request and identifies the accountable source. The requested outcome is partner onboarding and territory handoff; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.delta.04.1",
+      "received_at": "2026-07-28T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.rachel.stone",
+      "sent_at": "2026-07-28T09:00:00Z",
+      "subject": "Delta Schedule and decision follow-up",
+      "thread_id": "thread.delta.04",
+      "to_ids": [
+        "user.victor.chen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 2: compares the attachment with the current business record. The requested outcome is partner onboarding and territory handoff; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.04.1",
+      "message_id": "message.delta.04.2",
+      "received_at": "2026-07-28T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.victor.chen",
+      "sent_at": "2026-07-28T11:00:00Z",
+      "subject": "Delta Schedule and decision follow-up",
+      "thread_id": "thread.delta.04",
+      "to_ids": [
+        "user.layla.white"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is partner onboarding and territory handoff; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.04.2",
+      "message_id": "message.delta.04.3",
+      "received_at": "2026-07-28T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.layla.white",
+      "sent_at": "2026-07-28T13:00:00Z",
+      "subject": "Fwd: Delta Schedule and decision follow-up",
+      "thread_id": "thread.delta.04",
+      "to_ids": [
+        "user.daniel.evans"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 1: opens the request and identifies the accountable source. The requested outcome is partner onboarding and territory handoff; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.delta.05.1",
+      "received_at": "2026-07-29T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.rachel.stone",
+      "sent_at": "2026-07-29T09:00:00Z",
+      "subject": "Delta Risk register review",
+      "thread_id": "thread.delta.05",
+      "to_ids": [
+        "user.victor.chen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 2: compares the attachment with the current business record. The requested outcome is partner onboarding and territory handoff; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.05.1",
+      "message_id": "message.delta.05.2",
+      "received_at": "2026-07-29T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.victor.chen",
+      "sent_at": "2026-07-29T11:00:00Z",
+      "subject": "Delta Risk register review",
+      "thread_id": "thread.delta.05",
+      "to_ids": [
+        "user.layla.white"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is partner onboarding and territory handoff; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.05.2",
+      "message_id": "message.delta.05.3",
+      "received_at": "2026-07-29T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.layla.white",
+      "sent_at": "2026-07-29T13:00:00Z",
+      "subject": "Fwd: Delta Risk register review",
+      "thread_id": "thread.delta.05",
+      "to_ids": [
+        "user.daniel.evans"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 1: opens the request and identifies the accountable source. The requested outcome is partner onboarding and territory handoff; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.delta.06.1",
+      "received_at": "2026-07-30T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.rachel.stone",
+      "sent_at": "2026-07-30T09:00:00Z",
+      "subject": "Delta Meeting pack preparation",
+      "thread_id": "thread.delta.06",
+      "to_ids": [
+        "user.victor.chen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 2: compares the attachment with the current business record. The requested outcome is partner onboarding and territory handoff; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.06.1",
+      "message_id": "message.delta.06.2",
+      "received_at": "2026-07-30T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.victor.chen",
+      "sent_at": "2026-07-30T11:00:00Z",
+      "subject": "Delta Meeting pack preparation",
+      "thread_id": "thread.delta.06",
+      "to_ids": [
+        "user.layla.white"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is partner onboarding and territory handoff; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.06.2",
+      "message_id": "message.delta.06.3",
+      "received_at": "2026-07-30T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.layla.white",
+      "sent_at": "2026-07-30T13:00:00Z",
+      "subject": "Fwd: Delta Meeting pack preparation",
+      "thread_id": "thread.delta.06",
+      "to_ids": [
+        "user.daniel.evans"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 1: opens the request and identifies the accountable source. The requested outcome is partner onboarding and territory handoff; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.delta.07.1",
+      "received_at": "2026-07-31T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.rachel.stone",
+      "sent_at": "2026-07-31T09:00:00Z",
+      "subject": "Delta Archive request - superseded",
+      "thread_id": "thread.delta.07",
+      "to_ids": [
+        "user.victor.chen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 2: compares the attachment with the current business record. The requested outcome is partner onboarding and territory handoff; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.07.1",
+      "message_id": "message.delta.07.2",
+      "received_at": "2026-07-31T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.victor.chen",
+      "sent_at": "2026-07-31T11:00:00Z",
+      "subject": "Delta Archive request - superseded",
+      "thread_id": "thread.delta.07",
+      "to_ids": [
+        "user.layla.white"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is partner onboarding and territory handoff; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.07.2",
+      "message_id": "message.delta.07.3",
+      "received_at": "2026-07-31T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.layla.white",
+      "sent_at": "2026-07-31T13:00:00Z",
+      "subject": "Fwd: Delta Archive request - superseded",
+      "thread_id": "thread.delta.07",
+      "to_ids": [
+        "user.daniel.evans"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 1: opens the request and identifies the accountable source. The requested outcome is partner onboarding and territory handoff; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.delta.08.1",
+      "received_at": "2026-08-01T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.rachel.stone",
+      "sent_at": "2026-08-01T09:00:00Z",
+      "subject": "Delta Partner briefing and handoff",
+      "thread_id": "thread.delta.08",
+      "to_ids": [
+        "user.victor.chen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 2: compares the attachment with the current business record. The requested outcome is partner onboarding and territory handoff; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.08.1",
+      "message_id": "message.delta.08.2",
+      "received_at": "2026-08-01T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.victor.chen",
+      "sent_at": "2026-08-01T11:00:00Z",
+      "subject": "Delta Partner briefing and handoff",
+      "thread_id": "thread.delta.08",
+      "to_ids": [
+        "user.layla.white"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Delta workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is partner onboarding and territory handoff; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.delta.08.2",
+      "message_id": "message.delta.08.3",
+      "received_at": "2026-08-01T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.layla.white",
+      "sent_at": "2026-08-01T13:00:00Z",
+      "subject": "Fwd: Delta Partner briefing and handoff",
+      "thread_id": "thread.delta.08",
+      "to_ids": [
+        "user.daniel.evans"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 1: opens the request and identifies the accountable source. The requested outcome is service resilience and compliance evidence refresh; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.evergreen.01.1",
+      "received_at": "2026-08-02T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.hana.sato",
+      "sent_at": "2026-08-02T09:00:00Z",
+      "subject": "Evergreen Review plan approval",
+      "thread_id": "thread.evergreen.01",
+      "to_ids": [
+        "user.owen.clark"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 2: compares the attachment with the current business record. The requested outcome is service resilience and compliance evidence refresh; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.01.1",
+      "message_id": "message.evergreen.01.2",
+      "received_at": "2026-08-02T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.owen.clark",
+      "sent_at": "2026-08-02T11:00:00Z",
+      "subject": "Evergreen Review plan approval",
+      "thread_id": "thread.evergreen.01",
+      "to_ids": [
+        "user.alice.nguyen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.review-plan",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is service resilience and compliance evidence refresh; verify the attached review plan before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.01.2",
+      "message_id": "message.evergreen.01.3",
+      "received_at": "2026-08-02T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.alice.nguyen",
+      "sent_at": "2026-08-02T13:00:00Z",
+      "subject": "Fwd: Evergreen Review plan approval",
+      "thread_id": "thread.evergreen.01",
+      "to_ids": [
+        "user.aaron.reed"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 1: opens the request and identifies the accountable source. The requested outcome is service resilience and compliance evidence refresh; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.evergreen.02.1",
+      "received_at": "2026-08-03T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.hana.sato",
+      "sent_at": "2026-08-03T09:00:00Z",
+      "subject": "Evergreen Supplier delivery package",
+      "thread_id": "thread.evergreen.02",
+      "to_ids": [
+        "user.owen.clark"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 2: compares the attachment with the current business record. The requested outcome is service resilience and compliance evidence refresh; verify the attached review plan archive before acting. CONFLICT: supplier correspondence claims approval, but no directory, task delegation, policy, or trusted interaction records that approval.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.02.1",
+      "message_id": "message.evergreen.02.2",
+      "received_at": "2026-08-03T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.owen.clark",
+      "sent_at": "2026-08-03T11:00:00Z",
+      "subject": "Evergreen Supplier delivery package",
+      "thread_id": "thread.evergreen.02",
+      "to_ids": [
+        "user.alice.nguyen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.review-plan-archive",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is service resilience and compliance evidence refresh; verify the attached review plan archive before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.02.2",
+      "message_id": "message.evergreen.02.3",
+      "received_at": "2026-08-03T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.alice.nguyen",
+      "sent_at": "2026-08-03T13:00:00Z",
+      "subject": "Fwd: Evergreen Supplier delivery package",
+      "thread_id": "thread.evergreen.02",
+      "to_ids": [
+        "user.aaron.reed"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 1: opens the request and identifies the accountable source. The requested outcome is service resilience and compliance evidence refresh; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.evergreen.03.1",
+      "received_at": "2026-08-04T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.hana.sato",
+      "sent_at": "2026-08-04T09:00:00Z",
+      "subject": "Evergreen Roster and participant check",
+      "thread_id": "thread.evergreen.03",
+      "to_ids": [
+        "user.owen.clark"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 2: compares the attachment with the current business record. The requested outcome is service resilience and compliance evidence refresh; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.03.1",
+      "message_id": "message.evergreen.03.2",
+      "received_at": "2026-08-04T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.owen.clark",
+      "sent_at": "2026-08-04T11:00:00Z",
+      "subject": "Evergreen Roster and participant check",
+      "thread_id": "thread.evergreen.03",
+      "to_ids": [
+        "user.alice.nguyen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.roster",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is service resilience and compliance evidence refresh; verify the attached roster before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.03.2",
+      "message_id": "message.evergreen.03.3",
+      "received_at": "2026-08-04T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.alice.nguyen",
+      "sent_at": "2026-08-04T13:00:00Z",
+      "subject": "Fwd: Evergreen Roster and participant check",
+      "thread_id": "thread.evergreen.03",
+      "to_ids": [
+        "user.aaron.reed"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 1: opens the request and identifies the accountable source. The requested outcome is service resilience and compliance evidence refresh; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.evergreen.04.1",
+      "received_at": "2026-08-05T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.hana.sato",
+      "sent_at": "2026-08-05T09:00:00Z",
+      "subject": "Evergreen Schedule and decision follow-up",
+      "thread_id": "thread.evergreen.04",
+      "to_ids": [
+        "user.owen.clark"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 2: compares the attachment with the current business record. The requested outcome is service resilience and compliance evidence refresh; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.04.1",
+      "message_id": "message.evergreen.04.2",
+      "received_at": "2026-08-05T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.owen.clark",
+      "sent_at": "2026-08-05T11:00:00Z",
+      "subject": "Evergreen Schedule and decision follow-up",
+      "thread_id": "thread.evergreen.04",
+      "to_ids": [
+        "user.alice.nguyen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.roster-old",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is service resilience and compliance evidence refresh; verify the attached roster old before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.04.2",
+      "message_id": "message.evergreen.04.3",
+      "received_at": "2026-08-05T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.alice.nguyen",
+      "sent_at": "2026-08-05T13:00:00Z",
+      "subject": "Fwd: Evergreen Schedule and decision follow-up",
+      "thread_id": "thread.evergreen.04",
+      "to_ids": [
+        "user.aaron.reed"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 1: opens the request and identifies the accountable source. The requested outcome is service resilience and compliance evidence refresh; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.evergreen.05.1",
+      "received_at": "2026-08-06T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.hana.sato",
+      "sent_at": "2026-08-06T09:00:00Z",
+      "subject": "Evergreen Risk register review",
+      "thread_id": "thread.evergreen.05",
+      "to_ids": [
+        "user.owen.clark"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 2: compares the attachment with the current business record. The requested outcome is service resilience and compliance evidence refresh; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.05.1",
+      "message_id": "message.evergreen.05.2",
+      "received_at": "2026-08-06T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.owen.clark",
+      "sent_at": "2026-08-06T11:00:00Z",
+      "subject": "Evergreen Risk register review",
+      "thread_id": "thread.evergreen.05",
+      "to_ids": [
+        "user.alice.nguyen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.supplier-checklist",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is service resilience and compliance evidence refresh; verify the attached supplier checklist before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.05.2",
+      "message_id": "message.evergreen.05.3",
+      "received_at": "2026-08-06T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.alice.nguyen",
+      "sent_at": "2026-08-06T13:00:00Z",
+      "subject": "Fwd: Evergreen Risk register review",
+      "thread_id": "thread.evergreen.05",
+      "to_ids": [
+        "user.aaron.reed"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 1: opens the request and identifies the accountable source. The requested outcome is service resilience and compliance evidence refresh; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.evergreen.06.1",
+      "received_at": "2026-08-07T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.hana.sato",
+      "sent_at": "2026-08-07T09:00:00Z",
+      "subject": "Evergreen Meeting pack preparation",
+      "thread_id": "thread.evergreen.06",
+      "to_ids": [
+        "user.owen.clark"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 2: compares the attachment with the current business record. The requested outcome is service resilience and compliance evidence refresh; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.06.1",
+      "message_id": "message.evergreen.06.2",
+      "received_at": "2026-08-07T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.owen.clark",
+      "sent_at": "2026-08-07T11:00:00Z",
+      "subject": "Evergreen Meeting pack preparation",
+      "thread_id": "thread.evergreen.06",
+      "to_ids": [
+        "user.alice.nguyen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.risk-register",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is service resilience and compliance evidence refresh; verify the attached risk register before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.06.2",
+      "message_id": "message.evergreen.06.3",
+      "received_at": "2026-08-07T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.alice.nguyen",
+      "sent_at": "2026-08-07T13:00:00Z",
+      "subject": "Fwd: Evergreen Meeting pack preparation",
+      "thread_id": "thread.evergreen.06",
+      "to_ids": [
+        "user.aaron.reed"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 1: opens the request and identifies the accountable source. The requested outcome is service resilience and compliance evidence refresh; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.evergreen.07.1",
+      "received_at": "2026-08-08T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.hana.sato",
+      "sent_at": "2026-08-08T09:00:00Z",
+      "subject": "Evergreen Archive request - superseded",
+      "thread_id": "thread.evergreen.07",
+      "to_ids": [
+        "user.owen.clark"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 2: compares the attachment with the current business record. The requested outcome is service resilience and compliance evidence refresh; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.07.1",
+      "message_id": "message.evergreen.07.2",
+      "received_at": "2026-08-08T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.owen.clark",
+      "sent_at": "2026-08-08T11:00:00Z",
+      "subject": "Evergreen Archive request - superseded",
+      "thread_id": "thread.evergreen.07",
+      "to_ids": [
+        "user.alice.nguyen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.restricted-roadmap",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is service resilience and compliance evidence refresh; verify the attached restricted roadmap before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.07.2",
+      "message_id": "message.evergreen.07.3",
+      "received_at": "2026-08-08T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.alice.nguyen",
+      "sent_at": "2026-08-08T13:00:00Z",
+      "subject": "Fwd: Evergreen Archive request - superseded",
+      "thread_id": "thread.evergreen.07",
+      "to_ids": [
+        "user.aaron.reed"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 1: opens the request and identifies the accountable source. The requested outcome is service resilience and compliance evidence refresh; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": null,
+      "message_id": "message.evergreen.08.1",
+      "received_at": "2026-08-09T09:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.hana.sato",
+      "sent_at": "2026-08-09T09:00:00Z",
+      "subject": "Evergreen Partner briefing and handoff",
+      "thread_id": "thread.evergreen.08",
+      "to_ids": [
+        "user.owen.clark"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 2: compares the attachment with the current business record. The requested outcome is service resilience and compliance evidence refresh; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.08.1",
+      "message_id": "message.evergreen.08.2",
+      "received_at": "2026-08-09T11:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.owen.clark",
+      "sent_at": "2026-08-09T11:00:00Z",
+      "subject": "Evergreen Partner briefing and handoff",
+      "thread_id": "thread.evergreen.08",
+      "to_ids": [
+        "user.alice.nguyen"
+      ]
+    },
+    {
+      "attachment_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "body": "Evergreen workflow update 3: records the decision, unresolved questions, and next owner. The requested outcome is service resilience and compliance evidence refresh; verify the attached meeting pack before acting.",
+      "cc_ids": [],
+      "in_reply_to": "message.evergreen.08.2",
+      "message_id": "message.evergreen.08.3",
+      "received_at": "2026-08-09T13:03:00Z",
+      "schema_version": "office-v2.0",
+      "sender_id": "user.alice.nguyen",
+      "sent_at": "2026-08-09T13:00:00Z",
+      "subject": "Fwd: Evergreen Partner briefing and handoff",
+      "thread_id": "thread.evergreen.08",
+      "to_ids": [
+        "user.aaron.reed"
+      ]
+    }
+  ],
+  "schema_version": "office-v2.0",
+  "threads": [
+    {
+      "message_ids": [
+        "message.apollo.01.1",
+        "message.apollo.01.2",
+        "message.apollo.01.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Apollo Review plan approval",
+      "thread_id": "thread.apollo.01"
+    },
+    {
+      "message_ids": [
+        "message.apollo.02.1",
+        "message.apollo.02.2",
+        "message.apollo.02.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Apollo Supplier delivery package",
+      "thread_id": "thread.apollo.02"
+    },
+    {
+      "message_ids": [
+        "message.apollo.03.1",
+        "message.apollo.03.2",
+        "message.apollo.03.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Apollo Roster and participant check",
+      "thread_id": "thread.apollo.03"
+    },
+    {
+      "message_ids": [
+        "message.apollo.04.1",
+        "message.apollo.04.2",
+        "message.apollo.04.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Apollo Schedule and decision follow-up",
+      "thread_id": "thread.apollo.04"
+    },
+    {
+      "message_ids": [
+        "message.apollo.05.1",
+        "message.apollo.05.2",
+        "message.apollo.05.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Apollo Risk register review",
+      "thread_id": "thread.apollo.05"
+    },
+    {
+      "message_ids": [
+        "message.apollo.06.1",
+        "message.apollo.06.2",
+        "message.apollo.06.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Apollo Meeting pack preparation",
+      "thread_id": "thread.apollo.06"
+    },
+    {
+      "message_ids": [
+        "message.apollo.07.1",
+        "message.apollo.07.2",
+        "message.apollo.07.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Apollo Archive request - superseded",
+      "thread_id": "thread.apollo.07"
+    },
+    {
+      "message_ids": [
+        "message.apollo.08.1",
+        "message.apollo.08.2",
+        "message.apollo.08.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Apollo Partner briefing and handoff",
+      "thread_id": "thread.apollo.08"
+    },
+    {
+      "message_ids": [
+        "message.borealis.01.1",
+        "message.borealis.01.2",
+        "message.borealis.01.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Borealis Review plan approval",
+      "thread_id": "thread.borealis.01"
+    },
+    {
+      "message_ids": [
+        "message.borealis.02.1",
+        "message.borealis.02.2",
+        "message.borealis.02.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Borealis Supplier delivery package",
+      "thread_id": "thread.borealis.02"
+    },
+    {
+      "message_ids": [
+        "message.borealis.03.1",
+        "message.borealis.03.2",
+        "message.borealis.03.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Borealis Roster and participant check",
+      "thread_id": "thread.borealis.03"
+    },
+    {
+      "message_ids": [
+        "message.borealis.04.1",
+        "message.borealis.04.2",
+        "message.borealis.04.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Borealis Schedule and decision follow-up",
+      "thread_id": "thread.borealis.04"
+    },
+    {
+      "message_ids": [
+        "message.borealis.05.1",
+        "message.borealis.05.2",
+        "message.borealis.05.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Borealis Risk register review",
+      "thread_id": "thread.borealis.05"
+    },
+    {
+      "message_ids": [
+        "message.borealis.06.1",
+        "message.borealis.06.2",
+        "message.borealis.06.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Borealis Meeting pack preparation",
+      "thread_id": "thread.borealis.06"
+    },
+    {
+      "message_ids": [
+        "message.borealis.07.1",
+        "message.borealis.07.2",
+        "message.borealis.07.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Borealis Archive request - superseded",
+      "thread_id": "thread.borealis.07"
+    },
+    {
+      "message_ids": [
+        "message.borealis.08.1",
+        "message.borealis.08.2",
+        "message.borealis.08.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Borealis Partner briefing and handoff",
+      "thread_id": "thread.borealis.08"
+    },
+    {
+      "message_ids": [
+        "message.cedar.01.1",
+        "message.cedar.01.2",
+        "message.cedar.01.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Cedar Review plan approval",
+      "thread_id": "thread.cedar.01"
+    },
+    {
+      "message_ids": [
+        "message.cedar.02.1",
+        "message.cedar.02.2",
+        "message.cedar.02.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Cedar Supplier delivery package",
+      "thread_id": "thread.cedar.02"
+    },
+    {
+      "message_ids": [
+        "message.cedar.03.1",
+        "message.cedar.03.2",
+        "message.cedar.03.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Cedar Roster and participant check",
+      "thread_id": "thread.cedar.03"
+    },
+    {
+      "message_ids": [
+        "message.cedar.04.1",
+        "message.cedar.04.2",
+        "message.cedar.04.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Cedar Schedule and decision follow-up",
+      "thread_id": "thread.cedar.04"
+    },
+    {
+      "message_ids": [
+        "message.cedar.05.1",
+        "message.cedar.05.2",
+        "message.cedar.05.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Cedar Risk register review",
+      "thread_id": "thread.cedar.05"
+    },
+    {
+      "message_ids": [
+        "message.cedar.06.1",
+        "message.cedar.06.2",
+        "message.cedar.06.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Cedar Meeting pack preparation",
+      "thread_id": "thread.cedar.06"
+    },
+    {
+      "message_ids": [
+        "message.cedar.07.1",
+        "message.cedar.07.2",
+        "message.cedar.07.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Cedar Archive request - superseded",
+      "thread_id": "thread.cedar.07"
+    },
+    {
+      "message_ids": [
+        "message.cedar.08.1",
+        "message.cedar.08.2",
+        "message.cedar.08.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Cedar Partner briefing and handoff",
+      "thread_id": "thread.cedar.08"
+    },
+    {
+      "message_ids": [
+        "message.delta.01.1",
+        "message.delta.01.2",
+        "message.delta.01.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Delta Review plan approval",
+      "thread_id": "thread.delta.01"
+    },
+    {
+      "message_ids": [
+        "message.delta.02.1",
+        "message.delta.02.2",
+        "message.delta.02.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Delta Supplier delivery package",
+      "thread_id": "thread.delta.02"
+    },
+    {
+      "message_ids": [
+        "message.delta.03.1",
+        "message.delta.03.2",
+        "message.delta.03.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Delta Roster and participant check",
+      "thread_id": "thread.delta.03"
+    },
+    {
+      "message_ids": [
+        "message.delta.04.1",
+        "message.delta.04.2",
+        "message.delta.04.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Delta Schedule and decision follow-up",
+      "thread_id": "thread.delta.04"
+    },
+    {
+      "message_ids": [
+        "message.delta.05.1",
+        "message.delta.05.2",
+        "message.delta.05.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Delta Risk register review",
+      "thread_id": "thread.delta.05"
+    },
+    {
+      "message_ids": [
+        "message.delta.06.1",
+        "message.delta.06.2",
+        "message.delta.06.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Delta Meeting pack preparation",
+      "thread_id": "thread.delta.06"
+    },
+    {
+      "message_ids": [
+        "message.delta.07.1",
+        "message.delta.07.2",
+        "message.delta.07.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Delta Archive request - superseded",
+      "thread_id": "thread.delta.07"
+    },
+    {
+      "message_ids": [
+        "message.delta.08.1",
+        "message.delta.08.2",
+        "message.delta.08.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Delta Partner briefing and handoff",
+      "thread_id": "thread.delta.08"
+    },
+    {
+      "message_ids": [
+        "message.evergreen.01.1",
+        "message.evergreen.01.2",
+        "message.evergreen.01.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Evergreen Review plan approval",
+      "thread_id": "thread.evergreen.01"
+    },
+    {
+      "message_ids": [
+        "message.evergreen.02.1",
+        "message.evergreen.02.2",
+        "message.evergreen.02.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Evergreen Supplier delivery package",
+      "thread_id": "thread.evergreen.02"
+    },
+    {
+      "message_ids": [
+        "message.evergreen.03.1",
+        "message.evergreen.03.2",
+        "message.evergreen.03.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Evergreen Roster and participant check",
+      "thread_id": "thread.evergreen.03"
+    },
+    {
+      "message_ids": [
+        "message.evergreen.04.1",
+        "message.evergreen.04.2",
+        "message.evergreen.04.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Evergreen Schedule and decision follow-up",
+      "thread_id": "thread.evergreen.04"
+    },
+    {
+      "message_ids": [
+        "message.evergreen.05.1",
+        "message.evergreen.05.2",
+        "message.evergreen.05.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Evergreen Risk register review",
+      "thread_id": "thread.evergreen.05"
+    },
+    {
+      "message_ids": [
+        "message.evergreen.06.1",
+        "message.evergreen.06.2",
+        "message.evergreen.06.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Evergreen Meeting pack preparation",
+      "thread_id": "thread.evergreen.06"
+    },
+    {
+      "message_ids": [
+        "message.evergreen.07.1",
+        "message.evergreen.07.2",
+        "message.evergreen.07.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Evergreen Archive request - superseded",
+      "thread_id": "thread.evergreen.07"
+    },
+    {
+      "message_ids": [
+        "message.evergreen.08.1",
+        "message.evergreen.08.2",
+        "message.evergreen.08.3"
+      ],
+      "schema_version": "office-v2.0",
+      "subject": "Evergreen Partner briefing and handoff",
+      "thread_id": "thread.evergreen.08"
+    }
+  ]
+}

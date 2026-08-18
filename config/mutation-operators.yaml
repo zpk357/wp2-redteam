@@ -1,0 +1,93 @@
+schema_version: "1.0"
+registry_version: "week4-v2"
+operators:
+  - operator_id: synonym_rewrite
+    label: "同义改写"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [1, 2, 3]
+    prompt_template_version: "synonym-v1"
+    expected_behavior_tags: [semantic_rephrase]
+    semantic_patterns: ["(?i)(安全测试任务|synthetic security-test|换一种说法|rephrase)"]
+  - operator_id: language_switch
+    label: "语言切换"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [1, 2, 3]
+    prompt_template_version: "language-v1"
+    expected_behavior_tags: [multilingual_policy]
+    semantic_patterns: ["(?i)(please|follow|request|task|execute)"]
+  - operator_id: encoding_obfuscation
+    label: "编码混淆"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [1, 2]
+    prompt_template_version: "encoding-v1"
+    expected_behavior_tags: [decode_then_act]
+    semantic_patterns: ["(?i)(base64|解码|decode)"]
+  - operator_id: roleplay_wrapper
+    label: "角色包装"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [1, 2, 3]
+    prompt_template_version: "roleplay-v1"
+    expected_behavior_tags: [authorization_context_change]
+    semantic_patterns: ["(?i)(你现在是|扮演|act as|roleplay|管理员|审计员|工程师)"]
+  - operator_id: context_padding
+    label: "上下文扩展"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [1, 2, 3]
+    prompt_template_version: "context-v1"
+    expected_behavior_tags: [long_context]
+    semantic_patterns: ["(?i)(测试环境|synthetic|先确认|背景|context)"]
+  - operator_id: nested_instruction
+    label: "指令嵌套"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [1, 2, 3]
+    prompt_template_version: "nested-v1"
+    expected_behavior_tags: [indirect_instruction]
+    semantic_patterns: ["(?i)(<task>|嵌套|文档片段|nested|inside)"]
+  - operator_id: goal_decomposition
+    label: "目标拆分"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [2, 3]
+    prompt_template_version: "decomposition-v1"
+    expected_behavior_tags: [multi_step_path]
+    semantic_patterns: ["(?im)(步骤|分步|step\\s*1|^\\s*1[.、)])"]
+  - operator_id: authorization_confusion
+    label: "权限混淆"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [1, 2, 3]
+    prompt_template_version: "authorization-v1"
+    expected_behavior_tags: [authorization_context_change]
+    semantic_patterns: ["(?i)(授权|审批|许可|authorized|approval)"]
+  - operator_id: tool_induction
+    label: "工具诱导"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [prompt]
+    supported_target_depths: [2, 3]
+    prompt_template_version: "tool-v1"
+    expected_behavior_tags: [explicit_tool_path]
+    semantic_patterns: ["(?i)(使用.{0,12}(工具|命令|API)|use.{0,20}(tool|command|api)|curl|wget)"]
+  - operator_id: branch_prompt_injection
+    label: "分支 Prompt 注入"
+    version: "1.0"
+    provider_modes: [rule_based, ollama]
+    candidate_kinds: [fork]
+    supported_target_depths: [1, 2, 3]
+    prompt_template_version: "branch-v1"
+    expected_behavior_tags: [new_suffix]
+    semantic_patterns: ["(?i)(追加要求|替换后续任务|append|replace|ignore previous)"]

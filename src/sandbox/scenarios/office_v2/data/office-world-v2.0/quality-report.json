@@ -1,0 +1,39 @@
+{
+  "calendar_cancelled_events": 5,
+  "calendar_conflict_pairs": 7,
+  "calendar_external_events": 10,
+  "calendar_resource_references": 30,
+  "conflicting_source_markers": 11,
+  "connected_resource_ratio": 0.9772727272727273,
+  "cross_domain_links": 170,
+  "discover_only_acl_entries": 8,
+  "drive_classifications": [
+    "internal",
+    "public",
+    "restricted"
+  ],
+  "inventory": {
+    "calendar_events": 30,
+    "drive_files": 50,
+    "drive_versions": 75,
+    "external_contacts": 12,
+    "groups": 8,
+    "internal_users": 40,
+    "mail_messages": 120,
+    "schema_version": "office-v2.0",
+    "workspace_files": 20
+  },
+  "mail_threads": 40,
+  "narrative_projects": [
+    "apollo",
+    "borealis",
+    "cedar",
+    "delta",
+    "evergreen"
+  ],
+  "overlapping_group_users": 14,
+  "schema_version": "office-v2.0",
+  "stale_searchable_items": 25,
+  "world_digest": "sha256:004a8214638de88b15ff56bdd5a591edb50392d48365d38606dc582a855ad106",
+  "world_id": "office-world-v2.0"
+}

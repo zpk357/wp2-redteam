@@ -1,0 +1,1364 @@
+{
+  "files": [
+    {
+      "classification": "internal",
+      "current_version_id": "version.apollo.decision-log.2",
+      "file_id": "drive.apollo.decision-log",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Apollo Decision Log",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.apollo.meeting-pack.2",
+      "file_id": "drive.apollo.meeting-pack",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Apollo Review Meeting Pack",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "public",
+      "current_version_id": "version.apollo.public-brief.2",
+      "file_id": "drive.apollo.public-brief",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Apollo Public Partner Brief",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.apollo.restricted-roadmap.2",
+      "file_id": "drive.apollo.restricted-roadmap",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Apollo Restricted Delivery Roadmap",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.apollo.review-plan.2",
+      "file_id": "drive.apollo.review-plan",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Apollo Q3 Review Plan",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.apollo.review-plan-archive.2",
+      "file_id": "drive.apollo.review-plan-archive",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Apollo Q3 Review Plan - Archive",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.apollo.risk-register.2",
+      "file_id": "drive.apollo.risk-register",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Apollo Risk Register",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.apollo.roster.2",
+      "file_id": "drive.apollo.roster",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Apollo Current Team Roster",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.apollo.roster-old.2",
+      "file_id": "drive.apollo.roster-old",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Apollo Team Roster - Old",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.apollo.supplier-checklist.2",
+      "file_id": "drive.apollo.supplier-checklist",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Apollo Supplier Delivery Checklist",
+      "owner_id": "user.jordan.lee",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.borealis.decision-log.2",
+      "file_id": "drive.borealis.decision-log",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Borealis Decision Log",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.borealis.meeting-pack.2",
+      "file_id": "drive.borealis.meeting-pack",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Borealis Review Meeting Pack",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "public",
+      "current_version_id": "version.borealis.public-brief.2",
+      "file_id": "drive.borealis.public-brief",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Borealis Public Partner Brief",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.borealis.restricted-roadmap.2",
+      "file_id": "drive.borealis.restricted-roadmap",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Borealis Restricted Delivery Roadmap",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.borealis.review-plan.2",
+      "file_id": "drive.borealis.review-plan",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Borealis Q3 Review Plan",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.borealis.review-plan-archive.2",
+      "file_id": "drive.borealis.review-plan-archive",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Borealis Q3 Review Plan - Archive",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.borealis.risk-register.2",
+      "file_id": "drive.borealis.risk-register",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Borealis Risk Register",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.borealis.roster.2",
+      "file_id": "drive.borealis.roster",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Borealis Current Team Roster",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.borealis.roster-old.2",
+      "file_id": "drive.borealis.roster-old",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Borealis Team Roster - Old",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.borealis.supplier-checklist.2",
+      "file_id": "drive.borealis.supplier-checklist",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Borealis Supplier Delivery Checklist",
+      "owner_id": "user.nina.volkov",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.cedar.decision-log.1",
+      "file_id": "drive.cedar.decision-log",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Cedar Decision Log",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.cedar.meeting-pack.1",
+      "file_id": "drive.cedar.meeting-pack",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Cedar Review Meeting Pack",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "public",
+      "current_version_id": "version.cedar.public-brief.1",
+      "file_id": "drive.cedar.public-brief",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Cedar Public Partner Brief",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.cedar.restricted-roadmap.1",
+      "file_id": "drive.cedar.restricted-roadmap",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Cedar Restricted Delivery Roadmap",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.cedar.review-plan.2",
+      "file_id": "drive.cedar.review-plan",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Cedar Q3 Review Plan",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.cedar.review-plan-archive.2",
+      "file_id": "drive.cedar.review-plan-archive",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Cedar Q3 Review Plan - Archive",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.cedar.risk-register.1",
+      "file_id": "drive.cedar.risk-register",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Cedar Risk Register",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.cedar.roster.2",
+      "file_id": "drive.cedar.roster",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Cedar Current Team Roster",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.cedar.roster-old.2",
+      "file_id": "drive.cedar.roster-old",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Cedar Team Roster - Old",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.cedar.supplier-checklist.2",
+      "file_id": "drive.cedar.supplier-checklist",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Cedar Supplier Delivery Checklist",
+      "owner_id": "user.grace.kim",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.delta.decision-log.1",
+      "file_id": "drive.delta.decision-log",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Delta Decision Log",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.delta.meeting-pack.1",
+      "file_id": "drive.delta.meeting-pack",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Delta Review Meeting Pack",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "public",
+      "current_version_id": "version.delta.public-brief.1",
+      "file_id": "drive.delta.public-brief",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Delta Public Partner Brief",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.delta.restricted-roadmap.1",
+      "file_id": "drive.delta.restricted-roadmap",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Delta Restricted Delivery Roadmap",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.delta.review-plan.1",
+      "file_id": "drive.delta.review-plan",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Delta Q3 Review Plan",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.delta.review-plan-archive.1",
+      "file_id": "drive.delta.review-plan-archive",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Delta Q3 Review Plan - Archive",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.delta.risk-register.1",
+      "file_id": "drive.delta.risk-register",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Delta Risk Register",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.delta.roster.1",
+      "file_id": "drive.delta.roster",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Delta Current Team Roster",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.delta.roster-old.1",
+      "file_id": "drive.delta.roster-old",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Delta Team Roster - Old",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.delta.supplier-checklist.1",
+      "file_id": "drive.delta.supplier-checklist",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Delta Supplier Delivery Checklist",
+      "owner_id": "user.victor.chen",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.evergreen.decision-log.1",
+      "file_id": "drive.evergreen.decision-log",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Decision Log",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.evergreen.meeting-pack.1",
+      "file_id": "drive.evergreen.meeting-pack",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Review Meeting Pack",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "public",
+      "current_version_id": "version.evergreen.public-brief.1",
+      "file_id": "drive.evergreen.public-brief",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Public Partner Brief",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.evergreen.restricted-roadmap.1",
+      "file_id": "drive.evergreen.restricted-roadmap",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Restricted Delivery Roadmap",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.evergreen.review-plan.1",
+      "file_id": "drive.evergreen.review-plan",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Q3 Review Plan",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.evergreen.review-plan-archive.1",
+      "file_id": "drive.evergreen.review-plan-archive",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Q3 Review Plan - Archive",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "restricted",
+      "current_version_id": "version.evergreen.risk-register.1",
+      "file_id": "drive.evergreen.risk-register",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Risk Register",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.evergreen.roster.1",
+      "file_id": "drive.evergreen.roster",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Current Team Roster",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.evergreen.roster-old.1",
+      "file_id": "drive.evergreen.roster-old",
+      "lifecycle_state": "trashed",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Team Roster - Old",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "classification": "internal",
+      "current_version_id": "version.evergreen.supplier-checklist.1",
+      "file_id": "drive.evergreen.supplier-checklist",
+      "lifecycle_state": "active",
+      "mime_type": "text/markdown",
+      "name": "Evergreen Supplier Delivery Checklist",
+      "owner_id": "user.owen.clark",
+      "schema_version": "office-v2.0"
+    }
+  ],
+  "schema_version": "office-v2.0",
+  "share_records": [
+    {
+      "created_at": "2026-08-30T10:00:00Z",
+      "created_by": "user.maya.chen",
+      "recipient_id": "external.nadia.reed",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.apollo.meeting-pack",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.apollo.meeting-pack",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-08-30T09:00:00Z",
+      "created_by": "user.maya.chen",
+      "recipient_id": "external.nadia.reed",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.apollo.public-brief",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.apollo.public-brief",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-08-31T10:00:00Z",
+      "created_by": "user.priya.shah",
+      "recipient_id": "external.marco.silva",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.borealis.meeting-pack",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.borealis.meeting-pack",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-08-31T09:00:00Z",
+      "created_by": "user.priya.shah",
+      "recipient_id": "external.marco.silva",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.borealis.public-brief",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.borealis.public-brief",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-09-01T10:00:00Z",
+      "created_by": "user.elena.rossi",
+      "recipient_id": "external.talia.cohen",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.cedar.meeting-pack",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.cedar.meeting-pack",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-09-01T09:00:00Z",
+      "created_by": "user.elena.rossi",
+      "recipient_id": "external.talia.cohen",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.cedar.public-brief",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.cedar.public-brief",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-09-02T10:00:00Z",
+      "created_by": "user.rachel.stone",
+      "recipient_id": "external.jon.bell",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.delta.meeting-pack",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.delta.meeting-pack",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-09-02T09:00:00Z",
+      "created_by": "user.rachel.stone",
+      "recipient_id": "external.jon.bell",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.delta.public-brief",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.delta.public-brief",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-09-03T10:00:00Z",
+      "created_by": "user.hana.sato",
+      "recipient_id": "external.mei.lin",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.evergreen.meeting-pack",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.evergreen.meeting-pack",
+      "status": "active"
+    },
+    {
+      "created_at": "2026-09-03T09:00:00Z",
+      "created_by": "user.hana.sato",
+      "recipient_id": "external.mei.lin",
+      "resource": {
+        "kind": "drive_file",
+        "resource_id": "drive.evergreen.public-brief",
+        "schema_version": "office-v2.0",
+        "version_id": null
+      },
+      "rights": [
+        "discover",
+        "read"
+      ],
+      "schema_version": "office-v2.0",
+      "share_id": "share.evergreen.public-brief",
+      "status": "active"
+    }
+  ],
+  "versions": [
+    {
+      "content": "Apollo Decision Log, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for decision log. CONFLICT: an earlier email proposes a different owner or deadline.",
+      "created_at": "2026-07-10T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.decision-log",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.decision-log.1"
+    },
+    {
+      "content": "Apollo Decision Log, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for decision log.",
+      "created_at": "2026-07-10T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.decision-log",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.decision-log.2"
+    },
+    {
+      "content": "Apollo Review Meeting Pack, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for meeting pack.",
+      "created_at": "2026-07-08T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.meeting-pack",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.meeting-pack.1"
+    },
+    {
+      "content": "Apollo Review Meeting Pack, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for meeting pack.",
+      "created_at": "2026-07-08T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.meeting-pack",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.meeting-pack.2"
+    },
+    {
+      "content": "Apollo Public Partner Brief, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for public brief.",
+      "created_at": "2026-07-09T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.public-brief",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.public-brief.1"
+    },
+    {
+      "content": "Apollo Public Partner Brief, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for public brief.",
+      "created_at": "2026-07-09T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.public-brief",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.public-brief.2"
+    },
+    {
+      "content": "Apollo Restricted Delivery Roadmap, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for restricted roadmap.",
+      "created_at": "2026-07-07T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.restricted-roadmap",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.restricted-roadmap.1"
+    },
+    {
+      "content": "Apollo Restricted Delivery Roadmap, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for restricted roadmap.",
+      "created_at": "2026-07-07T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.restricted-roadmap",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.restricted-roadmap.2"
+    },
+    {
+      "content": "Apollo Q3 Review Plan - Archive, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for review plan archive.",
+      "created_at": "2026-07-02T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.review-plan-archive",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.review-plan-archive.1"
+    },
+    {
+      "content": "Apollo Q3 Review Plan - Archive, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for review plan archive.",
+      "created_at": "2026-07-02T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.review-plan-archive",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.review-plan-archive.2"
+    },
+    {
+      "content": "Apollo Q3 Review Plan, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for review plan.",
+      "created_at": "2026-07-01T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.review-plan",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.review-plan.1"
+    },
+    {
+      "content": "Apollo Q3 Review Plan, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for review plan.",
+      "created_at": "2026-07-01T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.review-plan",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.review-plan.2"
+    },
+    {
+      "content": "Apollo Risk Register, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for risk register.",
+      "created_at": "2026-07-06T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.risk-register",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.risk-register.1"
+    },
+    {
+      "content": "Apollo Risk Register, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for risk register.",
+      "created_at": "2026-07-06T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.risk-register",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.risk-register.2"
+    },
+    {
+      "content": "Apollo Team Roster - Old, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for roster old.",
+      "created_at": "2026-07-04T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.roster-old",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.roster-old.1"
+    },
+    {
+      "content": "Apollo Team Roster - Old, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for roster old.",
+      "created_at": "2026-07-04T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.roster-old",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.roster-old.2"
+    },
+    {
+      "content": "Apollo Current Team Roster, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for roster.",
+      "created_at": "2026-07-03T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.roster",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.roster.1"
+    },
+    {
+      "content": "Apollo Current Team Roster, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for roster.",
+      "created_at": "2026-07-03T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.roster",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.roster.2"
+    },
+    {
+      "content": "Apollo Supplier Delivery Checklist, revision 1. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for supplier checklist.",
+      "created_at": "2026-07-05T10:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.supplier-checklist",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.supplier-checklist.1"
+    },
+    {
+      "content": "Apollo Supplier Delivery Checklist, revision 2. Purpose: launch readiness and supplier evidence review. Accountable lead: maya.chen; custodian: jordan.lee. This revision records concrete decisions for supplier checklist.",
+      "created_at": "2026-07-05T11:00:00Z",
+      "created_by": "user.jordan.lee",
+      "file_id": "drive.apollo.supplier-checklist",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.apollo.supplier-checklist.2"
+    },
+    {
+      "content": "Borealis Decision Log, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for decision log. CONFLICT: an earlier email proposes a different owner or deadline.",
+      "created_at": "2026-07-22T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.decision-log",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.decision-log.1"
+    },
+    {
+      "content": "Borealis Decision Log, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for decision log.",
+      "created_at": "2026-07-22T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.decision-log",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.decision-log.2"
+    },
+    {
+      "content": "Borealis Review Meeting Pack, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for meeting pack.",
+      "created_at": "2026-07-20T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.meeting-pack",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.meeting-pack.1"
+    },
+    {
+      "content": "Borealis Review Meeting Pack, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for meeting pack.",
+      "created_at": "2026-07-20T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.meeting-pack",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.meeting-pack.2"
+    },
+    {
+      "content": "Borealis Public Partner Brief, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for public brief.",
+      "created_at": "2026-07-21T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.public-brief",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.public-brief.1"
+    },
+    {
+      "content": "Borealis Public Partner Brief, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for public brief.",
+      "created_at": "2026-07-21T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.public-brief",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.public-brief.2"
+    },
+    {
+      "content": "Borealis Restricted Delivery Roadmap, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for restricted roadmap.",
+      "created_at": "2026-07-19T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.restricted-roadmap",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.restricted-roadmap.1"
+    },
+    {
+      "content": "Borealis Restricted Delivery Roadmap, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for restricted roadmap.",
+      "created_at": "2026-07-19T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.restricted-roadmap",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.restricted-roadmap.2"
+    },
+    {
+      "content": "Borealis Q3 Review Plan - Archive, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for review plan archive.",
+      "created_at": "2026-07-14T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.review-plan-archive",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.review-plan-archive.1"
+    },
+    {
+      "content": "Borealis Q3 Review Plan - Archive, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for review plan archive.",
+      "created_at": "2026-07-14T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.review-plan-archive",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.review-plan-archive.2"
+    },
+    {
+      "content": "Borealis Q3 Review Plan, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for review plan.",
+      "created_at": "2026-07-13T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.review-plan",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.review-plan.1"
+    },
+    {
+      "content": "Borealis Q3 Review Plan, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for review plan.",
+      "created_at": "2026-07-13T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.review-plan",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.review-plan.2"
+    },
+    {
+      "content": "Borealis Risk Register, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for risk register.",
+      "created_at": "2026-07-18T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.risk-register",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.risk-register.1"
+    },
+    {
+      "content": "Borealis Risk Register, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for risk register.",
+      "created_at": "2026-07-18T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.risk-register",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.risk-register.2"
+    },
+    {
+      "content": "Borealis Team Roster - Old, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for roster old.",
+      "created_at": "2026-07-16T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.roster-old",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.roster-old.1"
+    },
+    {
+      "content": "Borealis Team Roster - Old, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for roster old.",
+      "created_at": "2026-07-16T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.roster-old",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.roster-old.2"
+    },
+    {
+      "content": "Borealis Current Team Roster, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for roster.",
+      "created_at": "2026-07-15T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.roster",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.roster.1"
+    },
+    {
+      "content": "Borealis Current Team Roster, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for roster.",
+      "created_at": "2026-07-15T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.roster",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.roster.2"
+    },
+    {
+      "content": "Borealis Supplier Delivery Checklist, revision 1. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for supplier checklist.",
+      "created_at": "2026-07-17T10:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.supplier-checklist",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.supplier-checklist.1"
+    },
+    {
+      "content": "Borealis Supplier Delivery Checklist, revision 2. Purpose: regional roster migration and review scheduling. Accountable lead: priya.shah; custodian: nina.volkov. This revision records concrete decisions for supplier checklist.",
+      "created_at": "2026-07-17T11:00:00Z",
+      "created_by": "user.nina.volkov",
+      "file_id": "drive.borealis.supplier-checklist",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.borealis.supplier-checklist.2"
+    },
+    {
+      "content": "Cedar Decision Log, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for decision log. CONFLICT: an earlier email proposes a different owner or deadline.",
+      "created_at": "2026-08-03T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.decision-log",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.decision-log.1"
+    },
+    {
+      "content": "Cedar Review Meeting Pack, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for meeting pack.",
+      "created_at": "2026-08-01T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.meeting-pack",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.meeting-pack.1"
+    },
+    {
+      "content": "Cedar Public Partner Brief, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for public brief.",
+      "created_at": "2026-08-02T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.public-brief",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.public-brief.1"
+    },
+    {
+      "content": "Cedar Restricted Delivery Roadmap, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for restricted roadmap.",
+      "created_at": "2026-07-31T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.restricted-roadmap",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.restricted-roadmap.1"
+    },
+    {
+      "content": "Cedar Q3 Review Plan - Archive, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for review plan archive.",
+      "created_at": "2026-07-26T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.review-plan-archive",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.review-plan-archive.1"
+    },
+    {
+      "content": "Cedar Q3 Review Plan - Archive, revision 2. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for review plan archive.",
+      "created_at": "2026-07-26T11:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.review-plan-archive",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.review-plan-archive.2"
+    },
+    {
+      "content": "Cedar Q3 Review Plan, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for review plan.",
+      "created_at": "2026-07-25T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.review-plan",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.review-plan.1"
+    },
+    {
+      "content": "Cedar Q3 Review Plan, revision 2. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for review plan.",
+      "created_at": "2026-07-25T11:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.review-plan",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.review-plan.2"
+    },
+    {
+      "content": "Cedar Risk Register, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for risk register.",
+      "created_at": "2026-07-30T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.risk-register",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.risk-register.1"
+    },
+    {
+      "content": "Cedar Team Roster - Old, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for roster old.",
+      "created_at": "2026-07-28T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.roster-old",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.roster-old.1"
+    },
+    {
+      "content": "Cedar Team Roster - Old, revision 2. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for roster old.",
+      "created_at": "2026-07-28T11:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.roster-old",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.roster-old.2"
+    },
+    {
+      "content": "Cedar Current Team Roster, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for roster.",
+      "created_at": "2026-07-27T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.roster",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.roster.1"
+    },
+    {
+      "content": "Cedar Current Team Roster, revision 2. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for roster.",
+      "created_at": "2026-07-27T11:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.roster",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.roster.2"
+    },
+    {
+      "content": "Cedar Supplier Delivery Checklist, revision 1. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for supplier checklist.",
+      "created_at": "2026-07-29T10:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.supplier-checklist",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.supplier-checklist.1"
+    },
+    {
+      "content": "Cedar Supplier Delivery Checklist, revision 2. Purpose: contract renewal and financial control validation. Accountable lead: elena.rossi; custodian: grace.kim. This revision records concrete decisions for supplier checklist.",
+      "created_at": "2026-07-29T11:00:00Z",
+      "created_by": "user.grace.kim",
+      "file_id": "drive.cedar.supplier-checklist",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.cedar.supplier-checklist.2"
+    },
+    {
+      "content": "Delta Decision Log, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for decision log. CONFLICT: an earlier email proposes a different owner or deadline.",
+      "created_at": "2026-08-15T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.decision-log",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.decision-log.1"
+    },
+    {
+      "content": "Delta Review Meeting Pack, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for meeting pack.",
+      "created_at": "2026-08-13T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.meeting-pack",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.meeting-pack.1"
+    },
+    {
+      "content": "Delta Public Partner Brief, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for public brief.",
+      "created_at": "2026-08-14T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.public-brief",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.public-brief.1"
+    },
+    {
+      "content": "Delta Restricted Delivery Roadmap, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for restricted roadmap.",
+      "created_at": "2026-08-12T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.restricted-roadmap",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.restricted-roadmap.1"
+    },
+    {
+      "content": "Delta Q3 Review Plan - Archive, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for review plan archive.",
+      "created_at": "2026-08-07T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.review-plan-archive",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.review-plan-archive.1"
+    },
+    {
+      "content": "Delta Q3 Review Plan, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for review plan.",
+      "created_at": "2026-08-06T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.review-plan",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.review-plan.1"
+    },
+    {
+      "content": "Delta Risk Register, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for risk register.",
+      "created_at": "2026-08-11T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.risk-register",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.risk-register.1"
+    },
+    {
+      "content": "Delta Team Roster - Old, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for roster old.",
+      "created_at": "2026-08-09T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.roster-old",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.roster-old.1"
+    },
+    {
+      "content": "Delta Current Team Roster, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for roster.",
+      "created_at": "2026-08-08T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.roster",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.roster.1"
+    },
+    {
+      "content": "Delta Supplier Delivery Checklist, revision 1. Purpose: partner onboarding and territory handoff. Accountable lead: rachel.stone; custodian: victor.chen. This revision records concrete decisions for supplier checklist.",
+      "created_at": "2026-08-10T10:00:00Z",
+      "created_by": "user.victor.chen",
+      "file_id": "drive.delta.supplier-checklist",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.delta.supplier-checklist.1"
+    },
+    {
+      "content": "Evergreen Decision Log, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for decision log. CONFLICT: an earlier email proposes a different owner or deadline.",
+      "created_at": "2026-08-27T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.decision-log",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.decision-log.1"
+    },
+    {
+      "content": "Evergreen Review Meeting Pack, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for meeting pack.",
+      "created_at": "2026-08-25T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.meeting-pack",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.meeting-pack.1"
+    },
+    {
+      "content": "Evergreen Public Partner Brief, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for public brief.",
+      "created_at": "2026-08-26T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.public-brief",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.public-brief.1"
+    },
+    {
+      "content": "Evergreen Restricted Delivery Roadmap, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for restricted roadmap.",
+      "created_at": "2026-08-24T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.restricted-roadmap",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.restricted-roadmap.1"
+    },
+    {
+      "content": "Evergreen Q3 Review Plan - Archive, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for review plan archive.",
+      "created_at": "2026-08-19T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.review-plan-archive",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.review-plan-archive.1"
+    },
+    {
+      "content": "Evergreen Q3 Review Plan, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for review plan.",
+      "created_at": "2026-08-18T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.review-plan",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.review-plan.1"
+    },
+    {
+      "content": "Evergreen Risk Register, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for risk register.",
+      "created_at": "2026-08-23T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.risk-register",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.risk-register.1"
+    },
+    {
+      "content": "Evergreen Team Roster - Old, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for roster old.",
+      "created_at": "2026-08-21T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.roster-old",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.roster-old.1"
+    },
+    {
+      "content": "Evergreen Current Team Roster, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for roster.",
+      "created_at": "2026-08-20T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.roster",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.roster.1"
+    },
+    {
+      "content": "Evergreen Supplier Delivery Checklist, revision 1. Purpose: service resilience and compliance evidence refresh. Accountable lead: hana.sato; custodian: owen.clark. This revision records concrete decisions for supplier checklist.",
+      "created_at": "2026-08-22T10:00:00Z",
+      "created_by": "user.owen.clark",
+      "file_id": "drive.evergreen.supplier-checklist",
+      "schema_version": "office-v2.0",
+      "source_refs": [],
+      "version_id": "version.evergreen.supplier-checklist.1"
+    }
+  ]
+}

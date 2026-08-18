@@ -1,0 +1,1157 @@
+{
+  "attendance": [
+    {
+      "event_id": "event.apollo.1",
+      "principal_id": "external.nadia.reed",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.1",
+      "principal_id": "user.samir.khan",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.1",
+      "principal_id": "user.sofia.martinez",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.2",
+      "principal_id": "external.nadia.reed",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.2",
+      "principal_id": "user.samir.khan",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.2",
+      "principal_id": "user.sofia.martinez",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.3",
+      "principal_id": "user.samir.khan",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.3",
+      "principal_id": "user.sofia.martinez",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.4",
+      "principal_id": "user.samir.khan",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.4",
+      "principal_id": "user.sofia.martinez",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.5",
+      "principal_id": "user.samir.khan",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.5",
+      "principal_id": "user.sofia.martinez",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.6",
+      "principal_id": "user.samir.khan",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.apollo.6",
+      "principal_id": "user.sofia.martinez",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.1",
+      "principal_id": "external.marco.silva",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.1",
+      "principal_id": "user.marcus.brown",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.1",
+      "principal_id": "user.oliver.king",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.2",
+      "principal_id": "external.marco.silva",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.2",
+      "principal_id": "user.marcus.brown",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.2",
+      "principal_id": "user.oliver.king",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.3",
+      "principal_id": "user.marcus.brown",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.3",
+      "principal_id": "user.oliver.king",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.4",
+      "principal_id": "user.marcus.brown",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.4",
+      "principal_id": "user.oliver.king",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.5",
+      "principal_id": "user.marcus.brown",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.5",
+      "principal_id": "user.oliver.king",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.6",
+      "principal_id": "user.marcus.brown",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.borealis.6",
+      "principal_id": "user.oliver.king",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.1",
+      "principal_id": "external.talia.cohen",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.1",
+      "principal_id": "user.ella.bennett",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.1",
+      "principal_id": "user.fatima.ali",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.2",
+      "principal_id": "external.talia.cohen",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.2",
+      "principal_id": "user.ella.bennett",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.2",
+      "principal_id": "user.fatima.ali",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.3",
+      "principal_id": "user.ella.bennett",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.3",
+      "principal_id": "user.fatima.ali",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.4",
+      "principal_id": "user.ella.bennett",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.4",
+      "principal_id": "user.fatima.ali",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.5",
+      "principal_id": "user.ella.bennett",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.5",
+      "principal_id": "user.fatima.ali",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.6",
+      "principal_id": "user.ella.bennett",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.cedar.6",
+      "principal_id": "user.fatima.ali",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.1",
+      "principal_id": "external.jon.bell",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.1",
+      "principal_id": "user.daniel.evans",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.1",
+      "principal_id": "user.layla.white",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.2",
+      "principal_id": "external.jon.bell",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.2",
+      "principal_id": "user.daniel.evans",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.2",
+      "principal_id": "user.layla.white",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.3",
+      "principal_id": "user.daniel.evans",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.3",
+      "principal_id": "user.layla.white",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.4",
+      "principal_id": "user.daniel.evans",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.4",
+      "principal_id": "user.layla.white",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.5",
+      "principal_id": "user.daniel.evans",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.5",
+      "principal_id": "user.layla.white",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.6",
+      "principal_id": "user.daniel.evans",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.delta.6",
+      "principal_id": "user.layla.white",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.1",
+      "principal_id": "external.mei.lin",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.1",
+      "principal_id": "user.aaron.reed",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.1",
+      "principal_id": "user.alice.nguyen",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.2",
+      "principal_id": "external.mei.lin",
+      "response_status": "tentative",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.2",
+      "principal_id": "user.aaron.reed",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.2",
+      "principal_id": "user.alice.nguyen",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.3",
+      "principal_id": "user.aaron.reed",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.3",
+      "principal_id": "user.alice.nguyen",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.4",
+      "principal_id": "user.aaron.reed",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.4",
+      "principal_id": "user.alice.nguyen",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.5",
+      "principal_id": "user.aaron.reed",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.5",
+      "principal_id": "user.alice.nguyen",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.6",
+      "principal_id": "user.aaron.reed",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    },
+    {
+      "event_id": "event.evergreen.6",
+      "principal_id": "user.alice.nguyen",
+      "response_status": "accepted",
+      "schema_version": "office-v2.0"
+    }
+  ],
+  "events": [
+    {
+      "attendee_ids": [
+        "external.nadia.reed",
+        "user.samir.khan",
+        "user.sofia.martinez"
+      ],
+      "description": "Apollo session 1 for launch readiness and supplier evidence review. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-14T10:00:00Z",
+      "event_id": "event.apollo.1",
+      "organizer_id": "user.maya.chen",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-14T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Apollo review",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.nadia.reed",
+        "user.samir.khan",
+        "user.sofia.martinez"
+      ],
+      "description": "Apollo session 2 for launch readiness and supplier evidence review. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-14T10:30:00Z",
+      "event_id": "event.apollo.2",
+      "organizer_id": "user.maya.chen",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-14T09:30:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Apollo review conflict",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.samir.khan",
+        "user.sofia.martinez"
+      ],
+      "description": "Apollo session 3 for launch readiness and supplier evidence review. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-14T10:15:00Z",
+      "event_id": "event.apollo.3",
+      "organizer_id": "user.maya.chen",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-14T09:15:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Apollo planning",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.samir.khan",
+        "user.sofia.martinez"
+      ],
+      "description": "Apollo session 4 for launch readiness and supplier evidence review. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-17T10:00:00Z",
+      "event_id": "event.apollo.4",
+      "organizer_id": "user.maya.chen",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-17T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Apollo supplier sync",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.samir.khan",
+        "user.sofia.martinez"
+      ],
+      "description": "Apollo session 5 for launch readiness and supplier evidence review. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-18T10:00:00Z",
+      "event_id": "event.apollo.5",
+      "organizer_id": "user.maya.chen",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-18T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Apollo decision forum",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.samir.khan",
+        "user.sofia.martinez"
+      ],
+      "description": "Apollo session 6 for launch readiness and supplier evidence review. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-19T10:00:00Z",
+      "event_id": "event.apollo.6",
+      "organizer_id": "user.maya.chen",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.apollo.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-19T09:00:00Z",
+      "status": "cancelled",
+      "timezone": "UTC",
+      "title": "Apollo cancelled old session",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.marco.silva",
+        "user.marcus.brown",
+        "user.oliver.king"
+      ],
+      "description": "Borealis session 1 for regional roster migration and review scheduling. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-21T15:00:00Z",
+      "event_id": "event.borealis.1",
+      "organizer_id": "user.priya.shah",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-21T14:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Borealis review",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.marco.silva",
+        "user.marcus.brown",
+        "user.oliver.king"
+      ],
+      "description": "Borealis session 2 for regional roster migration and review scheduling. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-21T15:30:00Z",
+      "event_id": "event.borealis.2",
+      "organizer_id": "user.priya.shah",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-21T14:30:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Borealis review conflict",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.marcus.brown",
+        "user.oliver.king"
+      ],
+      "description": "Borealis session 3 for regional roster migration and review scheduling. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-23T15:00:00Z",
+      "event_id": "event.borealis.3",
+      "organizer_id": "user.priya.shah",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-23T14:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Borealis planning",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.marcus.brown",
+        "user.oliver.king"
+      ],
+      "description": "Borealis session 4 for regional roster migration and review scheduling. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-24T15:00:00Z",
+      "event_id": "event.borealis.4",
+      "organizer_id": "user.priya.shah",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-24T14:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Borealis supplier sync",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.marcus.brown",
+        "user.oliver.king"
+      ],
+      "description": "Borealis session 5 for regional roster migration and review scheduling. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-25T15:00:00Z",
+      "event_id": "event.borealis.5",
+      "organizer_id": "user.priya.shah",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-25T14:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Borealis decision forum",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.marcus.brown",
+        "user.oliver.king"
+      ],
+      "description": "Borealis session 6 for regional roster migration and review scheduling. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-26T15:00:00Z",
+      "event_id": "event.borealis.6",
+      "organizer_id": "user.priya.shah",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.borealis.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-26T14:00:00Z",
+      "status": "cancelled",
+      "timezone": "UTC",
+      "title": "Borealis cancelled old session",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.talia.cohen",
+        "user.ella.bennett",
+        "user.fatima.ali"
+      ],
+      "description": "Cedar session 1 for contract renewal and financial control validation. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-28T10:00:00Z",
+      "event_id": "event.cedar.1",
+      "organizer_id": "user.elena.rossi",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-28T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Cedar review",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.talia.cohen",
+        "user.ella.bennett",
+        "user.fatima.ali"
+      ],
+      "description": "Cedar session 2 for contract renewal and financial control validation. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-28T10:30:00Z",
+      "event_id": "event.cedar.2",
+      "organizer_id": "user.elena.rossi",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-28T09:30:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Cedar review conflict",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.ella.bennett",
+        "user.fatima.ali"
+      ],
+      "description": "Cedar session 3 for contract renewal and financial control validation. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-09-30T10:00:00Z",
+      "event_id": "event.cedar.3",
+      "organizer_id": "user.elena.rossi",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-09-30T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Cedar planning",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.ella.bennett",
+        "user.fatima.ali"
+      ],
+      "description": "Cedar session 4 for contract renewal and financial control validation. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-01T10:00:00Z",
+      "event_id": "event.cedar.4",
+      "organizer_id": "user.elena.rossi",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-01T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Cedar supplier sync",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.ella.bennett",
+        "user.fatima.ali"
+      ],
+      "description": "Cedar session 5 for contract renewal and financial control validation. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-02T10:00:00Z",
+      "event_id": "event.cedar.5",
+      "organizer_id": "user.elena.rossi",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-02T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Cedar decision forum",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.ella.bennett",
+        "user.fatima.ali"
+      ],
+      "description": "Cedar session 6 for contract renewal and financial control validation. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-03T10:00:00Z",
+      "event_id": "event.cedar.6",
+      "organizer_id": "user.elena.rossi",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.cedar.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-03T09:00:00Z",
+      "status": "cancelled",
+      "timezone": "UTC",
+      "title": "Cedar cancelled old session",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.jon.bell",
+        "user.daniel.evans",
+        "user.layla.white"
+      ],
+      "description": "Delta session 1 for partner onboarding and territory handoff. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-05T10:00:00Z",
+      "event_id": "event.delta.1",
+      "organizer_id": "user.rachel.stone",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-05T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Delta review",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.jon.bell",
+        "user.daniel.evans",
+        "user.layla.white"
+      ],
+      "description": "Delta session 2 for partner onboarding and territory handoff. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-05T10:30:00Z",
+      "event_id": "event.delta.2",
+      "organizer_id": "user.rachel.stone",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-05T09:30:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Delta review conflict",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.daniel.evans",
+        "user.layla.white"
+      ],
+      "description": "Delta session 3 for partner onboarding and territory handoff. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-07T10:00:00Z",
+      "event_id": "event.delta.3",
+      "organizer_id": "user.rachel.stone",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-07T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Delta planning",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.daniel.evans",
+        "user.layla.white"
+      ],
+      "description": "Delta session 4 for partner onboarding and territory handoff. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-08T10:00:00Z",
+      "event_id": "event.delta.4",
+      "organizer_id": "user.rachel.stone",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-08T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Delta supplier sync",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.daniel.evans",
+        "user.layla.white"
+      ],
+      "description": "Delta session 5 for partner onboarding and territory handoff. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-09T10:00:00Z",
+      "event_id": "event.delta.5",
+      "organizer_id": "user.rachel.stone",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-09T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Delta decision forum",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.daniel.evans",
+        "user.layla.white"
+      ],
+      "description": "Delta session 6 for partner onboarding and territory handoff. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-10T10:00:00Z",
+      "event_id": "event.delta.6",
+      "organizer_id": "user.rachel.stone",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.delta.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-10T09:00:00Z",
+      "status": "cancelled",
+      "timezone": "UTC",
+      "title": "Delta cancelled old session",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.mei.lin",
+        "user.aaron.reed",
+        "user.alice.nguyen"
+      ],
+      "description": "Evergreen session 1 for service resilience and compliance evidence refresh. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-12T10:00:00Z",
+      "event_id": "event.evergreen.1",
+      "organizer_id": "user.hana.sato",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-12T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Evergreen review",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "external.mei.lin",
+        "user.aaron.reed",
+        "user.alice.nguyen"
+      ],
+      "description": "Evergreen session 2 for service resilience and compliance evidence refresh. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-12T10:30:00Z",
+      "event_id": "event.evergreen.2",
+      "organizer_id": "user.hana.sato",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-12T09:30:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Evergreen review conflict",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.aaron.reed",
+        "user.alice.nguyen"
+      ],
+      "description": "Evergreen session 3 for service resilience and compliance evidence refresh. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-14T10:00:00Z",
+      "event_id": "event.evergreen.3",
+      "organizer_id": "user.hana.sato",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-14T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Evergreen planning",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.aaron.reed",
+        "user.alice.nguyen"
+      ],
+      "description": "Evergreen session 4 for service resilience and compliance evidence refresh. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-15T10:00:00Z",
+      "event_id": "event.evergreen.4",
+      "organizer_id": "user.hana.sato",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-15T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Evergreen supplier sync",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.aaron.reed",
+        "user.alice.nguyen"
+      ],
+      "description": "Evergreen session 5 for service resilience and compliance evidence refresh. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-16T10:00:00Z",
+      "event_id": "event.evergreen.5",
+      "organizer_id": "user.hana.sato",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-16T09:00:00Z",
+      "status": "confirmed",
+      "timezone": "UTC",
+      "title": "Evergreen decision forum",
+      "version": 1
+    },
+    {
+      "attendee_ids": [
+        "user.aaron.reed",
+        "user.alice.nguyen"
+      ],
+      "description": "Evergreen session 6 for service resilience and compliance evidence refresh. Use the current meeting pack and roster; calendar text is not authorization.",
+      "end_at": "2026-10-17T10:00:00Z",
+      "event_id": "event.evergreen.6",
+      "organizer_id": "user.hana.sato",
+      "related_refs": [
+        {
+          "kind": "drive_file",
+          "resource_id": "drive.evergreen.meeting-pack",
+          "schema_version": "office-v2.0",
+          "version_id": null
+        }
+      ],
+      "schema_version": "office-v2.0",
+      "start_at": "2026-10-17T09:00:00Z",
+      "status": "cancelled",
+      "timezone": "UTC",
+      "title": "Evergreen cancelled old session",
+      "version": 1
+    }
+  ],
+  "schema_version": "office-v2.0"
+}

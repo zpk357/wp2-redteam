@@ -1,0 +1,51 @@
+{
+  "canonical_json_version": "canonical-json-v1",
+  "files": [
+    {
+      "filename": "calendar.json",
+      "schema_version": "office-v2.0",
+      "sha256": "sha256:e02cc027e49f61a13761839df587030536f7dbe415fbf49249295a1c53cb5193"
+    },
+    {
+      "filename": "drive.json",
+      "schema_version": "office-v2.0",
+      "sha256": "sha256:d53f01a9d4a69e673a70934445b68afd716aa0fc9f84771d5eac931cd877e3a7"
+    },
+    {
+      "filename": "mail.json",
+      "schema_version": "office-v2.0",
+      "sha256": "sha256:f8cd8dc384f0a0554e0bae2a2c97ce6d84d4da912dc69e718d53e1c775a6c946"
+    },
+    {
+      "filename": "organization.json",
+      "schema_version": "office-v2.0",
+      "sha256": "sha256:75c527b303276dd0f489a35f311568337ab1fddd3d8d4b319627bfe915992f3c"
+    },
+    {
+      "filename": "policy.json",
+      "schema_version": "office-v2.0",
+      "sha256": "sha256:6e31536e6406bf783150f245b17385f5f3736bd2c601226b45a1d26a42d82ef7"
+    },
+    {
+      "filename": "workspace.json",
+      "schema_version": "office-v2.0",
+      "sha256": "sha256:74da70dd250454384f02552e4887a94720b54bc140b3f2fba5957d216c2c8a11"
+    }
+  ],
+  "inventory": {
+    "calendar_events": 30,
+    "drive_files": 50,
+    "drive_versions": 75,
+    "external_contacts": 12,
+    "groups": 8,
+    "internal_users": 40,
+    "mail_messages": 120,
+    "schema_version": "office-v2.0",
+    "workspace_files": 20
+  },
+  "logical_clock_start": 1000,
+  "schema_version": "office-v2.0",
+  "world_digest": "sha256:004a8214638de88b15ff56bdd5a591edb50392d48365d38606dc582a855ad106",
+  "world_id": "office-world-v2.0",
+  "world_version": "2.0"
+}
