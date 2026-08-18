@@ -1,5 +1,14 @@
 # TRACE-G WP2 当前交接
 
+## 2026-08-18 Office V2 Stage 6 server-ready checkpoint
+
+- Frozen model: `qwen3.5:27b-q4_K_M`; Agent and Mutator role images are built and share the same embedded model layers while retaining separate identities.
+- Formal model lock: `sha256:6fb280a16dc223e4f68d4f51ab101dc2383fcb3a346997cf6b986ce09c548b77`.
+- Fresh Campaign bootstrap: 12 frozen compatible parent inputs, empty Campaign Coverage, all baseline objectives pending, zero used/reserved budget; state digest `sha256:19ea54057513f09d06cbf3a93a2447d6683be59116d0c1329e944db0025c5d7c`.
+- Slim upload directory: `D:\hxjh\trace-g-server-kit-office-v2-step6-upload`, 20,221,496,954 logical bytes. It intentionally excludes the separate 17.42 GB raw model archive and standalone Ollama image; the 20 GB role archive is an NTFS hard link to the verified local archive.
+- Server order is fixed: `server_stage_office_v2_step6.sh`, then `server_preflight_office_v2_step6.sh`, then the same Campaign via `server_run_office_v2_step6.sh run ... 2 ...` and `resume` to 10/20/30/50 as needed.
+- Focused local verification: 9 tests passed; relevant Ruff, Bash syntax, bootstrap/model-lock self-check, and `git diff --check` passed. No real Qwen semantic behavior has been claimed or tested locally.
+
 更新时间：2026-08-17
 
 当前下一项：第六步真实模型连续反馈 Campaign 计划已经修订并重新冻结，文件为

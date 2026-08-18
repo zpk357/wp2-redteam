@@ -43,7 +43,7 @@ def test_stage6_lock_canonicalizes_two_distinct_runtime_roles() -> None:
     lock = seal_stage6_model_lock(
         manifest_digest=digest("1"),
         config_digest=digest("2"),
-        chat_template_digest=digest("6"),
+        chat_protocol_digest=digest("6"),
         layer_digests=(digest("3"),),
         archive_sha256=digest("4"),
         archive_bytes=17_000_000_000,
@@ -66,7 +66,7 @@ def test_stage6_lock_rejects_one_image_identity_for_both_roles() -> None:
         seal_stage6_model_lock(
             manifest_digest=digest("1"),
             config_digest=digest("2"),
-            chat_template_digest=digest("6"),
+            chat_protocol_digest=digest("6"),
             layer_digests=(digest("3"),),
             archive_sha256=digest("4"),
             archive_bytes=17_000_000_000,
