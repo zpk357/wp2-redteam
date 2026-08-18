@@ -16,9 +16,23 @@ PROJECT_DIR="$PERSIST_ROOT/wp2-redteam"
 CAMPAIGN_ROOT="$PROJECT_DIR/.trace-g-data/$CAMPAIGN_ID"
 RESULT_ROOT="$PROJECT_DIR/reports/server-stage6/$CAMPAIGN_ID"
 DB="$CAMPAIGN_ROOT/campaign.sqlite3"
+PREFLIGHT="$PROJECT_DIR/reports/server-stage6/preflight/stage6-preflight.json"
 cd "$PROJECT_DIR"
-test -f "$PROJECT_DIR/reports/server-stage6/preflight/stage6-preflight.json" || { echo "ERROR: preflight missing" >&2; exit 1; }
+test -f "$PREFLIGHT" || { echo "ERROR: preflight missing" >&2; exit 1; }
 mkdir -p "$CAMPAIGN_ROOT" "$RESULT_ROOT"
+
+archive_campaign() {
+  local outcome="$1"
+  local suffix="complete"
+  [[ "$outcome" == failure ]] && suffix="failed"
+  TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+    scripts/audit_office_v2_stage6_campaign.py archive \
+    --campaign-id "$CAMPAIGN_ID" --outcome "$outcome" \
+    --campaign-root "$CAMPAIGN_ROOT" --result-root "$RESULT_ROOT" \
+    --model-lock .trace-g/stage6-model-lock.json \
+    --bootstrap .trace-g/stage6-bootstrap.json --preflight "$PREFLIGHT" \
+    --output "$PROJECT_DIR/reports/server-stage6/${CAMPAIGN_ID}-${suffix}.tar.gz"
+}
 
 archive_failure() {
   local status=$?
@@ -28,10 +42,7 @@ archive_failure() {
     --format '{{.ID}} {{.Image}} {{.Status}}' > "$RESULT_ROOT/container-residue.txt" || true
   docker volume ls --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \
     --format '{{.Name}}' > "$RESULT_ROOT/volume-residue.txt" || true
-  tar -czf "$PROJECT_DIR/reports/server-stage6/${CAMPAIGN_ID}-failed.tar.gz" \
-    -C "$PROJECT_DIR/reports/server-stage6" "$CAMPAIGN_ID" || true
-  sha256sum "$PROJECT_DIR/reports/server-stage6/${CAMPAIGN_ID}-failed.tar.gz" > \
-    "$PROJECT_DIR/reports/server-stage6/${CAMPAIGN_ID}-failed.tar.gz.sha256" || true
+  archive_campaign failure || true
   exit "$status"
 }
 trap archive_failure EXIT
@@ -59,5 +70,12 @@ docker volume ls --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \
   --format '{{.Name}}' > "$RESULT_ROOT/volume-residue.txt"
 test ! -s "$RESULT_ROOT/container-residue.txt"
 test ! -s "$RESULT_ROOT/volume-residue.txt"
+if (( TARGET >= 2 )); then
+  TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+    scripts/audit_office_v2_stage6_campaign.py \
+    two-generation-gate --db "$DB" --campaign-id "$CAMPAIGN_ID" \
+    --output "$RESULT_ROOT/two-generation-gate.json"
+fi
+archive_campaign success
 trap - EXIT
 echo "Campaign $CAMPAIGN_ID reached target generation $TARGET"

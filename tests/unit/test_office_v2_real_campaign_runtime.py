@@ -6,6 +6,7 @@ from sandbox.fuzzer.v2_real_runtime import (
     RealCampaignBootstrap,
     run_or_resume_real_campaign,
 )
+from sandbox.fuzzer.v2_stage6_evidence import audit_two_generation_gate
 from sandbox.mutation.v2_provider import (
     ProviderFailureClass,
     V2ProviderFailure,
@@ -65,9 +66,12 @@ def test_recorded_agent_tokens_sum_prompt_and_completion_usage() -> None:
     assert _recorded_agent_tokens((decision.model_dump_json() + "\n").encode()) == 29
 
 
-def test_real_runtime_chains_rejected_generations_without_agent_or_coverage() -> None:
+def test_real_runtime_chains_rejected_generations_without_agent_or_coverage(
+    tmp_path,
+) -> None:
     _, state = loop_fixture()
-    with V2CampaignStore(":memory:") as store:
+    path = tmp_path / "rejected-generations.sqlite3"
+    with V2CampaignStore(path) as store:
         result = run_or_resume_real_campaign(
             store=store,
             campaign_id=CAMPAIGN_ID,
@@ -80,6 +84,7 @@ def test_real_runtime_chains_rejected_generations_without_agent_or_coverage() ->
             episode_runner=ForbiddenEpisodeRunner(),
         )
         next_state = store.load_state(CAMPAIGN_ID)
+    gate = audit_two_generation_gate(db_path=path, campaign_id=CAMPAIGN_ID)
 
     assert result.completed_generation_count == 2
     assert len(result.feedback_digests) == 2
@@ -88,3 +93,4 @@ def test_real_runtime_chains_rejected_generations_without_agent_or_coverage() ->
     assert next_state.lifecycle.counters.valid_committed_episodes == 0
     assert next_state.lifecycle.counters.invalid_or_failed_attempts == 2
     assert next_state.budget.consumed.mutator_tokens == 0
+    assert gate["passed"] is False

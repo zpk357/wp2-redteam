@@ -5,8 +5,11 @@
 - Frozen model: `qwen3.5:27b-q4_K_M`; Agent and Mutator role images are built and share the same embedded model layers while retaining separate identities.
 - Formal model lock: `sha256:6fb280a16dc223e4f68d4f51ab101dc2383fcb3a346997cf6b986ce09c548b77`.
 - Fresh Campaign bootstrap: 12 frozen compatible parent inputs, empty Campaign Coverage, all baseline objectives pending, zero used/reserved budget; state digest `sha256:19ea54057513f09d06cbf3a93a2447d6683be59116d0c1329e944db0025c5d7c`.
-- Slim upload directory: `D:\hxjh\trace-g-server-kit-office-v2-step6-upload`, 20,221,496,954 logical bytes. It intentionally excludes the separate 17.42 GB raw model archive and standalone Ollama image; the 20 GB role archive is an NTFS hard link to the verified local archive.
+- Slim upload directory: `D:\hxjh\trace-g-server-kit-office-v2-step6-upload`, 20,221,530,686 logical bytes. It intentionally excludes the separate 17.42 GB raw model archive and standalone Ollama image; the 20 GB role archive is an NTFS hard link to the verified local archive.
 - Server order is fixed: `server_stage_office_v2_step6.sh`, then `server_preflight_office_v2_step6.sh`, then the same Campaign via `server_run_office_v2_step6.sh run ... 2 ...` and `resume` to 10/20/30/50 as needed.
+- Stage 6 now has a formal two-generation audit gate. It verifies two atomic closures, generation-1 feedback binding in the generation-2 decision and MutationPlan, two Mutator attempts, at least one committed Agent settlement, Oracle/Coverage execution lineage, and clean generation-boundary recovery.
+- Success and failure now use the same complete evidence archiver. Campaign SQLite/WAL and recordings, reports, model lock, bootstrap, and preflight are covered by a member manifest, per-file SHA-256, archive SHA-256, and an immediate independent read-back verifier.
+- Local Fake/fault-injection coverage includes generation-boundary resume, invalid candidate rejection without Agent launch, permanent Mutator failure, visible Agent failure with preserved database, missing archive input, and corrupted archive rejection. Mid-generation power-loss recovery, proof of zero CPU offload, and broader residue detection were explicitly left out of this local change.
 - Focused local verification: 9 tests passed; relevant Ruff, Bash syntax, bootstrap/model-lock self-check, and `git diff --check` passed. No real Qwen semantic behavior has been claimed or tested locally.
 
 更新时间：2026-08-17
