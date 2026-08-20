@@ -9,6 +9,11 @@ import json
 import subprocess
 from pathlib import Path
 
+from sandbox.fuzzer.v2_stage6_identity import (
+    Stage6ModelLock,
+    seal_role_identity,
+    seal_stage6_model_lock,
+)
 from sandbox.replay.digests import sha256_digest
 
 
@@ -61,6 +66,8 @@ def main() -> int:
     parser.add_argument("--source-archive", type=Path, required=True)
     parser.add_argument("--model-digest", required=True)
     parser.add_argument("--controller-image", required=True)
+    parser.add_argument("--base-model-lock", type=Path, required=True)
+    parser.add_argument("--model-lock-output", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -92,12 +99,51 @@ def main() -> int:
             ),
         ),
     ]
+    base_lock = Stage6ModelLock.model_validate_json(args.base_model_lock.read_bytes())
+    if args.model_digest != base_lock.manifest_digest:
+        raise ValueError("repair model digest differs from the validated base lock")
+    if args.controller_image != base_lock.controller_image_reference:
+        raise ValueError("repair controller reference differs from the validated base lock")
+    final_roles = {str(item["role"]): item for item in roles}
+    model_roles = []
+    for role in base_lock.roles:
+        final = final_roles[role.role.value]
+        values = role.model_dump(
+            exclude={"image_reference", "image_id", "inference", "role_digest"}
+        )
+        model_roles.append(
+            seal_role_identity(
+                **values,
+                image_reference=final["final_image_reference"],
+                image_id=final["final_image_id"],
+                inference=role.inference,
+            )
+        )
+    model_values = base_lock.model_dump(
+        exclude={
+            "schema_version",
+            "plan_digest",
+            "campaign_identity_digest",
+            "roles",
+            "lock_digest",
+        }
+    )
+    active_model_lock = seal_stage6_model_lock(
+        **model_values, roles=tuple(model_roles)
+    )
+    args.model_lock_output.parent.mkdir(parents=True, exist_ok=True)
+    args.model_lock_output.write_text(
+        active_model_lock.model_dump_json(indent=2) + "\n", encoding="utf-8"
+    )
+
     payload = {
         "schema_version": "office-v2-stage6-repair-lock-v1",
         "source_revision": args.revision,
         "source_archive_sha256": _sha256(args.source_archive),
         "source_archive_bytes": args.source_archive.stat().st_size,
         "model_digest": args.model_digest,
+        "base_model_lock_digest": base_lock.lock_digest,
+        "active_model_lock_digest": active_model_lock.lock_digest,
         "controller_image_reference": args.controller_image,
         "controller_image_id": _image_id(args.controller_image),
         "roles": roles,
