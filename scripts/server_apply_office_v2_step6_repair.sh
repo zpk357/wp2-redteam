@@ -59,18 +59,36 @@ if (
     or current.controller_image_id != base.controller_image_id
 ):
     raise SystemExit("ERROR: current runtime does not descend from the repair base")
+base_roles = {item.role: item for item in base.roles}
 if digest(archive) != repair.source_archive_sha256 or archive.stat().st_size != repair.source_archive_bytes:
     raise SystemExit("ERROR: repair source archive identity differs")
 for role in repair.roles:
+    base_role = base_roles[role.role]
+    if base_role.image_id.lower() != role.base_image_id.lower():
+        raise SystemExit(f"ERROR: repair base ID differs from base lock for {role.role.value}")
     if digest(source / role.dockerfile) != role.dockerfile_sha256:
         raise SystemExit(f"ERROR: Dockerfile identity differs for {role.role.value}")
     for item in role.copied_files:
         if digest(source / item.path) != item.sha256:
             raise SystemExit(f"ERROR: copied file identity differs: {item.path}")
-    actual = subprocess.check_output(
-        ["docker", "image", "inspect", "--format", "{{.Id}}", role.base_image_reference],
-        text=True,
-    ).strip().lower()
+    inspect = ["docker", "image", "inspect", "--format", "{{.Id}}"]
+    try:
+        actual = subprocess.check_output(
+            [*inspect, role.base_image_reference], text=True, stderr=subprocess.DEVNULL
+        ).strip().lower()
+    except subprocess.CalledProcessError:
+        source = subprocess.check_output(
+            [*inspect, base_role.image_reference], text=True
+        ).strip().lower()
+        if source != role.base_image_id.lower():
+            raise SystemExit(f"ERROR: source image identity differs for {role.role.value}")
+        subprocess.run(
+            ["docker", "tag", base_role.image_reference, role.base_image_reference],
+            check=True,
+        )
+        actual = subprocess.check_output(
+            [*inspect, role.base_image_reference], text=True
+        ).strip().lower()
     if actual != role.base_image_id.lower():
         raise SystemExit(f"ERROR: base image identity differs for {role.role.value}")
 controller = subprocess.check_output(
@@ -102,6 +120,11 @@ done
 mkdir -p "$STAGE_DIR/.trace-g"
 cp -a "$PROJECT_DIR/.trace-g/." "$STAGE_DIR/.trace-g/"
 cp "$BASE_MODEL_LOCK" "$STAGE_DIR/.trace-g/stage6-base-model-lock.json"
+cp "$REPAIR_LOCK" "$STAGE_DIR/.trace-g/stage6-repair-plan.json"
+PYTHONPATH="$STAGE_DIR/src:$STAGE_DIR" python3 \
+  "$STAGE_DIR/scripts/verify_office_v2_stage6_install.py" create \
+  --root "$STAGE_DIR" --source-revision "$SOURCE_REVISION" \
+  --output "$STAGE_DIR/.trace-g/stage6-source-tree.json"
 PYTHONPATH="$STAGE_DIR/src:$STAGE_DIR" python3 \
   "$STAGE_DIR/scripts/build_office_v2_stage6_repair_lock.py" seal \
   --repair-lock "$REPAIR_LOCK" \
@@ -176,23 +199,26 @@ for persistent in .trace-g-data reports; do
   fi
 done
 chmod +x "$PROJECT_DIR"/scripts/*.sh
-python3 - "$STAGE_JSON" "$SOURCE_REVISION" "$REPAIR_LOCK" <<'PY'
+python3 - "$STAGE_JSON" "$PROJECT_DIR/.trace-g/stage6-stage.json" \
+  "$SOURCE_REVISION" "$REPAIR_LOCK" <<'PY'
 import json
 import os
 import sys
 from pathlib import Path
 
-target = Path(sys.argv[1])
-repair = json.load(open(sys.argv[3], encoding="utf-8"))
+targets = (Path(sys.argv[1]), Path(sys.argv[2]))
+repair = json.load(open(sys.argv[4], encoding="utf-8"))
 payload = {
     "schema_version": "office-v2-stage6-stage-v2",
     "status": "ready",
-    "source_revision": sys.argv[2],
+    "source_revision": sys.argv[3],
     "repair_lock_digest": repair["lock_digest"],
 }
-temporary = target.with_suffix(".tmp")
-temporary.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
-os.replace(temporary, target)
+for target in targets:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(temporary, target)
 PY
 INSTALL_COMMITTED=1
 rm -f "$STAGE_JSON_BACKUP"

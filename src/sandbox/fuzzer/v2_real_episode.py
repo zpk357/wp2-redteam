@@ -11,6 +11,7 @@ from sandbox.coverage.v2_input import (
     V2CoverageInput,
     v2_coverage_input_from_recording,
 )
+from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.replay.artifact_store import ArtifactStore
 from sandbox.replay.digests import sha256_digest
 from sandbox.replay.models import (
@@ -98,6 +99,7 @@ class DockerOfficeV2EpisodeRunner:
         generated_content: str,
         execution_id: str,
         seed: int,
+        run_context: SandboxRunContext,
     ) -> OfficeV2RealEpisodeResult:
         source = source_attack_case(source_scenario_case_id)
         canonical_world = load_canonical_world()
@@ -124,7 +126,9 @@ class DockerOfficeV2EpisodeRunner:
             timeout_seconds=self.timeout_seconds,
         )
         started = time.monotonic()
-        manifest = await self.replay_engine.record_request(request)
+        manifest = await self.replay_engine.record_request(
+            request, run_context=run_context
+        )
         elapsed_ms = max(1, round((time.monotonic() - started) * 1000))
         if manifest.office_v2_oracle is None:
             raise ValueError("recorded Office V2 Episode has no Oracle artifact")

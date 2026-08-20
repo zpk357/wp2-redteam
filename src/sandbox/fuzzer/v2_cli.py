@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import docker
@@ -58,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("--data-root", type=Path, required=True)
         command.add_argument("--generations", type=int, required=True)
         command.add_argument("--gpu-device", default="0")
+        command.add_argument("--progress-dir", type=Path)
     return parser
 
 
@@ -187,6 +189,24 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
         model_name=lock.model_name,
         model_digest=lock.manifest_digest,
     )
+    progress_callback = None
+    if args.progress_dir is not None:
+        args.progress_dir.mkdir(parents=True, exist_ok=True)
+
+        def write_progress(result) -> None:
+            generation = result.completed_generation_count
+            destination = args.progress_dir / f"generation-{generation:06d}.json"
+            temporary = destination.with_suffix(".json.tmp")
+            temporary.write_text(
+                json.dumps(
+                    result.model_dump(mode="json", exclude_none=False), indent=2
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, destination)
+
+        progress_callback = write_progress
     return run_or_resume_real_campaign(
         store=store,
         campaign_id=args.campaign_id,
@@ -195,6 +215,7 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
         mutation_provider=provider,
         episode_runner=episode_runner,
         runtime_identity_digest=lock.lock_digest,
+        progress_callback=progress_callback,
     ).model_dump(mode="json", exclude_none=False)
 
 

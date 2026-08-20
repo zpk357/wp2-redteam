@@ -14,6 +14,7 @@ import docker
 from sandbox.client.artifact_transfer import ArtifactTransfer
 from sandbox.client.runtime_client import RuntimeClient
 from sandbox.config import SandboxConfig, SandboxLimits, TraceConfig, WeekOneConfig
+from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.fuzzer.v2_orchestrator import decide_next_generation
 from sandbox.fuzzer.v2_real_episode import OfficeV2RecordedOracleArtifact, _recorded_agent_tokens
 from sandbox.fuzzer.v2_real_runtime import RealCampaignBootstrap
@@ -131,7 +132,14 @@ async def run_preflight(args) -> dict[str, object]:
         max_steps=40,
         timeout_seconds=900,
     )
-    manifest = await engine.record_request(request)
+    manifest = await engine.record_request(
+        request,
+        run_context=SandboxRunContext(
+            campaign_id="stage6-preflight",
+            work_item_id="preflight.agent-clean",
+            attempt=1,
+        ),
+    )
     if manifest.office_v2_oracle is None:
         raise ValueError("clean Agent preflight did not produce an Office V2 Oracle artifact")
     decision_bytes = artifacts.read_bytes(manifest.model_decisions)
@@ -162,12 +170,24 @@ async def run_preflight(args) -> dict[str, object]:
         raise ValueError("clean Agent preflight did not decide again after a tool result")
 
     residue = client.containers.list(
-        all=True, filters={"label": ["trace-g.component=office-v2-llm-mutator"]}
+        all=True,
+        filters={
+            "label": [
+                "trace-g.component=office-v2-llm-mutator",
+                "trace-g.campaign-id=stage6-preflight",
+            ]
+        },
     )
     if residue:
         raise ValueError("Mutator preflight left a labeled container")
     agent_residue = client.containers.list(
-        all=True, filters={"label": ["trace-g.component=agent-sandbox"]}
+        all=True,
+        filters={
+            "label": [
+                "trace-g.component=agent-sandbox",
+                "trace-g.campaign-id=stage6-preflight",
+            ]
+        },
     )
     if agent_residue:
         raise ValueError("Agent preflight left a labeled container")

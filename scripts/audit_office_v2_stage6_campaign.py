@@ -37,7 +37,10 @@ def main() -> int:
     archive.add_argument("--model-lock", type=Path, required=True)
     archive.add_argument("--bootstrap", type=Path, required=True)
     archive.add_argument("--preflight", type=Path, required=True)
+    archive.add_argument("--repair-plan", type=Path, required=True)
     archive.add_argument("--repair-receipt", type=Path, required=True)
+    archive.add_argument("--stage-record", type=Path, required=True)
+    archive.add_argument("--source-tree-identity", type=Path, required=True)
     archive.add_argument("--server-host", type=Path, required=True)
     archive.add_argument("--gpu-residency", type=Path, required=True)
     archive.add_argument("--output", type=Path, required=True)
@@ -68,7 +71,10 @@ def main() -> int:
             model_lock=args.model_lock,
             bootstrap=args.bootstrap,
             preflight=args.preflight,
+            repair_plan=args.repair_plan,
             repair_receipt=args.repair_receipt,
+            stage_record=args.stage_record,
+            source_tree_identity=args.source_tree_identity,
             server_host=args.server_host,
             gpu_residency=args.gpu_residency,
             output=args.output,

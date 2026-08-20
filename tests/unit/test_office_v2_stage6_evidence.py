@@ -21,6 +21,10 @@ from sandbox.fuzzer.v2_stage6_evidence import (
     verify_stage6_evidence_archive,
     write_stage6_milestone,
 )
+from sandbox.fuzzer.v2_stage6_source_identity import (
+    verify_source_tree_identity,
+    write_source_tree_identity,
+)
 from sandbox.fuzzer.v2_work import (
     BudgetReservation,
     CandidateWork,
@@ -263,7 +267,21 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
     campaign.mkdir()
     results.mkdir()
     promoted, state = loop_fixture()
-    lock_payload = {"manifest_digest": sha256_digest("model")}
+    role_receipt_digest = sha256_digest("role-build")
+    lock_payload = {
+        "manifest_digest": sha256_digest("model"),
+        "controller_image_reference": "controller:test",
+        "controller_image_id": sha256_digest("controller-image"),
+        "roles": [
+            {
+                "role": role,
+                "image_reference": f"{role}:test",
+                "image_id": sha256_digest(f"{role}-image"),
+                "image_build_receipt_digest": role_receipt_digest,
+            }
+            for role in ("agent", "mutator")
+        ],
+    }
     lock_payload["lock_digest"] = sha256_digest(lock_payload)
     runtime_digest = lock_payload["lock_digest"]
     bootstrap_value = ScriptedCampaignBootstrap(
@@ -302,6 +320,19 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
             {
                 "schema_version": "office-v2-stage6-progress-v1",
                 "campaign_id": CAMPAIGN_ID,
+                "mode": "run",
+                "requested_target": 1,
+                "observed_generation": 1,
+                "completion_status": None,
+                "report_digest": sha256_digest("generation-one-report"),
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "schema_version": "office-v2-stage6-progress-v1",
+                "campaign_id": CAMPAIGN_ID,
+                "mode": "resume",
                 "requested_target": 2,
                 "observed_generation": 2,
                 "completion_status": report["completion_status"],
@@ -335,7 +366,47 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
             "agent_model_decision_count": 2,
             "agent_post_tool_decision_proved": True,
         },
-        "repair-receipt": {"active_model_lock_digest": lock_payload["lock_digest"]},
+        "repair-plan": {
+            "source_revision": "376f413",
+            "model_digest": lock_payload["manifest_digest"],
+            "controller_image_reference": lock_payload["controller_image_reference"],
+            "controller_image_id": lock_payload["controller_image_id"],
+            "roles": [
+                {
+                    "role": item["role"],
+                    "final_image_reference": item["image_reference"],
+                }
+                for item in lock_payload["roles"]
+            ],
+            "lock_digest": "pending",
+        },
+        "repair-receipt": {
+            "repair_lock_digest": "pending",
+            "active_model_lock_digest": lock_payload["lock_digest"],
+            "roles": [
+                {
+                    "role": item["role"],
+                    "image_reference": item["image_reference"],
+                    "image_id": item["image_id"],
+                    "image_build_receipt_digest": item[
+                        "image_build_receipt_digest"
+                    ],
+                }
+                for item in lock_payload["roles"]
+            ],
+            "receipt_digest": "pending",
+        },
+        "stage-record": {
+            "status": "ready",
+            "source_revision": "376f413",
+            "repair_lock_digest": "pending",
+        },
+        "source-tree": {
+            "schema_version": "office-v2-stage6-source-tree-v1",
+            "source_revision": "376f413",
+            "files": [{"path": "src/example.py", "size": 1, "sha256": sha256_digest("x")}],
+            "source_tree_digest": "pending",
+        },
         "server-host": {"captured": True},
         "gpu-residency": {
             "passed": True,
@@ -343,6 +414,33 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
             "residual_observed_model_process_pids": [],
         },
     }
+    payloads["repair-plan"]["lock_digest"] = sha256_digest(
+        {
+            key: value
+            for key, value in payloads["repair-plan"].items()
+            if key != "lock_digest"
+        }
+    )
+    payloads["repair-receipt"]["repair_lock_digest"] = payloads["repair-plan"][
+        "lock_digest"
+    ]
+    payloads["stage-record"]["repair_lock_digest"] = payloads["repair-plan"][
+        "lock_digest"
+    ]
+    payloads["repair-receipt"]["receipt_digest"] = sha256_digest(
+        {
+            key: value
+            for key, value in payloads["repair-receipt"].items()
+            if key != "receipt_digest"
+        }
+    )
+    payloads["source-tree"]["source_tree_digest"] = sha256_digest(
+        {
+            "schema_version": "office-v2-stage6-source-tree-v1",
+            "source_revision": "376f413",
+            "files": payloads["source-tree"]["files"],
+        }
+    )
     for name, payload in payloads.items():
         path = tmp_path / f"{name}.json"
         path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
@@ -361,7 +459,10 @@ def test_complete_archive_contains_campaign_results_and_identity(tmp_path: Path)
         model_lock=paths["model-lock"],
         bootstrap=paths["bootstrap"],
         preflight=paths["preflight"],
+        repair_plan=paths["repair-plan"],
         repair_receipt=paths["repair-receipt"],
+        stage_record=paths["stage-record"],
+        source_tree_identity=paths["source-tree"],
         server_host=paths["server-host"],
         gpu_residency=paths["gpu-residency"],
         output=output,
@@ -402,7 +503,10 @@ def test_archive_verifier_rejects_mixed_campaign_report(tmp_path: Path) -> None:
             model_lock=paths["model-lock"],
             bootstrap=paths["bootstrap"],
             preflight=paths["preflight"],
+            repair_plan=paths["repair-plan"],
             repair_receipt=paths["repair-receipt"],
+            stage_record=paths["stage-record"],
+            source_tree_identity=paths["source-tree"],
             server_host=paths["server-host"],
             gpu_residency=paths["gpu-residency"],
             output=tmp_path / "mixed.tar.gz",
@@ -422,7 +526,10 @@ def test_archive_failure_does_not_remove_original_evidence(tmp_path: Path) -> No
             model_lock=missing_lock,
             bootstrap=paths["bootstrap"],
             preflight=paths["preflight"],
+            repair_plan=paths["repair-plan"],
             repair_receipt=paths["repair-receipt"],
+            stage_record=paths["stage-record"],
+            source_tree_identity=paths["source-tree"],
             server_host=paths["server-host"],
             gpu_residency=paths["gpu-residency"],
             output=tmp_path / "failed.tar.gz",
@@ -441,7 +548,10 @@ def test_archive_verifier_rejects_corruption(tmp_path: Path) -> None:
         model_lock=paths["model-lock"],
         bootstrap=paths["bootstrap"],
         preflight=paths["preflight"],
+        repair_plan=paths["repair-plan"],
         repair_receipt=paths["repair-receipt"],
+        stage_record=paths["stage-record"],
+        source_tree_identity=paths["source-tree"],
         server_host=paths["server-host"],
         gpu_residency=paths["gpu-residency"],
         output=output,
@@ -451,3 +561,45 @@ def test_archive_verifier_rejects_corruption(tmp_path: Path) -> None:
     output.write_bytes(payload)
     with pytest.raises(ValueError, match="archive checksum differs"):
         verify_stage6_evidence_archive(output)
+
+
+def test_source_tree_identity_rejects_post_install_tamper(tmp_path: Path) -> None:
+    root = tmp_path / "source"
+    root.mkdir()
+    source = root / "controller.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    identity = root / ".trace-g" / "stage6-source-tree.json"
+    write_source_tree_identity(
+        root=root, source_revision="376f413", output=identity
+    )
+    verify_source_tree_identity(root=root, identity=identity)
+
+    source.write_text("VALUE = 2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="differs from frozen identity"):
+        verify_source_tree_identity(root=root, identity=identity)
+
+
+def test_complete_archive_refuses_to_overwrite_prior_attempt(tmp_path: Path) -> None:
+    paths = _evidence_files(tmp_path)
+    output = tmp_path / "complete.tar.gz"
+    arguments = {
+        "campaign_id": CAMPAIGN_ID,
+        "outcome": "success",
+        "campaign_root": paths["campaign"],
+        "result_root": paths["results"],
+        "model_lock": paths["model-lock"],
+        "bootstrap": paths["bootstrap"],
+        "preflight": paths["preflight"],
+        "repair_plan": paths["repair-plan"],
+        "repair_receipt": paths["repair-receipt"],
+        "stage_record": paths["stage-record"],
+        "source_tree_identity": paths["source-tree"],
+        "server_host": paths["server-host"],
+        "gpu_residency": paths["gpu-residency"],
+        "output": output,
+    }
+    build_stage6_evidence_archive(**arguments)
+
+    with pytest.raises(ValueError, match="already exists"):
+        build_stage6_evidence_archive(**arguments)

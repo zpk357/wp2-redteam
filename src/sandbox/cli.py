@@ -19,6 +19,7 @@ from sandbox.config import (
     TraceConfig,
     WeekOneConfig,
 )
+from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.protocol import ModelOptions, ModelProvider
 from sandbox.replay.artifact_store import ArtifactStore
 from sandbox.replay.manifest import ManifestStore
@@ -67,6 +68,9 @@ def build_parser() -> argparse.ArgumentParser:
     replay = subparsers.add_parser("replay", help="strictly replay a sealed package")
     replay.add_argument("--replay-id", required=True)
     replay.add_argument("--run-id")
+    replay.add_argument("--campaign-id")
+    replay.add_argument("--work-item-id")
+    replay.add_argument("--attempt", type=int, default=1)
     replay.add_argument(
         "--mode",
         choices=[mode.value for mode in ReplayMode],
@@ -230,11 +234,23 @@ def main() -> int:
         print(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2))
         return 0
 
+    run_context = None
+    if args.command == "replay" and (
+        args.campaign_id is not None or args.work_item_id is not None
+    ):
+        if args.campaign_id is None or args.work_item_id is None:
+            raise SystemExit("replay Campaign labels require both IDs")
+        run_context = SandboxRunContext(
+            campaign_id=args.campaign_id,
+            work_item_id=args.work_item_id,
+            attempt=args.attempt,
+        )
     result = asyncio.run(
         engine.replay(
             args.replay_id,
             mode=ReplayMode(args.mode),
             replay_run_id=args.run_id,
+            run_context=run_context,
         )
     )
     print(json.dumps(result.model_dump(mode="json"), ensure_ascii=False, indent=2))

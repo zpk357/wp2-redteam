@@ -132,7 +132,12 @@ class ReplayEngine:
         )
         return await self._record_execution(case, request)
 
-    async def record_request(self, request: ExecutionRequest) -> ReplayManifest:
+    async def record_request(
+        self,
+        request: ExecutionRequest,
+        *,
+        run_context: SandboxRunContext | None = None,
+    ) -> ReplayManifest:
         """Record a fully specified stateful execution without reducing its contract."""
         if request.scenario_id is None:
             raise ReplayPreparationError(
@@ -159,12 +164,14 @@ class ReplayEngine:
             seed=prepared.seed,
             metadata=prepared.metadata,
         )
-        return await self._record_execution(case, prepared)
+        return await self._record_execution(case, prepared, run_context=run_context)
 
     async def _record_execution(
         self,
         case: TestCase,
         request: ExecutionRequest,
+        *,
+        run_context: SandboxRunContext | None = None,
     ) -> ReplayManifest:
         execution_id = request.execution_id
         replay_id = f"replay-{uuid4().hex}"
@@ -177,11 +184,19 @@ class ReplayEngine:
         manifest: ReplayManifest | None = None
         cleanup_error: Exception | None = None
         try:
-            handle = await self.scheduler.create(
-                execution_id,
-                self.config.sandbox.image,
-                self.config.sandbox.limits,
-            )
+            if run_context is None:
+                handle = await self.scheduler.create(
+                    execution_id,
+                    self.config.sandbox.image,
+                    self.config.sandbox.limits,
+                )
+            else:
+                handle = await self.scheduler.create(
+                    execution_id,
+                    self.config.sandbox.image,
+                    self.config.sandbox.limits,
+                    run_context=run_context,
+                )
             request = request.model_copy(update={"image_digest": handle.image_digest})
             await self.scheduler.wait_until_ready(handle)
             await self.runtime.submit(handle, request)
@@ -235,6 +250,7 @@ class ReplayEngine:
         *,
         mode: ReplayMode = ReplayMode.STRICT,
         replay_run_id: str | None = None,
+        run_context: SandboxRunContext | None = None,
     ) -> ReplayResult:
         manifest = self.manifest_store.load(replay_id)
         if not manifest.recording_complete:
@@ -267,11 +283,14 @@ class ReplayEngine:
         removed = True
         result: ReplayResult | None = None
         try:
+            create_options = {"execution_mode": "strict_replay"}
+            if run_context is not None:
+                create_options["run_context"] = run_context
             handle = await self.scheduler.create(
                 execution_id,
                 manifest.image_ref,
                 self.config.sandbox.limits,
-                execution_mode="strict_replay",
+                **create_options,
             )
             removed = False
             audit.append(

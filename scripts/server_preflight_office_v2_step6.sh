@@ -7,9 +7,22 @@ RESULT_DIR="$PROJECT_DIR/reports/server-stage6/preflight"
 GPU_DEVICE="${1:-0}"
 [[ "$GPU_DEVICE" =~ ^[0-9]+$ ]] || { echo "ERROR: invalid GPU device" >&2; exit 2; }
 cd "$PROJECT_DIR"
+command -v flock >/dev/null || { echo "ERROR: flock is required" >&2; exit 1; }
+mkdir -p "$PERSIST_ROOT/locks"
+exec 9>"$PERSIST_ROOT/locks/gpu-$GPU_DEVICE.lock"
+flock -n 9 || { echo "ERROR: Stage 6 GPU $GPU_DEVICE is already leased" >&2; exit 1; }
 test "$(python3 -c 'import json; print(json.load(open("../stage.json"))["status"])')" = ready
 nvidia-smi -i "$GPU_DEVICE" > /dev/null
 mkdir -p "$RESULT_DIR"
+PYTHONPATH="$PROJECT_DIR/src:$PROJECT_DIR" python3 \
+  scripts/verify_office_v2_stage6_install.py verify \
+  --root "$PROJECT_DIR" --identity .trace-g/stage6-source-tree.json
+PYTHONPATH="$PROJECT_DIR/src:$PROJECT_DIR" python3 \
+  scripts/verify_office_v2_stage6_install.py chain \
+  --model-lock .trace-g/stage6-model-lock.json \
+  --repair-plan .trace-g/stage6-repair-plan.json \
+  --receipt .trace-g/stage6-repair-application.json \
+  --stage-record .trace-g/stage6-stage.json --root-stage ../stage.json
 GPU_STOP_FILE="$RESULT_DIR/.gpu-monitor-stop"
 rm -f \
   "$GPU_STOP_FILE" \
@@ -62,10 +75,13 @@ archive_preflight_failure() {
   printf '{"schema_version":"office-v2-stage6-preflight-failure-v1","exit_code":%d}\n' \
     "$status" > "$RESULT_DIR/failure.json"
   docker ps -a --filter "label=trace-g.component=office-v2-llm-mutator" \
+    --filter "label=trace-g.campaign-id=stage6-preflight" \
     --format '{{.ID}} {{.Image}} {{.Status}}' > "$RESULT_DIR/container-residue.txt" || true
   docker ps -a --filter "label=trace-g.component=agent-sandbox" \
+    --filter "label=trace-g.campaign-id=stage6-preflight" \
     --format '{{.ID}} {{.Image}} {{.Status}}' >> "$RESULT_DIR/container-residue.txt" || true
   docker volume ls --filter "label=trace-g.component=workspace-volume" \
+    --filter "label=trace-g.campaign-id=stage6-preflight" \
     --format '{{.Name}}' > "$RESULT_DIR/volume-residue.txt" || true
   exit "$status"
 }
@@ -75,7 +91,9 @@ python3 scripts/monitor_office_v2_stage6_gpu.py \
   --output "$RESULT_DIR/stage6-gpu-residency.json" \
   --stop-file "$GPU_STOP_FILE" &
 GPU_MONITOR_PID=$!
-TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none \
+  TRACE_G_CAMPAIGN_ID=stage6-preflight TRACE_G_WORK_ITEM_ID=preflight.controller \
+  TRACE_G_ATTEMPT=1 scripts/server_python.sh \
   scripts/run_office_v2_stage6_preflight.py \
   --model-lock .trace-g/stage6-model-lock.json \
   --bootstrap .trace-g/stage6-bootstrap.json \
@@ -89,7 +107,7 @@ touch "$GPU_STOP_FILE"
 wait "$GPU_MONITOR_PID"
 GPU_MONITOR_PID=""
 rm -f "$GPU_STOP_FILE"
-[[ -z "$(docker ps -a --filter 'label=trace-g.component=office-v2-llm-mutator' --format '{{.ID}}')" ]]
-[[ -z "$(docker ps -a --filter 'label=trace-g.component=agent-sandbox' --format '{{.ID}}')" ]]
+[[ -z "$(docker ps -a --filter 'label=trace-g.component=office-v2-llm-mutator' --filter 'label=trace-g.campaign-id=stage6-preflight' --format '{{.ID}}')" ]]
+[[ -z "$(docker ps -a --filter 'label=trace-g.component=agent-sandbox' --filter 'label=trace-g.campaign-id=stage6-preflight' --format '{{.ID}}')" ]]
 trap - EXIT
 echo "Office V2 Stage 6 preflight passed"

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from collections.abc import Callable
 from typing import Protocol
 
+from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.mutation.v2_brief import build_minimal_fact_brief
 from sandbox.mutation.v2_contracts import build_v2_mutation_field_registry
 from sandbox.mutation.v2_materializer import (
@@ -101,6 +104,7 @@ class OfficeV2EpisodeRunner(Protocol):
         generated_content: str,
         execution_id: str,
         seed: int,
+        run_context: SandboxRunContext,
     ) -> OfficeV2RealEpisodeResult: ...
 
 
@@ -329,6 +333,7 @@ class _RealGenerationDriver:
             return None
         self.store.transition_work(work.work_id, state=CandidateWorkState.EXECUTING)
         execution_id = f"v2-generation-{decision.generation_index}-{work.work_id[-12:]}"
+        started = time.monotonic()
         try:
             episode = asyncio.run(
                 self.episode_runner.execute(
@@ -338,24 +343,27 @@ class _RealGenerationDriver:
                     )[slot.payload_slot_id],
                     execution_id=execution_id,
                     seed=decision.generation_index,
+                    run_context=SandboxRunContext(
+                        campaign_id=campaign_id,
+                        work_item_id=work.work_id,
+                        attempt=1,
+                    ),
                 )
             )
         except Exception as exc:
-            receipt = _unknown_failure_receipt(work_id=work.work_id, error=exc)
+            receipt = _unknown_failure_receipt(
+                work_id=work.work_id,
+                error=exc,
+                elapsed_ms=max(1, round((time.monotonic() - started) * 1000)),
+            )
             self.store.seal_attempt(receipt)
             self.store.transition_work(
                 work.work_id, state=CandidateWorkState.AMBIGUOUS
             )
-            return self._close_failed_episode(
-                campaign_id=campaign_id,
-                decision=decision,
-                state=episode_reserved_state,
-                preparation=preparation,
-                previous_feedback=previous_feedback,
-                work_id=work.work_id,
-                receipt=receipt,
-                reservation=agent_reservation,
+            self.store.pause_campaign(
+                campaign_id, reason="episode-runner-unknown-failure"
             )
+            raise
         candidate = preparation.materialized_candidate
         assert candidate is not None
         assert preparation.parsed_candidate is not None
@@ -588,79 +596,6 @@ class _RealGenerationDriver:
             persisted=True,
         )
 
-    def _close_failed_episode(
-        self,
-        *,
-        campaign_id,
-        decision,
-        state,
-        preparation,
-        previous_feedback,
-        work_id,
-        receipt,
-        reservation,
-    ) -> V2GenerationAdvance:
-        lifecycle = evaluate_campaign_lifecycle(
-            current=record_non_episode_generation(state.lifecycle),
-            baseline_ledger=state.exposure_ledger,
-            risk_frontier_states=tuple(
-                item.scheduling_state for item in state.frontiers.risk_frontiers
-            ),
-            behavior_frontier_states=tuple(
-                item.scheduling_state for item in state.frontiers.behavior_frontiers
-            ),
-            pause_reason="episode-runner-unknown-failure",
-        )
-        next_state = build_campaign_state(
-            coverage=state.coverage,
-            corpus=state.corpus,
-            frontiers=state.frontiers,
-            exposure_ledger=state.exposure_ledger,
-            budget=settle_campaign_budget(
-                state.budget, reservation=reservation, actual=receipt.costs
-            ),
-            lifecycle=lifecycle,
-        )
-        settlement = build_non_episode_settlement(
-            campaign_id=campaign_id,
-            generation_allocation_id=decision.allocation.generation_allocation_id,
-            disposition=NonEpisodeDisposition.WORK_AMBIGUOUS_FAILURE,
-            previous_state=state,
-            next_state=next_state,
-            actual_costs=receipt.costs,
-            preparation=preparation,
-            work_id=work_id,
-            attempt_receipt_ids=(receipt.attempt_id,),
-            released_reservation=reservation,
-        )
-        feedback = build_non_episode_feedback(
-            campaign_id=campaign_id,
-            generation_index=next_state.lifecycle.counters.generation_index,
-            reason_code="episode-runner-unknown-failure",
-            previous_feedback=previous_feedback,
-        )
-        closure = build_generation_closure_receipt(
-            campaign_id=campaign_id,
-            generation_index=decision.generation_index,
-            closure_kind=GenerationClosureKind.NON_EPISODE_SETTLEMENT,
-            settlement_id=settlement.settlement_id,
-            settlement_digest=settlement.settlement_digest,
-            resulting_state_digest=next_state.state_digest,
-        )
-        self.store.commit_non_episode_settlement(
-            settlement=settlement,
-            next_state=next_state,
-            feedback=feedback,
-            closure=closure,
-        )
-        return V2GenerationAdvance(
-            next_state=next_state,
-            closure=closure,
-            feedback=feedback,
-            persisted=True,
-        )
-
-
 def _replace_budget(state, budget):
     return build_campaign_state(
         coverage=state.coverage,
@@ -753,7 +688,9 @@ def _successful_receipt(
     return seal_work_contract(AttemptReceipt, payload, "receipt_digest")
 
 
-def _unknown_failure_receipt(*, work_id: str, error: Exception) -> AttemptReceipt:
+def _unknown_failure_receipt(
+    *, work_id: str, error: Exception, elapsed_ms: int
+) -> AttemptReceipt:
     detail = {
         "error_type": type(error).__name__,
         "message": str(error)[:500],
@@ -769,7 +706,7 @@ def _unknown_failure_receipt(*, work_id: str, error: Exception) -> AttemptReceip
             "response_digest": sha256_digest(detail),
             "response_byte_count": len(str(error).encode("utf-8")),
             "bounded_summary": f"unclassified {type(error).__name__}",
-            "costs": ExecutionCosts(),
+            "costs": ExecutionCosts(elapsed_ms=elapsed_ms),
         },
         "receipt_digest",
     )
@@ -817,6 +754,7 @@ def run_or_resume_real_campaign(
     mutation_provider: V2MutationProvider,
     episode_runner: OfficeV2EpisodeRunner,
     runtime_identity_digest: str | None = None,
+    progress_callback: Callable[[V2CampaignRunResult], None] | None = None,
 ) -> V2CampaignRunResult:
     return run_or_resume_campaign(
         store=store,
@@ -832,6 +770,7 @@ def run_or_resume_real_campaign(
         runtime_identity_digest=(
             runtime_identity_digest or bootstrap.model_identity_digest
         ),
+        progress_callback=progress_callback,
     )
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import sys
 from typing import Any
 
 import docker
@@ -115,7 +116,13 @@ class DockerOllamaV2MutationProvider:
                     "trace-g.execution-id": execution_id,
                     "trace-g.request-digest": request_digest,
                     **(
-                        {"trace-g.campaign-id": self.campaign_id}
+                        {
+                            "trace-g.campaign-id": self.campaign_id,
+                            "trace-g.work-item-id": (
+                                "mutation." + plan.plan_digest.removeprefix("sha256:")[:24]
+                            ),
+                            "trace-g.attempt": str(attempt_index),
+                        }
                         if self.campaign_id is not None
                         else {}
                     ),
@@ -212,15 +219,21 @@ class DockerOllamaV2MutationProvider:
             ) from exc
         finally:
             if container is not None:
+                primary_error = sys.exc_info()[1]
                 try:
                     container.remove(force=True)
                 except Exception as exc:
-                    raise self._failure(
-                        plan,
-                        attempt_index,
-                        request_digest,
-                        ProviderFailureClass.AMBIGUOUS,
-                    ) from exc
+                    if primary_error is not None:
+                        primary_error.add_note(
+                            f"Mutator container cleanup also failed: {exc}"
+                        )
+                    else:
+                        raise self._failure(
+                            plan,
+                            attempt_index,
+                            request_digest,
+                            ProviderFailureClass.AMBIGUOUS,
+                        ) from exc
 
     @staticmethod
     def _failure(

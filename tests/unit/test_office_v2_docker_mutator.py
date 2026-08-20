@@ -33,10 +33,12 @@ class FakeContainer:
         *,
         status_code: int = 0,
         errors: bytes = b"",
+        cleanup_error: bool = False,
     ) -> None:
         self.response = response
         self.status_code = status_code
         self.errors = errors
+        self.cleanup_error = cleanup_error
         self.removed = False
 
     def wait(self, *, timeout: int) -> dict[str, int]:
@@ -48,6 +50,8 @@ class FakeContainer:
 
     def remove(self, *, force: bool) -> None:
         assert force is True
+        if self.cleanup_error:
+            raise RuntimeError("injected cleanup failure")
         self.removed = True
 
 
@@ -128,6 +132,10 @@ async def test_docker_v2_mutator_uses_fresh_locked_role_and_cleans_up() -> None:
     assert client.containers.run_kwargs["network_mode"] == "none"
     assert client.containers.run_kwargs["read_only"] is True
     assert client.containers.run_kwargs["labels"]["trace-g.campaign-id"] == "campaign-1"
+    assert client.containers.run_kwargs["labels"]["trace-g.work-item-id"].startswith(
+        "mutation."
+    )
+    assert client.containers.run_kwargs["labels"]["trace-g.attempt"] == "1"
     assert container.removed is True
 
 
@@ -206,6 +214,56 @@ async def test_docker_v2_mutator_preserves_permanent_worker_failure() -> None:
     )
     assert captured.value.attempt.http_status == 400
     assert container.removed is True
+
+
+@pytest.mark.asyncio
+async def test_docker_v2_mutator_cleanup_does_not_mask_primary_failure() -> None:
+    model_digest = sha256_digest({"model": "qwen3.5:27b-q4_K_M"})
+    item = plan(
+        provider_id="provider-docker-ollama-v2",
+        model_identity_digest=model_digest,
+    )
+    brief = build_minimal_fact_brief(
+        plan=item,
+        frontier_description="Exercise a validation boundary.",
+        operator_instructions=("Change only the frozen payload expression.",),
+        scenario_facts=(),
+        parent_payload_texts=("Parent payload",),
+    )
+    error = json.dumps(
+        {
+            "schema_version": "office-v2-mutator-worker-error-v1",
+            "failure_class": "configuration_permanent",
+            "http_status": 400,
+        }
+    ).encode()
+    container = FakeContainer(
+        b"", status_code=1, errors=error, cleanup_error=True
+    )
+    client = FakeClient(
+        FakeImage(
+            {
+                "org.trace-g.runtime": "self-contained-mutator-qwen",
+                "org.trace-g.role": "mutator",
+                "org.trace-g.model.name": "qwen3.5:27b-q4_K_M",
+                "org.trace-g.model.digest": model_digest,
+            }
+        ),
+        container,
+    )
+    provider = DockerOllamaV2MutationProvider(
+        image_ref="mutator:test",
+        image_id="sha256:image",
+        model_name="qwen3.5:27b-q4_K_M",
+        model_identity_digest=model_digest,
+        client=client,
+    )
+
+    with pytest.raises(V2ProviderFailure) as captured:
+        await provider.generate(plan=item, brief=brief, attempt_index=1)
+
+    assert captured.value.attempt.failure_class is ProviderFailureClass.CONFIGURATION_PERMANENT
+    assert any("cleanup also failed" in note for note in captured.value.__notes__)
 
 
 def test_docker_v2_mutator_treats_unstructured_worker_failure_as_ambiguous() -> None:

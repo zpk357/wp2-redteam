@@ -10,6 +10,7 @@ MODE="$1"; CAMPAIGN_ID="$2"; TARGET="$3"; GPU_DEVICE="$4"
 [[ "$CAMPAIGN_ID" =~ ^[a-z0-9][a-z0-9.-]{0,63}$ ]] || { echo "ERROR: invalid campaign-id" >&2; exit 2; }
 [[ "$TARGET" =~ ^(2|10|20|30|50)$ ]] || { echo "ERROR: target must be 2, 10, 20, 30, or 50" >&2; exit 2; }
 [[ "$GPU_DEVICE" =~ ^[0-9]+$ ]] || { echo "ERROR: invalid GPU device" >&2; exit 2; }
+[[ "$MODE" == resume || "$TARGET" == 2 ]] || { echo "ERROR: a new Campaign must start with the 2-generation gate" >&2; exit 2; }
 
 PERSIST_ROOT="${TRACE_G_PERSIST_ROOT:-/opt/trace-g-office-v2-step6}"
 PROJECT_DIR="$PERSIST_ROOT/wp2-redteam"
@@ -19,6 +20,19 @@ DB="$CAMPAIGN_ROOT/campaign.sqlite3"
 PREFLIGHT="$PROJECT_DIR/reports/server-stage6/preflight/stage6-preflight.json"
 GPU_RESIDENCY="$PROJECT_DIR/reports/server-stage6/preflight/stage6-gpu-residency.json"
 cd "$PROJECT_DIR"
+command -v flock >/dev/null || { echo "ERROR: flock is required" >&2; exit 1; }
+mkdir -p "$PERSIST_ROOT/locks"
+exec 9>"$PERSIST_ROOT/locks/gpu-$GPU_DEVICE.lock"
+flock -n 9 || { echo "ERROR: Stage 6 GPU $GPU_DEVICE is already leased" >&2; exit 1; }
+PYTHONPATH="$PROJECT_DIR/src:$PROJECT_DIR" python3 \
+  scripts/verify_office_v2_stage6_install.py verify \
+  --root "$PROJECT_DIR" --identity .trace-g/stage6-source-tree.json
+PYTHONPATH="$PROJECT_DIR/src:$PROJECT_DIR" python3 \
+  scripts/verify_office_v2_stage6_install.py chain \
+  --model-lock .trace-g/stage6-model-lock.json \
+  --repair-plan .trace-g/stage6-repair-plan.json \
+  --receipt .trace-g/stage6-repair-application.json \
+  --stage-record .trace-g/stage6-stage.json --root-stage ../stage.json
 test -f "$PREFLIGHT" || { echo "ERROR: preflight missing" >&2; exit 1; }
 test -f "$GPU_RESIDENCY" || { echo "ERROR: GPU residency evidence missing" >&2; exit 1; }
 mapfile -t LOCK_IMAGES < <(python3 - .trace-g/stage6-model-lock.json <<'PY'
@@ -72,21 +86,33 @@ if (
     raise SystemExit("ERROR: GPU residency evidence is incomplete")
 PY
 mkdir -p "$CAMPAIGN_ROOT" "$RESULT_ROOT"
+RUN_ATTEMPT_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+
+controller() {
+  local work_item_id="$1"
+  shift
+  TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none \
+    TRACE_G_CAMPAIGN_ID="$CAMPAIGN_ID" TRACE_G_WORK_ITEM_ID="$work_item_id" \
+    TRACE_G_ATTEMPT=1 scripts/server_python.sh "$@"
+}
 
 archive_campaign() {
   local outcome="$1"
   local suffix="complete"
   [[ "$outcome" == failure ]] && suffix="failed"
-  TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+  controller "controller.archive-$outcome-$RUN_ATTEMPT_ID" \
     scripts/audit_office_v2_stage6_campaign.py archive \
     --campaign-id "$CAMPAIGN_ID" --outcome "$outcome" \
     --campaign-root "$CAMPAIGN_ROOT" --result-root "$RESULT_ROOT" \
     --model-lock .trace-g/stage6-model-lock.json \
     --bootstrap .trace-g/stage6-bootstrap.json --preflight "$PREFLIGHT" \
+    --repair-plan .trace-g/stage6-repair-plan.json \
     --repair-receipt .trace-g/stage6-repair-application.json \
+    --stage-record .trace-g/stage6-stage.json \
+    --source-tree-identity .trace-g/stage6-source-tree.json \
     --server-host "$PROJECT_DIR/reports/server-stage6/preflight/stage6-server-host.json" \
     --gpu-residency "$GPU_RESIDENCY" \
-    --output "$PROJECT_DIR/reports/server-stage6/${CAMPAIGN_ID}-${suffix}.tar.gz"
+    --output "$PROJECT_DIR/reports/server-stage6/${CAMPAIGN_ID}-to-${TARGET}-${suffix}-${RUN_ATTEMPT_ID}.tar.gz"
 }
 
 archive_failure() {
@@ -109,37 +135,69 @@ else
   test -f "$DB" || { echo "ERROR: resume requires an existing Campaign" >&2; exit 1; }
   CLI_COMMAND=real-resume
 fi
-TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh -m sandbox.fuzzer.v2_cli "$CLI_COMMAND" \
+
+append_progress() {
+  local progress_mode="$1" requested_target="$2" report_path="$3"
+  python3 - "$CAMPAIGN_ID" "$progress_mode" "$requested_target" "$report_path" \
+    "$RESULT_ROOT/stage6-campaign-progress.jsonl" "$RUN_ATTEMPT_ID" <<'PY'
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+report = json.load(open(sys.argv[4], encoding="utf-8"))
+payload = json.dumps({
+    "schema_version": "office-v2-stage6-progress-v1",
+    "campaign_id": sys.argv[1],
+    "mode": sys.argv[2],
+    "requested_target": int(sys.argv[3]),
+    "observed_generation": report["generation_index"],
+    "completion_status": report["completion_status"],
+    "report_digest": report["report_digest"],
+    "run_attempt_id": sys.argv[6],
+    "recorded_at": datetime.now(timezone.utc).isoformat(),
+}, sort_keys=True).encode() + b"\n"
+descriptor = os.open(sys.argv[5], os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
+try:
+    os.write(descriptor, payload)
+    os.fsync(descriptor)
+finally:
+    os.close(descriptor)
+PY
+}
+
+if [[ "$MODE" == run ]]; then
+  controller controller.run-to-1 -m sandbox.fuzzer.v2_cli real-run \
+    --db "$DB" --campaign-id "$CAMPAIGN_ID" \
+    --bootstrap .trace-g/stage6-bootstrap.json \
+    --model-lock .trace-g/stage6-model-lock.json \
+    --agent-image "$AGENT_IMAGE" --mutator-image "$MUTATOR_IMAGE" \
+    --data-root "$CAMPAIGN_ROOT" --generations 1 --gpu-device "$GPU_DEVICE" \
+    --progress-dir "$RESULT_ROOT/generation-snapshots" \
+    > "$RESULT_ROOT/run-to-1.json" 2> "$RESULT_ROOT/run-to-1.stderr.log"
+  controller controller.report-to-1 -m sandbox.fuzzer.v2_cli report \
+    --db "$DB" --campaign-id "$CAMPAIGN_ID" \
+    --output "$RESULT_ROOT/campaign-report-to-1.json"
+  append_progress run 1 "$RESULT_ROOT/campaign-report-to-1.json"
+  CLI_COMMAND=real-resume
+fi
+controller "controller.$MODE-to-$TARGET" -m sandbox.fuzzer.v2_cli "$CLI_COMMAND" \
   --db "$DB" --campaign-id "$CAMPAIGN_ID" \
   --bootstrap .trace-g/stage6-bootstrap.json \
   --model-lock .trace-g/stage6-model-lock.json \
   --agent-image "$AGENT_IMAGE" \
   --mutator-image "$MUTATOR_IMAGE" \
   --data-root "$CAMPAIGN_ROOT" --generations "$TARGET" --gpu-device "$GPU_DEVICE" \
-  > "$RESULT_ROOT/run-to-${TARGET}.json"
-TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh -m sandbox.fuzzer.v2_cli report \
+  --progress-dir "$RESULT_ROOT/generation-snapshots" \
+  > "$RESULT_ROOT/run-to-${TARGET}.json" 2> "$RESULT_ROOT/run-to-${TARGET}.stderr.log"
+controller controller.report-to-$TARGET -m sandbox.fuzzer.v2_cli report \
   --db "$DB" --campaign-id "$CAMPAIGN_ID" --output "$RESULT_ROOT/campaign-report.json"
-TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+controller controller.milestone-to-$TARGET \
   scripts/audit_office_v2_stage6_campaign.py milestone-gate \
   --db "$DB" --campaign-id "$CAMPAIGN_ID" --target-generation "$TARGET" \
   --output "$RESULT_ROOT/milestone-to-${TARGET}.json"
-python3 - "$CAMPAIGN_ID" "$TARGET" "$RESULT_ROOT/campaign-report.json" \
-  >> "$RESULT_ROOT/stage6-campaign-progress.jsonl" <<'PY'
-import json
-import sys
-from datetime import datetime, timezone
-
-report = json.load(open(sys.argv[3], encoding="utf-8"))
-print(json.dumps({
-    "schema_version": "office-v2-stage6-progress-v1",
-    "campaign_id": sys.argv[1],
-    "requested_target": int(sys.argv[2]),
-    "observed_generation": report["generation_index"],
-    "completion_status": report["completion_status"],
-    "report_digest": report["report_digest"],
-    "recorded_at": datetime.now(timezone.utc).isoformat(),
-}, sort_keys=True))
-PY
+append_progress "$([[ "$MODE" == run ]] && echo resume || echo "$MODE")" \
+  "$TARGET" "$RESULT_ROOT/campaign-report.json"
 docker ps -a --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \
   --format '{{.ID}} {{.Image}} {{.Status}}' > "$RESULT_ROOT/container-residue.txt"
 docker volume ls --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \
@@ -147,7 +205,7 @@ docker volume ls --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \
 test ! -s "$RESULT_ROOT/container-residue.txt"
 test ! -s "$RESULT_ROOT/volume-residue.txt"
 if (( TARGET >= 2 )); then
-  TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+  controller controller.two-generation-gate \
     scripts/audit_office_v2_stage6_campaign.py \
     two-generation-gate --db "$DB" --campaign-id "$CAMPAIGN_ID" \
     --output "$RESULT_ROOT/two-generation-gate.json"
@@ -167,11 +225,13 @@ if not items:
 print(max(items)[1])
 PY
 )"
-TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+controller controller.strict-replay \
   -m sandbox.cli replay --replay-id "$REPLAY_ID" --mode strict \
+  --campaign-id "$CAMPAIGN_ID" --work-item-id replay.strict-gate --attempt 1 \
   --output-dir "$CAMPAIGN_ROOT/strict-replay-trajectories" \
   --artifact-dir "$CAMPAIGN_ROOT/artifacts" --manifest-dir "$CAMPAIGN_ROOT/replays" \
-  > "$RESULT_ROOT/stage6-replay-report.json"
+  > "$RESULT_ROOT/stage6-replay-report.json" \
+  2> "$RESULT_ROOT/stage6-replay.stderr.log"
 docker ps -a --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \
   --format '{{.ID}} {{.Image}} {{.Status}}' > "$RESULT_ROOT/container-residue.txt"
 docker volume ls --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \

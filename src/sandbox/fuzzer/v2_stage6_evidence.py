@@ -303,6 +303,32 @@ def _file_digest(path: Path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
+def _validate_sealed_mapping(
+    payload: dict[str, Any], *, digest_field: str, label: str
+) -> None:
+    expected = payload.get(digest_field)
+    actual = sha256_digest(
+        {key: value for key, value in payload.items() if key != digest_field}
+    )
+    if expected != actual:
+        raise ValueError(f"archived {label} digest differs")
+
+
+def _checkpoint_success_database(path: Path) -> None:
+    database = sqlite3.connect(path)
+    try:
+        integrity = database.execute("PRAGMA integrity_check").fetchone()
+        if integrity is None or integrity[0] != "ok":
+            raise ValueError("Campaign database integrity check failed")
+        database.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+        database.commit()
+    finally:
+        database.close()
+    wal = path.with_name(path.name + "-wal")
+    if wal.exists() and wal.stat().st_size:
+        raise ValueError("Campaign WAL remains non-empty after checkpoint")
+
+
 def verify_stage6_evidence_archive(path: Path) -> dict[str, object]:
     """Recompute every archived member and the companion archive checksum."""
 
@@ -381,7 +407,10 @@ def _verify_archived_stage6_closure(
     required = {
         "identity/stage6-model-lock.json",
         "identity/stage6-bootstrap.json",
+        "identity/stage6-repair-plan.json",
         "identity/stage6-repair-application.json",
+        "identity/stage6-stage.json",
+        "identity/stage6-source-tree.json",
         "preflight/stage6-preflight.json",
         "preflight/stage6-server-host.json",
         "preflight/stage6-gpu-residency.json",
@@ -403,12 +432,51 @@ def _verify_archived_stage6_closure(
     lock = _json_member(archive, "identity/stage6-model-lock.json")
     bootstrap = _json_member(archive, "identity/stage6-bootstrap.json")
     repair = _json_member(archive, "identity/stage6-repair-application.json")
+    repair_plan = _json_member(archive, "identity/stage6-repair-plan.json")
+    stage = _json_member(archive, "identity/stage6-stage.json")
+    source_tree = _json_member(archive, "identity/stage6-source-tree.json")
     preflight = _json_member(archive, "preflight/stage6-preflight.json")
     host = _json_member(archive, "preflight/stage6-server-host.json")
     gpu = _json_member(archive, "preflight/stage6-gpu-residency.json")
     lock_digest = lock.get("lock_digest")
     if lock_digest != sha256_digest({k: v for k, v in lock.items() if k != "lock_digest"}):
         raise ValueError("archived model lock digest differs")
+    _validate_sealed_mapping(
+        repair_plan, digest_field="lock_digest", label="repair plan"
+    )
+    _validate_sealed_mapping(
+        repair, digest_field="receipt_digest", label="repair receipt"
+    )
+    _validate_sealed_mapping(
+        source_tree, digest_field="source_tree_digest", label="source tree"
+    )
+    plan_roles = {
+        item.get("role"): item
+        for item in repair_plan.get("roles", [])
+        if isinstance(item, dict)
+    }
+    receipt_roles = {
+        item.get("role"): item
+        for item in repair.get("roles", [])
+        if isinstance(item, dict)
+    }
+    lock_roles = {
+        item.get("role"): item
+        for item in lock.get("roles", [])
+        if isinstance(item, dict)
+    }
+    role_chain_matches = set(plan_roles) == set(receipt_roles) == set(lock_roles) == {
+        "agent",
+        "mutator",
+    } and all(
+        plan_roles[role].get("final_image_reference")
+        == receipt_roles[role].get("image_reference")
+        == lock_roles[role].get("image_reference")
+        and receipt_roles[role].get("image_id") == lock_roles[role].get("image_id")
+        and receipt_roles[role].get("image_build_receipt_digest")
+        == lock_roles[role].get("image_build_receipt_digest")
+        for role in ("agent", "mutator")
+    )
     full_residency = gpu.get("full_residency", {})
     if (
         bootstrap.get("model_identity_digest") != lock.get("manifest_digest")
@@ -416,6 +484,16 @@ def _verify_archived_stage6_closure(
         or preflight.get("model_digest") != lock.get("manifest_digest")
         or preflight.get("model_lock_digest") != lock_digest
         or repair.get("active_model_lock_digest") != lock_digest
+        or repair.get("repair_lock_digest") != repair_plan.get("lock_digest")
+        or repair_plan.get("model_digest") != lock.get("manifest_digest")
+        or repair_plan.get("controller_image_reference")
+        != lock.get("controller_image_reference")
+        or repair_plan.get("controller_image_id") != lock.get("controller_image_id")
+        or not role_chain_matches
+        or stage.get("status") != "ready"
+        or stage.get("source_revision") != repair_plan.get("source_revision")
+        or stage.get("repair_lock_digest") != repair_plan.get("lock_digest")
+        or source_tree.get("source_revision") != repair_plan.get("source_revision")
         or host.get("captured") is not True
         or gpu.get("passed") is not True
         or full_residency.get("agent") is not True
@@ -429,6 +507,14 @@ def _verify_archived_stage6_closure(
         raise ValueError("archived Stage 6 identities or preflight evidence differ")
     if "campaign/campaign.sqlite3" not in names:
         return
+    wal_members = tuple(
+        item for item in manifest["members"]
+        if item["path"] == "campaign/campaign.sqlite3-wal"
+    )
+    if manifest.get("outcome") == "success" and any(
+        int(item["size"]) > 0 for item in wal_members
+    ):
+        raise ValueError("successful archive contains an uncheckpointed Campaign WAL")
     db_stream = archive.extractfile("campaign/campaign.sqlite3")
     if db_stream is None:
         raise ValueError("archived Campaign database is missing")
@@ -471,12 +557,40 @@ def _verify_archived_stage6_closure(
     if manifest.get("outcome") == "success":
         if not milestone_names:
             raise ValueError("successful archive has no milestone decision")
-        milestone_name = max(
-            milestone_names,
-            key=lambda name: int(
-                name.removeprefix("results/milestone-to-").removesuffix(".json")
-            ),
+        progress_rows = _json_lines_member(
+            archive, "results/stage6-campaign-progress.jsonl"
         )
+        progress = progress_rows[-1]
+        boundary_run = next(
+            (
+                index
+                for index, row in enumerate(progress_rows)
+                if row.get("mode") == "run"
+                and row.get("requested_target") == 1
+                and row.get("observed_generation") == 1
+            ),
+            None,
+        )
+        boundary_resume = next(
+            (
+                index
+                for index, row in enumerate(progress_rows)
+                if row.get("mode") == "resume"
+                and row.get("requested_target") == 2
+                and row.get("observed_generation") >= 2
+            ),
+            None,
+        )
+        if (
+            boundary_run is None
+            or boundary_resume is None
+            or boundary_resume <= boundary_run
+        ):
+            raise ValueError("successful archive lacks the active 1-to-2 resume boundary")
+        requested_target = progress.get("requested_target")
+        milestone_name = f"results/milestone-to-{requested_target}.json"
+        if milestone_name not in milestone_names:
+            raise ValueError("successful archive lacks this invocation's milestone")
         milestone = _json_member(archive, milestone_name)
         if (
             milestone.get("campaign_id") != campaign_id
@@ -485,10 +599,6 @@ def _verify_archived_stage6_closure(
             or milestone.get("passed") is not True
         ):
             raise ValueError("successful archive milestone does not match Campaign state")
-        progress_rows = _json_lines_member(
-            archive, "results/stage6-campaign-progress.jsonl"
-        )
-        progress = progress_rows[-1]
         if (
             progress.get("campaign_id") != campaign_id
             or progress.get("observed_generation") != campaign["generation_index"]
@@ -535,7 +645,10 @@ def build_stage6_evidence_archive(
     model_lock: Path,
     bootstrap: Path,
     preflight: Path,
+    repair_plan: Path,
     repair_receipt: Path,
+    stage_record: Path,
+    source_tree_identity: Path,
     server_host: Path,
     gpu_residency: Path,
     output: Path,
@@ -544,11 +657,17 @@ def build_stage6_evidence_archive(
 
     if outcome not in {"success", "failure"}:
         raise ValueError("outcome must be success or failure")
+    sidecar = output.with_name(output.name + ".sha256")
+    if output.exists() or sidecar.exists():
+        raise ValueError("evidence archive output already exists")
     required_files = {
         "identity/stage6-model-lock.json": model_lock,
         "identity/stage6-bootstrap.json": bootstrap,
         "preflight/stage6-preflight.json": preflight,
+        "identity/stage6-repair-plan.json": repair_plan,
         "identity/stage6-repair-application.json": repair_receipt,
+        "identity/stage6-stage.json": stage_record,
+        "identity/stage6-source-tree.json": source_tree_identity,
         "preflight/stage6-server-host.json": server_host,
         "preflight/stage6-gpu-residency.json": gpu_residency,
     }
@@ -557,6 +676,8 @@ def build_stage6_evidence_archive(
             raise ValueError(f"required evidence file is missing or unsafe: {path}")
     if outcome == "success" and not (campaign_root / "campaign.sqlite3").is_file():
         raise ValueError("successful archive requires campaign.sqlite3")
+    if outcome == "success":
+        _checkpoint_success_database(campaign_root / "campaign.sqlite3")
 
     sources = _tree_sources(campaign_root, "campaign")
     sources.extend(_tree_sources(result_root, "results"))
@@ -599,7 +720,7 @@ def build_stage6_evidence_archive(
         info.uname = info.gname = ""
         archive.addfile(info, io.BytesIO(manifest_bytes))
     archive_digest = _file_digest(output)
-    output.with_name(output.name + ".sha256").write_text(
+    sidecar.write_text(
         f"{archive_digest.removeprefix('sha256:')}  {output.name}\n", encoding="ascii"
     )
     verify_stage6_evidence_archive(output)

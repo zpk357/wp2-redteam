@@ -139,17 +139,18 @@ def test_real_runtime_seals_unknown_episode_failure_and_pauses(tmp_path) -> None
     _, state = loop_fixture()
     path = tmp_path / "unknown-episode.sqlite3"
     with V2CampaignStore(path) as store:
-        result = run_or_resume_real_campaign(
-            store=store,
-            campaign_id=CAMPAIGN_ID,
-            bootstrap=RealCampaignBootstrap(
-                initial_state=state,
-                model_identity_digest="sha256:" + "a" * 64,
-            ),
-            generation_count=2,
-            mutation_provider=RuleBasedV2MutationProvider(),
-            episode_runner=RaisingEpisodeRunner(),
-        )
+        with pytest.raises(RuntimeError, match="simulated unclassified runner failure"):
+            run_or_resume_real_campaign(
+                store=store,
+                campaign_id=CAMPAIGN_ID,
+                bootstrap=RealCampaignBootstrap(
+                    initial_state=state,
+                    model_identity_digest="sha256:" + "a" * 64,
+                ),
+                generation_count=2,
+                mutation_provider=RuleBasedV2MutationProvider(),
+                episode_runner=RaisingEpisodeRunner(),
+            )
         next_state = store.load_state(CAMPAIGN_ID)
         work = store._db.execute(
             "SELECT work_id FROM candidate_work WHERE campaign_id=?",
@@ -157,9 +158,9 @@ def test_real_runtime_seals_unknown_episode_failure_and_pauses(tmp_path) -> None
         ).fetchone()
         receipts = store.receipts_for_work(work["work_id"])
 
-        assert result.completed_generation_count == 1
+        assert next_state.lifecycle.counters.generation_index == 0
         assert next_state.lifecycle.completion_status == "paused"
-        assert next_state.budget.reserved_episodes == 0
+        assert next_state.budget.reserved_episodes == 1
         assert store.load_work(work["work_id"]).state == "ambiguous"
         assert receipts[0].disposition == "ambiguous"
 

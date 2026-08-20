@@ -21,8 +21,24 @@ if [[ "$RUN_DOCKER_E2E" != "0" && "$RUN_DOCKER_E2E" != "1" ]]; then
 fi
 
 extra_env_args=()
+label_args=(--label trace-g.role=controller)
 if [[ "$RUN_DOCKER_E2E" == "1" ]]; then
   extra_env_args+=(--env TRACE_G_RUN_DOCKER_E2E=1)
+fi
+if [[ -n "${TRACE_G_CAMPAIGN_ID:-}" ]]; then
+  [[ "$TRACE_G_CAMPAIGN_ID" =~ ^[a-z0-9][a-z0-9.-]{0,63}$ ]] || {
+    echo "ERROR: invalid TRACE_G_CAMPAIGN_ID" >&2
+    exit 1
+  }
+  [[ -n "${TRACE_G_WORK_ITEM_ID:-}" && "${TRACE_G_ATTEMPT:-}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "ERROR: Campaign-labelled Controller requires work item and attempt" >&2
+    exit 1
+  }
+  label_args+=(
+    --label "trace-g.campaign-id=$TRACE_G_CAMPAIGN_ID"
+    --label "trace-g.work-item-id=$TRACE_G_WORK_ITEM_ID"
+    --label "trace-g.attempt=$TRACE_G_ATTEMPT"
+  )
 fi
 
 command -v docker >/dev/null || {
@@ -37,6 +53,7 @@ command -v docker >/dev/null || {
   echo "ERROR: unable to resolve the wp2-redteam project root" >&2
   exit 1
 }
+mkdir -p "$PROJECT_DIR/.trace-g-data" "$PROJECT_DIR/reports"
 
 WORK_DIR="$PWD"
 case "$WORK_DIR" in
@@ -58,12 +75,14 @@ exec docker run --rm --init -i \
   --pids-limit 512 \
   --network "$CONTROLLER_NETWORK" \
   --mount "type=bind,source=$DOCKER_SOCKET,target=$DOCKER_SOCKET" \
-  --mount "type=bind,source=$PROJECT_DIR,target=$PROJECT_DIR" \
+  --mount "type=bind,source=$PROJECT_DIR,target=$PROJECT_DIR,readonly" \
+  --mount "type=bind,source=$PROJECT_DIR/.trace-g-data,target=$PROJECT_DIR/.trace-g-data" \
+  --mount "type=bind,source=$PROJECT_DIR/reports,target=$PROJECT_DIR/reports" \
   --workdir "$WORK_DIR" \
   --env HOME=/tmp/controller-home \
   --env PYTHONDONTWRITEBYTECODE=1 \
   --env PYTHONUNBUFFERED=1 \
   --env "PYTHONPATH=$PROJECT_DIR/src:$PROJECT_DIR/agent_image" \
   "${extra_env_args[@]}" \
-  --label trace-g.role=controller \
+  "${label_args[@]}" \
   "$CONTROLLER_IMAGE" "$@"
