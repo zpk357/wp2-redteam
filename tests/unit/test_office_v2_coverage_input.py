@@ -6,6 +6,13 @@ import pytest
 from pydantic import ValidationError
 
 from agent_image.app.office_v2_session import OfficeV2LiveOracleArtifact
+from sandbox.coverage.v2_contracts import build_v2_candidate_batch_baseline
+from sandbox.coverage.v2_episode_coverage import (
+    V2CandidateEpisode,
+    build_v2_episode_coverage_facts,
+    empty_v2_coverage_snapshot,
+    evaluate_v2_candidate_batch,
+)
 from sandbox.coverage.v2_input import (
     V2AcquisitionKind,
     V2CoverageInputError,
@@ -169,6 +176,30 @@ def test_direct_recording_and_strict_replay_share_canonical_facts() -> None:
             replay.acquisition.metadata_digest,
         }
     ) == 3
+
+    snapshots = []
+    for index, item in enumerate((direct, recording, replay), start=1):
+        baseline = empty_v2_coverage_snapshot()
+        candidate_id = f"candidate-{index}"
+        batch = build_v2_candidate_batch_baseline(
+            campaign_id="campaign-coverage-equivalence",
+            candidate_set_id=f"candidate-set-{index}",
+            candidate_set_digest=sha256_digest("same-candidate-set"),
+            baseline_snapshot_digest=baseline.snapshot_digest,
+            candidate_ids=(candidate_id,),
+        )
+        result = evaluate_v2_candidate_batch(
+            batch_baseline=batch,
+            baseline_snapshot=baseline,
+            candidates=(
+                V2CandidateEpisode(
+                    candidate_id=candidate_id,
+                    episode_facts=build_v2_episode_coverage_facts(item),
+                ),
+            ),
+        )
+        snapshots.append(result.next_snapshot)
+    assert snapshots[0] == snapshots[1] == snapshots[2]
 
 
 def test_initialization_is_separate_from_agent_state_transitions() -> None:

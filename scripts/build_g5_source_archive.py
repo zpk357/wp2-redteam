@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import subprocess
 import tarfile
 from pathlib import Path, PurePosixPath
@@ -38,9 +39,9 @@ def allowed_source_path(value: str) -> bool:
     return path.suffix.casefold() not in SECRET_SUFFIXES | DATABASE_SUFFIXES
 
 
-def git_visible_files(repository: Path) -> list[str]:
+def git_visible_files(repository: Path, revision: str = "HEAD") -> list[str]:
     result = subprocess.run(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        ["git", "ls-tree", "-r", "--name-only", "-z", revision],
         cwd=repository,
         check=True,
         capture_output=True,
@@ -52,21 +53,34 @@ def git_visible_files(repository: Path) -> list[str]:
     )
 
 
-def build_archive(repository: Path, output: Path) -> int:
+def build_archive(repository: Path, output: Path, revision: str = "HEAD") -> int:
     repository = repository.resolve()
     output = output.resolve()
-    files = [
-        relative
-        for relative in git_visible_files(repository)
-        if (repository / Path(*PurePosixPath(relative).parts)).is_file()
-    ]
+    files = git_visible_files(repository, revision)
     if not files:
         raise RuntimeError("G5 source archive would be empty")
+    archived = subprocess.run(
+        ["git", "archive", "--format=tar", revision],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+    ).stdout
     output.parent.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(output, mode="w", format=tarfile.PAX_FORMAT) as archive:
-        for relative in files:
-            source = repository / Path(*PurePosixPath(relative).parts)
-            archive.add(source, arcname=f"./{relative}", recursive=False)
+    allowed = set(files)
+    with (
+        tarfile.open(fileobj=io.BytesIO(archived), mode="r:") as source_archive,
+        tarfile.open(output, mode="w", format=tarfile.PAX_FORMAT) as archive,
+    ):
+        for member in source_archive:
+            relative = member.name.rstrip("/")
+            if relative not in allowed:
+                continue
+            member.name = f"./{relative}"
+            member.mtime = 0
+            member.uid = member.gid = 0
+            member.uname = member.gname = ""
+            payload = source_archive.extractfile(member) if member.isfile() else None
+            archive.addfile(member, payload)
     return len(files)
 
 
@@ -74,8 +88,13 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--revision",
+        default="HEAD",
+        help="exact committed tree to archive; dirty and untracked files are excluded",
+    )
     args = parser.parse_args()
-    count = build_archive(args.repository, args.output)
+    count = build_archive(args.repository, args.output, args.revision)
     print(f"G5 source archive files: {count}")
     return 0
 

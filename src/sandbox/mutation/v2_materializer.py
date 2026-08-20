@@ -61,6 +61,7 @@ def materialize_candidate(
     validation: CandidateValidationResult,
     scenario_case_id: str,
     targets: tuple[SlotMaterializationTarget, ...],
+    seed_id: str | None = None,
 ) -> DeterministicMaterialization:
     if validation.disposition is not CandidateValidationDisposition.ACCEPTED:
         raise ValueError("only accepted candidate can be materialized")
@@ -115,7 +116,7 @@ def materialize_candidate(
                 {"plan": plan.plan_digest, "candidate": parsed.candidate_digest}
             ).removeprefix("sha256:")[:24]
         ),
-        "seed_id": base.parent_seed_id,
+        "seed_id": seed_id or base.parent_seed_id,
         "generation_allocation_id": base.generation_allocation_id,
         "scenario_case_id": scenario_case_id,
         "actor_id": context.actor_id,

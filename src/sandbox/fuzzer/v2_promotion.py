@@ -10,7 +10,9 @@ from sandbox.coverage.v2_episode_coverage import (
     V2CoverageDelta,
     V2EpisodeCoverageFacts,
 )
+from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract
+from sandbox.scenarios.office_v2.oracle_models import ExposureStage
 
 
 class PromotionDisposition(StrEnum):
@@ -56,14 +58,21 @@ def classify_v2_promotion(
             reason_codes=tuple(f"hard-gate-{item}" for item in sorted(set(failed))),
         )
 
+    planned_risk = getattr(facts, "planned_risk", None)
+    evidence_backed_exposure = {
+        sha256_digest(
+            {"objective_id": objective.objective_id, "exposure_stage": stage}
+        )
+        for objective in (() if planned_risk is None else planned_risk.objectives)
+        for stage in objective.exposure.stages
+        if stage in {ExposureStage.OBSERVED, ExposureStage.USED}
+    }
     risk = tuple(
         sorted(
             {
-                *delta.new_exposure_stages,
+                *(set(delta.new_exposure_stages) & evidence_backed_exposure),
                 *delta.new_milestone_outcome_bits,
                 *delta.new_unexpected_violations,
-                *delta.new_risk_contexts,
-                *delta.new_behavior_risk_links,
             }
         )
     )

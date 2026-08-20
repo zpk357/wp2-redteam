@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.adapter.factory import AdapterFactory
@@ -55,6 +56,18 @@ from sandbox.scenarios.office_v2.fork import (
     rematerialize_office_v2_scenario_text,
 )
 from sandbox.scenarios.office_v2.interaction_session import ScriptedResponseDirective
+
+
+@dataclass(frozen=True)
+class LoadedFork:
+    request: ExecutionRequest
+    model: object | None
+    tools: ToolRegistry
+    initial: dict
+    recording: RecordingSession | None
+    start_node: str
+    audit_events: list[dict[str, object]]
+    v2_recording_state: OfficeV2RecordingState | None
 
 
 class ReplayAdapter:
@@ -406,16 +419,14 @@ class ReplayAdapter:
         return child_execution, child_session.export_recording_state()
 
     async def execute_fork(self, fork_request: ReplayForkRequest):
-        (
-            request,
-            model,
-            tools,
-            initial,
-            recording,
-            start_node,
-            audit_events,
-            v2_recording_state,
-        ) = self.load_fork(fork_request)
+        loaded = self.load_fork(fork_request)
+        request = loaded.request
+        model = loaded.model
+        tools = loaded.tools
+        initial = loaded.initial
+        recording = loaded.recording
+        audit_events = loaded.audit_events
+        v2_recording_state = loaded.v2_recording_state
         if request.office_v2_execution is not None:
             if v2_recording_state is None:
                 raise ReplayDivergenceError(
@@ -552,15 +563,15 @@ class ReplayAdapter:
                     "content_digest": sha256_digest(fork_request.injection.content),
                 },
             ]
-            return (
-                request,
-                None,
-                base_tools,
-                initial,
-                None,
-                "agent",
-                audit_events,
-                v2_recording_state,
+            return LoadedFork(
+                request=request,
+                model=None,
+                tools=base_tools,
+                initial=initial,
+                recording=None,
+                start_node="agent",
+                audit_events=audit_events,
+                v2_recording_state=v2_recording_state,
             )
         if office is not None:
             case = office.initialization.test_case
@@ -618,7 +629,16 @@ class ReplayAdapter:
             },
         ]
         if configured_model is not None and configured_model.provider == ModelProvider.OLLAMA:
-            return request, None, base_tools, initial, None, "agent", audit_events, None
+            return LoadedFork(
+                request=request,
+                model=None,
+                tools=base_tools,
+                initial=initial,
+                recording=None,
+                start_node="agent",
+                audit_events=audit_events,
+                v2_recording_state=None,
+            )
         recording = RecordingSession(
             request,
             base_model,
@@ -628,15 +648,15 @@ class ReplayAdapter:
             runtime_id="trace-react-v2",
         )
         recording.audit_events.extend(audit_events)
-        return (
-            request,
-            recording.model,
-            recording.tools,
-            initial,
-            recording,
-            "agent",
-            audit_events,
-            None,
+        return LoadedFork(
+            request=request,
+            model=recording.model,
+            tools=recording.tools,
+            initial=initial,
+            recording=recording,
+            start_node="agent",
+            audit_events=audit_events,
+            v2_recording_state=None,
         )
 
     @staticmethod

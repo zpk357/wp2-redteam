@@ -105,6 +105,9 @@ def seal_failed_provider_attempt(
     response_summary: str = "",
     http_status: int | None = None,
     truncated: bool = False,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    actual_cost_microunits: int = 0,
 ) -> MutationProviderAttempt:
     state = (
         ProviderAttemptState.AMBIGUOUS
@@ -134,6 +137,9 @@ def seal_failed_provider_attempt(
         "http_status": http_status,
         "truncated": truncated,
         "failure_class": failure_class,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "actual_cost_microunits": actual_cost_microunits,
     }
     draft = MutationProviderAttempt.model_construct(
         **payload, attempt_digest="sha256:" + "0" * 64

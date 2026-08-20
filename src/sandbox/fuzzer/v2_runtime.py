@@ -65,6 +65,7 @@ def run_or_resume_campaign(
     generation_count: int,
     driver: V2GenerationDriver,
     progress_callback: Callable[[V2CampaignRunResult], None] | None = None,
+    runtime_identity_digest: str | None = None,
 ) -> V2CampaignRunResult:
     if not 1 <= generation_count <= V2_CAMPAIGN_MAX_GENERATIONS:
         raise ValueError("generation_count must be between 1 and 50")
@@ -74,11 +75,17 @@ def run_or_resume_campaign(
         identity=build_v2_campaign_identity_lock(),
         initial_state=initial_state,
     )
+    if runtime_identity_digest is not None:
+        store.bind_runtime_identity(
+            campaign_id, identity_digest=runtime_identity_digest
+        )
     state = store.load_state(campaign_id)
     if state.lifecycle.counters.generation_index > generation_count:
         raise ValueError("stored Campaign is beyond requested generation count")
 
     while state.lifecycle.counters.generation_index < generation_count:
+        if state.lifecycle.completion_status is not None:
+            break
         generation = state.lifecycle.counters.generation_index
         previous_decision = store.load_latest_generation_decision(campaign_id)
         previous_closure = store.load_latest_generation_closure(campaign_id)
@@ -86,7 +93,11 @@ def run_or_resume_campaign(
         if previous_decision is not None and previous_decision.generation_index == generation:
             decision = previous_decision
             if decision.input_state_digest != state.state_digest:
-                raise ValueError("stored generation decision differs from current state")
+                state = store.pause_campaign(
+                    campaign_id,
+                    reason="incomplete-generation-recovery-required",
+                )
+                break
         else:
             decision = decide_next_generation(
                 campaign_id=campaign_id,
@@ -118,6 +129,8 @@ def run_or_resume_campaign(
                 feedback=advance.feedback,
             )
         state = advance.next_state
+        if state.lifecycle.completion_status is not None:
+            break
         if progress_callback is not None and state.lifecycle.counters.generation_index % 5 == 0:
             progress_callback(_build_result(store, campaign_id, generation_count, resumed))
 

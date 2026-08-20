@@ -7,7 +7,7 @@ import pytest
 from app.adapter.trace_react_adapter import TraceReactAdapter
 from app.agent.fake_react_provider import FakeReactProvider
 from app.replay.checkpoint import RecordingSession
-from app.replay.replay_adapter import ReplayAdapter
+from app.replay.replay_adapter import LoadedFork, ReplayAdapter
 from app.replay.state_codec import StateCodec
 from app.replay.tool_recorder import ToolRecorder, ToolReplayer
 from app.tools.base import ToolRegistry
@@ -159,14 +159,15 @@ async def test_formal_live_fork_cannot_fall_back_to_calibration_adapter(
     monkeypatch.setattr(
         adapter,
         "load_fork",
-        lambda fork_request: (
-            request,
-            None,
-            ToolRegistry(),
-            {},
-            None,
-            "agent",
-            [],
+        lambda fork_request: LoadedFork(
+            request=request,
+            model=None,
+            tools=ToolRegistry(),
+            initial={},
+            recording=None,
+            start_node="agent",
+            audit_events=[],
+            v2_recording_state=None,
         ),
     )
 

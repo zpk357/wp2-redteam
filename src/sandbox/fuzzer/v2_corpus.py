@@ -341,7 +341,11 @@ class V2CorpusSnapshot(OfficeV2Contract):
             raise ValueError("corpus snapshot execution lineage does not close")
         if any(
             item.seed_id not in seed_ids
-            or any(record_id not in execution_by_id for record_id in item.execution_record_ids)
+            or any(
+                record_id not in execution_by_id
+                or execution_by_id[record_id].seed_id != item.seed_id
+                for record_id in item.execution_record_ids
+            )
             for item in self.entries
         ):
             raise ValueError("corpus snapshot entry lineage does not close")
@@ -391,8 +395,12 @@ class V2Corpus:
     def add_entry(self, entry: CorpusEntry) -> None:
         if entry.seed_id not in self._seeds:
             raise ValueError("corpus entry refers to unknown seed")
-        if any(item not in self._executions for item in entry.execution_record_ids):
-            raise ValueError("corpus entry refers to unknown execution")
+        if any(
+            item not in self._executions
+            or self._executions[item].seed_id != entry.seed_id
+            for item in entry.execution_record_ids
+        ):
+            raise ValueError("corpus entry refers to an incompatible execution")
         self._insert_immutable(self._entries, entry.corpus_entry_id, entry, "entry")
 
     @staticmethod

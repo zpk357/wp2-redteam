@@ -37,6 +37,7 @@ class DockerOllamaV2MutationProvider:
         model_name: str,
         model_identity_digest: str,
         gpu_device: str = "0",
+        campaign_id: str | None = None,
         client: Any | None = None,
     ) -> None:
         self.image_ref = image_ref
@@ -44,6 +45,7 @@ class DockerOllamaV2MutationProvider:
         self.model_name = model_name
         self.model_identity_digest = model_identity_digest
         self.gpu_device = gpu_device
+        self.campaign_id = campaign_id
         self.client = client or docker.from_env()
         self._validate_image()
 
@@ -112,6 +114,11 @@ class DockerOllamaV2MutationProvider:
                     "trace-g.component": "office-v2-llm-mutator",
                     "trace-g.execution-id": execution_id,
                     "trace-g.request-digest": request_digest,
+                    **(
+                        {"trace-g.campaign-id": self.campaign_id}
+                        if self.campaign_id is not None
+                        else {}
+                    ),
                 },
                 mem_limit="14g",
                 nano_cpus=8_000_000_000,
@@ -135,12 +142,14 @@ class DockerOllamaV2MutationProvider:
                     response=raw,
                 )
             if int(result.get("StatusCode", 1)) != 0:
+                failure_class, http_status = self._worker_failure(errors)
                 raise self._failure(
                     plan,
                     attempt_index,
                     request_digest,
-                    ProviderFailureClass.SERVER_TRANSIENT,
+                    failure_class,
                     response=errors[-512:],
+                    http_status=http_status,
                 )
             try:
                 envelope = json.loads(raw)
@@ -221,6 +230,7 @@ class DockerOllamaV2MutationProvider:
         failure_class: ProviderFailureClass,
         *,
         response: bytes = b"",
+        http_status: int | None = None,
     ) -> V2ProviderFailure:
         return V2ProviderFailure(
             failure_class.value,
@@ -232,8 +242,27 @@ class DockerOllamaV2MutationProvider:
                 response_digest=sha256_bytes(response) if response else None,
                 response_bytes=len(response),
                 response_summary=response[:512].decode("utf-8", errors="replace"),
+                http_status=http_status,
             ),
         )
+
+    @staticmethod
+    def _worker_failure(
+        errors: bytes,
+    ) -> tuple[ProviderFailureClass, int | None]:
+        try:
+            payload = json.loads(errors)
+            if payload.get("schema_version") != "office-v2-mutator-worker-error-v1":
+                raise ValueError("worker error schema mismatch")
+            failure_class = ProviderFailureClass(payload["failure_class"])
+            http_status = payload.get("http_status")
+            if http_status is not None and (
+                not isinstance(http_status, int) or isinstance(http_status, bool)
+            ):
+                raise ValueError("worker HTTP status is invalid")
+            return failure_class, http_status
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return ProviderFailureClass.AMBIGUOUS, None
 
 
 __all__ = ["DockerOllamaV2MutationProvider"]

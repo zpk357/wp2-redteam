@@ -26,6 +26,17 @@ DIGEST_INPUT_PATTERN = re.compile(r"^(?:sha256:)?([0-9a-fA-F]{64})$")
 class BootstrapError(RuntimeError):
     """The formal Agent-Qwen runtime failed a closed identity or startup check."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        failure_class: str = "configuration_permanent",
+        http_status: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.failure_class = failure_class
+        self.http_status = http_status
+
 
 @dataclass(frozen=True)
 class BootstrapConfig:
@@ -113,16 +124,50 @@ def request_json(
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310
             raw = response.read(1024 * 1024 + 1)
+    except urllib.error.HTTPError as exc:
+        raw_error = exc.read(4097)
+        if len(raw_error) > 4096:
+            detail = "response exceeded the error byte limit"
+        else:
+            try:
+                error_payload = json.loads(raw_error)
+                error_value = error_payload.get("error")
+                detail = error_value if isinstance(error_value, str) else "invalid error response"
+            except (UnicodeError, ValueError):
+                detail = "invalid error response"
+        failure_class = (
+            "rate_limit_transient"
+            if exc.code == 429
+            else "server_transient"
+            if exc.code in {408, 500, 502, 503, 504}
+            else "configuration_permanent"
+        )
+        raise BootstrapError(
+            f"Ollama {path} rejected request with HTTP {exc.code}: {detail[:512]}",
+            failure_class=failure_class,
+            http_status=exc.code,
+        ) from exc
     except TimeoutError as exc:
-        raise BootstrapError(f"Ollama {path} timed out") from exc
+        raise BootstrapError(
+            f"Ollama {path} timed out", failure_class="timeout_transient"
+        ) from exc
     if len(raw) > 1024 * 1024:
-        raise BootstrapError(f"Ollama {path} response exceeded the byte limit")
+        raise BootstrapError(
+            f"Ollama {path} response exceeded the byte limit",
+            failure_class="protocol_integrity_permanent",
+        )
     try:
         result = json.loads(raw)
     except (UnicodeError, ValueError) as exc:
-        raise BootstrapError(f"Ollama {path} returned invalid JSON") from exc
+        raise BootstrapError(
+            f"Ollama {path} returned invalid JSON",
+            failure_class="protocol_integrity_permanent",
+        ) from exc
     if not isinstance(result, dict):
-        raise BootstrapError(f"Ollama {path} returned a non-object response")
+        raise BootstrapError(
+            f"Ollama {path} returned a non-object response",
+            failure_class="protocol_integrity_permanent",
+        )
     return result
 
 

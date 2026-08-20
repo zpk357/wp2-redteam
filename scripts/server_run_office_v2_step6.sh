@@ -19,6 +19,20 @@ DB="$CAMPAIGN_ROOT/campaign.sqlite3"
 PREFLIGHT="$PROJECT_DIR/reports/server-stage6/preflight/stage6-preflight.json"
 cd "$PROJECT_DIR"
 test -f "$PREFLIGHT" || { echo "ERROR: preflight missing" >&2; exit 1; }
+python3 - "$PREFLIGHT" .trace-g/stage6-model-lock.json <<'PY'
+import json
+import sys
+
+preflight = json.load(open(sys.argv[1], encoding="utf-8"))
+lock = json.load(open(sys.argv[2], encoding="utf-8"))
+if (
+    preflight.get("schema_version") != "office-v2-stage6-preflight-v1"
+    or preflight.get("passed") is not True
+    or preflight.get("model_name") != lock.get("model_name")
+    or preflight.get("model_digest") != lock.get("manifest_digest")
+):
+    raise SystemExit("ERROR: preflight identity does not match the active model lock")
+PY
 mkdir -p "$CAMPAIGN_ROOT" "$RESULT_ROOT"
 
 archive_campaign() {

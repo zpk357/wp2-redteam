@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-import socket
 from typing import Any
 
 import docker
@@ -273,7 +272,7 @@ class DockerOfficeMutationProvider:
         except OfficeMutationProviderError as exc:
             primary_error = exc
             raise
-        except (TimeoutError, socket.timeout) as exc:
+        except TimeoutError as exc:
             error = OfficeMutationProviderError(
                 "Docker Mutator timed out",
                 kind=OfficeMutationProviderFailureKind.TIMEOUT,

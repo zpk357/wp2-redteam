@@ -9,6 +9,7 @@ from sandbox.fuzzer.v2_real_runtime import (
 from sandbox.fuzzer.v2_stage6_evidence import audit_two_generation_gate
 from sandbox.mutation.v2_provider import (
     ProviderFailureClass,
+    RuleBasedV2MutationProvider,
     V2ProviderFailure,
     seal_failed_provider_attempt,
 )
@@ -41,6 +42,11 @@ class ForbiddenEpisodeRunner:
         raise AssertionError("rejected candidate must not launch an Agent Episode")
 
 
+class RaisingEpisodeRunner:
+    async def execute(self, **_kwargs):
+        raise RuntimeError("simulated unclassified runner failure")
+
+
 def test_recorded_agent_tokens_sum_prompt_and_completion_usage() -> None:
     action = {
         "assistant_text": "done",
@@ -66,7 +72,7 @@ def test_recorded_agent_tokens_sum_prompt_and_completion_usage() -> None:
     assert _recorded_agent_tokens((decision.model_dump_json() + "\n").encode()) == 29
 
 
-def test_real_runtime_chains_rejected_generations_without_agent_or_coverage(
+def test_real_runtime_pauses_after_permanent_provider_failure(
     tmp_path,
 ) -> None:
     _, state = loop_fixture()
@@ -86,11 +92,42 @@ def test_real_runtime_chains_rejected_generations_without_agent_or_coverage(
         next_state = store.load_state(CAMPAIGN_ID)
     gate = audit_two_generation_gate(db_path=path, campaign_id=CAMPAIGN_ID)
 
-    assert result.completed_generation_count == 2
-    assert len(result.feedback_digests) == 2
+    assert result.completed_generation_count == 1
+    assert len(result.feedback_digests) == 1
     assert next_state.coverage == state.coverage
     assert next_state.corpus == state.corpus
     assert next_state.lifecycle.counters.valid_committed_episodes == 0
-    assert next_state.lifecycle.counters.invalid_or_failed_attempts == 2
+    assert next_state.lifecycle.counters.invalid_or_failed_attempts == 1
+    assert next_state.lifecycle.completion_status == "paused"
+    assert next_state.lifecycle.pause_reason == "configuration_permanent"
     assert next_state.budget.consumed.mutator_tokens == 0
     assert gate["passed"] is False
+
+
+def test_real_runtime_seals_unknown_episode_failure_and_pauses(tmp_path) -> None:
+    _, state = loop_fixture()
+    path = tmp_path / "unknown-episode.sqlite3"
+    with V2CampaignStore(path) as store:
+        result = run_or_resume_real_campaign(
+            store=store,
+            campaign_id=CAMPAIGN_ID,
+            bootstrap=RealCampaignBootstrap(
+                initial_state=state,
+                model_identity_digest="sha256:" + "a" * 64,
+            ),
+            generation_count=2,
+            mutation_provider=RuleBasedV2MutationProvider(),
+            episode_runner=RaisingEpisodeRunner(),
+        )
+        next_state = store.load_state(CAMPAIGN_ID)
+        work = store._db.execute(
+            "SELECT work_id FROM candidate_work WHERE campaign_id=?",
+            (CAMPAIGN_ID,),
+        ).fetchone()
+        receipts = store.receipts_for_work(work["work_id"])
+
+        assert result.completed_generation_count == 1
+        assert next_state.lifecycle.completion_status == "paused"
+        assert next_state.budget.reserved_episodes == 0
+        assert store.load_work(work["work_id"]).state == "ambiguous"
+        assert receipts[0].disposition == "ambiguous"

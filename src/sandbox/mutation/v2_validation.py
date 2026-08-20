@@ -61,6 +61,9 @@ def validate_candidate(
         == plan.allocation.initial_context.authorization_branch
         or plan.allocation.authorization_branch_allocation is not None
     )
+    text_changed = bool(candidate.text_diffs) and all(
+        item.changed for item in candidate.text_diffs
+    )
     checks = (
         ("mutation-identity", identity_matches, "identity-drift"),
         (
@@ -96,8 +99,8 @@ def validate_candidate(
         ("authorization-frozen", authorization_preserved, "authorization-drift"),
         (
             "exact-duplicate",
-            candidate.candidate_digest not in known_candidate_digests,
-            "exact-duplicate",
+            text_changed and candidate.candidate_digest not in known_candidate_digests,
+            "candidate-noop" if not text_changed else "exact-duplicate",
         ),
         (
             "budget-and-lineage",
@@ -126,7 +129,9 @@ def validate_candidate(
     return CandidateValidationResult(
         disposition=disposition,
         checks=results,
-        exact_duplicate=candidate.candidate_digest in known_candidate_digests,
+        exact_duplicate=(
+            not text_changed or candidate.candidate_digest in known_candidate_digests
+        ),
     )
 
 

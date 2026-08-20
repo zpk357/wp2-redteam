@@ -15,6 +15,22 @@ cd "$KIT_DIR"
 sha256sum -c SHA256SUMS
 docker load --input images/office-v2-stage6-qwen-role-images.tar
 docker load --input images/trace-redteam-controller-server.tar
+python3 - locks/stage6-model-lock.json <<'PY'
+import json
+import subprocess
+import sys
+
+lock = json.load(open(sys.argv[1], encoding="utf-8"))
+expected = [(lock["controller_image_reference"], lock["controller_image_id"])]
+expected.extend((role["image_reference"], role["image_id"]) for role in lock["roles"])
+for reference, image_id in expected:
+    actual = subprocess.check_output(
+        ["docker", "image", "inspect", reference, "--format", "{{.Id}}"],
+        text=True,
+    ).strip().lower()
+    if actual != image_id.lower():
+        raise SystemExit(f"ERROR: loaded image identity differs for {reference}")
+PY
 mkdir -p "$PROJECT_DIR"
 tar -xf "$SOURCE_ARCHIVE" -C "$PROJECT_DIR"
 mkdir -p "$PROJECT_DIR/.trace-g" "$PROJECT_DIR/.trace-g-data" \

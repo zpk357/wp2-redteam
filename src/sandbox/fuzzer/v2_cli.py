@@ -168,6 +168,7 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
         model_name=lock.model_name,
         model_identity_digest=lock.manifest_digest,
         gpu_device=args.gpu_device,
+        campaign_id=args.campaign_id,
         client=client,
     )
     episode_runner = DockerOfficeV2EpisodeRunner(

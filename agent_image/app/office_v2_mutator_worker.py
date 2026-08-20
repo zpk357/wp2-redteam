@@ -17,6 +17,7 @@ from app.agent_qwen_bootstrap import (
 )
 from sandbox.mutation.v2_brief import MinimalFactBrief, MutationCandidateResponse
 from sandbox.mutation.v2_contracts import MutationPlan
+from sandbox.ollama_schema import ollama_compatible_schema
 
 REQUEST_ENV = "TRACE_G_V2_MUTATION_REQUEST_B64"
 SYSTEM_PROMPT = (
@@ -25,6 +26,10 @@ SYSTEM_PROMPT = (
     "placement, authorization branch, operator, or any host-owned field. Return only "
     "the requested JSON schema."
 )
+
+
+def _response_schema() -> dict[str, object]:
+    return ollama_compatible_schema(MutationCandidateResponse.model_json_schema())
 
 
 def _request() -> tuple[MutationPlan, MinimalFactBrief, int]:
@@ -58,7 +63,7 @@ def _generate(
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": brief.model_dump_json(exclude_none=False)},
             ],
-            "format": MutationCandidateResponse.model_json_schema(),
+            "format": _response_schema(),
             "stream": False,
             "think": False,
             "options": {
@@ -75,11 +80,17 @@ def _generate(
     message = response.get("message")
     content = message.get("content") if isinstance(message, dict) else None
     if not isinstance(content, str):
-        raise BootstrapError("Ollama V2 mutation response has no message content")
+        raise BootstrapError(
+            "Ollama V2 mutation response has no message content",
+            failure_class="protocol_integrity_permanent",
+        )
     try:
         candidate = MutationCandidateResponse.model_validate_json(content)
     except ValueError as exc:
-        raise BootstrapError("Ollama V2 mutation response violates schema") from exc
+        raise BootstrapError(
+            "Ollama V2 mutation response violates schema",
+            failure_class="protocol_integrity_permanent",
+        ) from exc
     return {
         "schema_version": "office-v2-mutator-worker-v1",
         "model_name": config.model_name,
@@ -115,7 +126,29 @@ def main() -> int:
         )
         return 0
     except (BootstrapError, OSError, TypeError, ValueError) as exc:
-        print(f"Office V2 mutator failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        if isinstance(exc, BootstrapError):
+            failure_class = exc.failure_class
+            http_status = exc.http_status
+        elif isinstance(exc, OSError):
+            failure_class = "transport_transient"
+            http_status = None
+        else:
+            failure_class = "configuration_permanent"
+            http_status = None
+        print(
+            json.dumps(
+                {
+                    "schema_version": "office-v2-mutator-worker-error-v1",
+                    "failure_class": failure_class,
+                    "http_status": http_status,
+                    "error_type": type(exc).__name__,
+                    "summary": str(exc)[:512],
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
         return 1
     finally:
         if ollama is not None and ollama.poll() is None:

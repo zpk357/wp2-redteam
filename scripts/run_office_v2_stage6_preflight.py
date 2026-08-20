@@ -46,6 +46,9 @@ async def run_preflight(args) -> dict[str, object]:
         raise ValueError("preflight image references differ from Stage6 model lock")
 
     client = docker.from_env()
+    controller_image = client.images.get(lock.controller_image_reference)
+    if controller_image.id.lower() != lock.controller_image_id.lower():
+        raise ValueError("controller image ID differs from Stage6 model lock")
     for role, reference in ((agent, args.agent_image), (mutator, args.mutator_image)):
         if client.images.get(reference).id.lower() != role.image_id.lower():
             raise ValueError(f"{role.role.value} image ID differs from Stage6 model lock")
@@ -84,6 +87,7 @@ async def run_preflight(args) -> dict[str, object]:
         model_name=lock.model_name,
         model_identity_digest=lock.manifest_digest,
         gpu_device=args.gpu_device,
+        campaign_id="stage6-preflight",
         client=client,
     )
     mutation = await provider.generate(plan=plan, brief=brief, attempt_index=1)

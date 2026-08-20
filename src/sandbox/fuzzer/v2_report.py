@@ -70,7 +70,8 @@ def build_v2_campaign_report(
         "feedback": [json.loads(item["feedback_json"]) for item in feedback],
         "findings": [json.loads(item["finding_json"]) for item in findings],
         "recovery": {
-            key: list(values) for key, values in store.recover(campaign_id).items()
+            key: list(values)
+            for key, values in store.inspect_recovery(campaign_id).items()
         },
     }
     payload["report_digest"] = sha256_digest(payload)

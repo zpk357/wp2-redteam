@@ -28,8 +28,13 @@ from sandbox.scenarios.office_v2.fork import (
     rematerialize_office_v2_scenario_text,
 )
 from sandbox.scenarios.office_v2.models import OfficeV2Contract
+from sandbox.scenarios.office_v2.oracle_models import ExposureStage
 
-from .v2_campaign import record_non_episode_generation, record_valid_episode
+from .v2_campaign import (
+    evaluate_campaign_lifecycle,
+    record_non_episode_generation,
+    record_valid_episode,
+)
 from .v2_campaign_loop import (
     build_v2_coverage_artifact,
     promote_coverage_artifact,
@@ -44,7 +49,7 @@ from .v2_campaign_state import (
     settle_mutation_budget,
 )
 from .v2_campaign_store import V2CampaignStore
-from .v2_corpus import ExecutionCosts
+from .v2_corpus import AttackSeed, ExecutionCosts, PayloadSpec, seal_contract
 from .v2_feedback import (
     build_finding,
     build_next_generation_feedback,
@@ -164,7 +169,8 @@ class _RealGenerationDriver:
             reservation=mutation_reservation, next_state=mutation_reserved_state
         )
 
-        source_case = source_attack_case(execution.scenario_case_id)
+        source_execution = _source_execution_for_seed(state, seed)
+        source_case = source_attack_case(source_execution.scenario_case_id)
         canonical_world = load_canonical_world()
         purpose = infer_office_v2_compatibility_purpose(source_case, canonical_world)
         slot = plan.payload_slots[0]
@@ -183,6 +189,9 @@ class _RealGenerationDriver:
                 purpose=purpose,
                 seed=decision.generation_index,
             ).scenario_case.case_id
+
+        def resolve_seed_id(parsed) -> str:
+            return _derived_seed_id(seed, plan.plan_digest, parsed.candidate_digest)
 
         brief = build_minimal_fact_brief(
             plan=plan,
@@ -204,6 +213,7 @@ class _RealGenerationDriver:
                 parent_text_by_slot={slot.payload_slot_id: parent_payload.content},
                 scenario_case_id=source_case.case_id,
                 scenario_case_id_resolver=resolve_case_id,
+                seed_id_resolver=resolve_seed_id,
                 targets=(
                     SlotMaterializationTarget(
                         payload_slot_id=slot.payload_slot_id,
@@ -261,16 +271,41 @@ class _RealGenerationDriver:
         )
         self.store.transition_work(work.work_id, state=CandidateWorkState.EXECUTING)
         execution_id = f"v2-generation-{decision.generation_index}-{work.work_id[-12:]}"
-        episode = asyncio.run(
-            self.episode_runner.execute(
-                source_scenario_case_id=execution.scenario_case_id,
-                generated_content=materialized.slot_values[0].visible_content,
-                execution_id=execution_id,
-                seed=decision.generation_index,
+        try:
+            episode = asyncio.run(
+                self.episode_runner.execute(
+                    source_scenario_case_id=source_case.case_id,
+                    generated_content=materialized.slot_values[0].visible_content,
+                    execution_id=execution_id,
+                    seed=decision.generation_index,
+                )
             )
-        )
+        except Exception as exc:
+            receipt = _unknown_failure_receipt(work_id=work.work_id, error=exc)
+            self.store.seal_attempt(receipt)
+            self.store.transition_work(
+                work.work_id, state=CandidateWorkState.AMBIGUOUS
+            )
+            return self._close_failed_episode(
+                campaign_id=campaign_id,
+                decision=decision,
+                state=episode_reserved_state,
+                preparation=preparation,
+                previous_feedback=previous_feedback,
+                work_id=work.work_id,
+                receipt=receipt,
+                reservation=agent_reservation,
+            )
         candidate = preparation.materialized_candidate
         assert candidate is not None
+        assert preparation.parsed_candidate is not None
+        derived_seed = _build_derived_seed(
+            parent=seed,
+            plan=plan,
+            parsed=preparation.parsed_candidate,
+        )
+        if candidate.seed_id != derived_seed.seed_id:
+            raise ValueError("prepared candidate and derived seed identity differ")
         if candidate.scenario_case_id != episode.scenario_case.case_id:
             raise ValueError("prepared candidate and executed scenario identity differ")
         receipt = _successful_receipt(
@@ -297,7 +332,7 @@ class _RealGenerationDriver:
             candidate_id=candidate.materialized_candidate_id,
             artifact=artifact,
             baseline=episode_reserved_state.coverage,
-            seed=seed,
+            seed=derived_seed,
             candidate=candidate,
             attempt_receipt_ids=(receipt.attempt_id,),
             costs=receipt.costs,
@@ -305,7 +340,7 @@ class _RealGenerationDriver:
             frontier_snapshot=episode_reserved_state.frontiers,
             execution_closure=execution_closure,
         )
-        coverage_gain = _coverage_gain(promoted.delta)
+        coverage_gain = _coverage_gain(promoted.delta, promoted.facts)
         next_frontiers = record_frontier_result(
             promoted.frontiers,
             frontier_id=decision.allocation.frontier_id,
@@ -412,13 +447,27 @@ class _RealGenerationDriver:
         preparation: MutationPreparation,
         previous_feedback,
     ) -> V2GenerationAdvance:
+        lifecycle = record_non_episode_generation(state.lifecycle)
+        if preparation.state is MutationPreparationState.PAUSED:
+            reason = preparation.outcome.reason_codes[0]
+            lifecycle = evaluate_campaign_lifecycle(
+                current=lifecycle,
+                baseline_ledger=state.exposure_ledger,
+                risk_frontier_states=tuple(
+                    item.scheduling_state for item in state.frontiers.risk_frontiers
+                ),
+                behavior_frontier_states=tuple(
+                    item.scheduling_state for item in state.frontiers.behavior_frontiers
+                ),
+                pause_reason=reason,
+            )
         next_state = build_campaign_state(
             coverage=state.coverage,
             corpus=state.corpus,
             frontiers=state.frontiers,
             exposure_ledger=state.exposure_ledger,
             budget=state.budget,
-            lifecycle=record_non_episode_generation(state.lifecycle),
+            lifecycle=lifecycle,
         )
         disposition = (
             NonEpisodeDisposition.PREPARATION_REJECTED
@@ -431,13 +480,93 @@ class _RealGenerationDriver:
             disposition=disposition,
             previous_state=state,
             next_state=next_state,
-            actual_costs=ExecutionCosts(),
+            actual_costs=ExecutionCosts(
+                mutator_tokens=(
+                    preparation.outcome.actual_input_tokens
+                    + preparation.outcome.actual_output_tokens
+                ),
+                monetary_microunits=(
+                    preparation.outcome.actual_cost_microunits
+                ),
+            ),
             preparation=preparation,
         )
         feedback = build_non_episode_feedback(
             campaign_id=campaign_id,
             generation_index=next_state.lifecycle.counters.generation_index,
             reason_code=f"preparation-{preparation.state.value}",
+            previous_feedback=previous_feedback,
+        )
+        closure = build_generation_closure_receipt(
+            campaign_id=campaign_id,
+            generation_index=decision.generation_index,
+            closure_kind=GenerationClosureKind.NON_EPISODE_SETTLEMENT,
+            settlement_id=settlement.settlement_id,
+            settlement_digest=settlement.settlement_digest,
+            resulting_state_digest=next_state.state_digest,
+        )
+        self.store.commit_non_episode_settlement(
+            settlement=settlement,
+            next_state=next_state,
+            feedback=feedback,
+            closure=closure,
+        )
+        return V2GenerationAdvance(
+            next_state=next_state,
+            closure=closure,
+            feedback=feedback,
+            persisted=True,
+        )
+
+    def _close_failed_episode(
+        self,
+        *,
+        campaign_id,
+        decision,
+        state,
+        preparation,
+        previous_feedback,
+        work_id,
+        receipt,
+        reservation,
+    ) -> V2GenerationAdvance:
+        lifecycle = evaluate_campaign_lifecycle(
+            current=record_non_episode_generation(state.lifecycle),
+            baseline_ledger=state.exposure_ledger,
+            risk_frontier_states=tuple(
+                item.scheduling_state for item in state.frontiers.risk_frontiers
+            ),
+            behavior_frontier_states=tuple(
+                item.scheduling_state for item in state.frontiers.behavior_frontiers
+            ),
+            pause_reason="episode-runner-unknown-failure",
+        )
+        next_state = build_campaign_state(
+            coverage=state.coverage,
+            corpus=state.corpus,
+            frontiers=state.frontiers,
+            exposure_ledger=state.exposure_ledger,
+            budget=settle_campaign_budget(
+                state.budget, reservation=reservation, actual=receipt.costs
+            ),
+            lifecycle=lifecycle,
+        )
+        settlement = build_non_episode_settlement(
+            campaign_id=campaign_id,
+            generation_allocation_id=decision.allocation.generation_allocation_id,
+            disposition=NonEpisodeDisposition.WORK_AMBIGUOUS_FAILURE,
+            previous_state=state,
+            next_state=next_state,
+            actual_costs=receipt.costs,
+            preparation=preparation,
+            work_id=work_id,
+            attempt_receipt_ids=(receipt.attempt_id,),
+            released_reservation=reservation,
+        )
+        feedback = build_non_episode_feedback(
+            campaign_id=campaign_id,
+            generation_index=next_state.lifecycle.counters.generation_index,
+            reason_code="episode-runner-unknown-failure",
             previous_feedback=previous_feedback,
         )
         closure = build_generation_closure_receipt(
@@ -473,6 +602,65 @@ def _replace_budget(state, budget):
     )
 
 
+def _derived_seed_id(parent: AttackSeed, plan_digest: str, candidate_digest: str) -> str:
+    return "seed." + sha256_digest(
+        {
+            "parent_seed_id": parent.seed_id,
+            "plan_digest": plan_digest,
+            "candidate_digest": candidate_digest,
+        }
+    ).removeprefix("sha256:")[:24]
+
+
+def _build_derived_seed(*, parent, plan, parsed) -> AttackSeed:
+    generated_by_spec = {
+        slot.payload_spec_id: dict(parsed.slot_values)[slot.payload_slot_id]
+        for slot in plan.payload_slots
+    }
+    payload_specs = tuple(
+        PayloadSpec(
+            payload_spec_id=item.payload_spec_id,
+            content=generated_by_spec.get(item.payload_spec_id, item.content),
+            carrier_kind=item.carrier_kind,
+            field_path=item.field_path,
+            placement_round=item.placement_round + 1,
+            content_digest=sha256_digest(
+                {"content": generated_by_spec.get(item.payload_spec_id, item.content)}
+            ),
+        )
+        for item in parent.payload_specs
+    )
+    return seal_contract(
+        AttackSeed,
+        {
+            "seed_id": _derived_seed_id(
+                parent, plan.plan_digest, parsed.candidate_digest
+            ),
+            "payload_specs": payload_specs,
+            "carrier_recipe": parent.carrier_recipe,
+            "origin_intent": parent.origin_intent,
+            "binding_requirements": parent.binding_requirements,
+            "operator_history": (
+                *parent.operator_history,
+                *plan.allocation.operator_allocation.selected_operator_families,
+            ),
+            "parent_seed_id": parent.seed_id,
+            "root_seed_id": parent.root_seed_id,
+            "generation_depth": parent.generation_depth + 1,
+        },
+        "seed_content_digest",
+    )
+
+
+def _source_execution_for_seed(state, seed):
+    source_seed_id = seed.root_seed_id
+    return next(
+        item
+        for item in state.corpus.execution_records
+        if item.seed_id == source_seed_id
+    )
+
+
 def _successful_receipt(
     *, work_id: str, manifest_digest: str, agent_tokens: int, elapsed_ms: int
 ):
@@ -489,17 +677,42 @@ def _successful_receipt(
     return seal_work_contract(AttemptReceipt, payload, "receipt_digest")
 
 
-def _coverage_gain(delta) -> bool:
+def _unknown_failure_receipt(*, work_id: str, error: Exception) -> AttemptReceipt:
+    detail = {
+        "error_type": type(error).__name__,
+        "message": str(error)[:500],
+    }
+    return seal_work_contract(
+        AttemptReceipt,
+        {
+            "attempt_id": f"attempt.{work_id[5:]}.1",
+            "work_id": work_id,
+            "attempt_number": 1,
+            "disposition": AttemptDisposition.AMBIGUOUS,
+            "error_code": "episode-unknown-failure",
+            "response_digest": sha256_digest(detail),
+            "response_byte_count": len(str(error).encode("utf-8")),
+            "bounded_summary": f"unclassified {type(error).__name__}",
+            "costs": ExecutionCosts(),
+        },
+        "receipt_digest",
+    )
+
+
+def _coverage_gain(delta, facts) -> bool:
+    evidence_backed_exposure = {
+        sha256_digest(
+            {"objective_id": objective.objective_id, "exposure_stage": stage}
+        )
+        for objective in facts.planned_risk.objectives
+        for stage in objective.exposure.stages
+        if stage in {ExposureStage.OBSERVED, ExposureStage.USED}
+    }
     return bool(
         delta.new_primary_behavior_features
-        or delta.new_primary_scheduling_families
-        or delta.new_risk_facets
-        or delta.new_risk_objectives
-        or delta.new_exposure_stages
+        or set(delta.new_exposure_stages) & evidence_backed_exposure
         or delta.new_milestone_outcome_bits
         or delta.new_unexpected_violations
-        or delta.new_risk_contexts
-        or delta.new_behavior_risk_links
     )
 
 
@@ -539,6 +752,7 @@ def run_or_resume_real_campaign(
             mutation_provider=mutation_provider,
             episode_runner=episode_runner,
         ),
+        runtime_identity_digest=bootstrap.model_identity_digest,
     )
 
 

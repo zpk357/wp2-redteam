@@ -110,14 +110,17 @@ async def prepare_candidate(
     parent_text_by_slot: dict[str, str],
     scenario_case_id: str,
     scenario_case_id_resolver: Callable[[ParsedMutationCandidate], str] | None = None,
+    seed_id_resolver: Callable[[ParsedMutationCandidate], str] | None = None,
     targets: tuple[SlotMaterializationTarget, ...],
     known_candidate_digests: frozenset[str] = frozenset(),
 ) -> tuple[MutationPreparation, DeterministicMaterialization | None]:
     attempts: list[MutationProviderAttempt] = []
     result = None
     for attempt_index in range(1, plan.budget.max_attempts + 1):
-        reserved_tokens = (attempt_index - 1) * plan.budget.per_attempt_token_limit
-        if reserved_tokens >= plan.budget.plan_total_token_budget:
+        consumed_tokens = sum(
+            item.input_tokens + item.output_tokens for item in attempts
+        )
+        if consumed_tokens >= plan.budget.plan_total_token_budget:
             break
         try:
             result = await provider.generate(
@@ -163,12 +166,16 @@ async def prepare_candidate(
         registry=registry,
         candidate=parsed,
         known_candidate_digests=known_candidate_digests,
-        cumulative_output_tokens=sum(item.output_tokens for item in attempts),
+        cumulative_output_tokens=sum(
+            item.input_tokens + item.output_tokens for item in attempts
+        ),
     )
     costs = {
-        "actual_input_tokens": result.attempt.input_tokens,
-        "actual_output_tokens": result.attempt.output_tokens,
-        "actual_cost_microunits": result.attempt.actual_cost_microunits,
+        "actual_input_tokens": sum(item.input_tokens for item in attempts),
+        "actual_output_tokens": sum(item.output_tokens for item in attempts),
+        "actual_cost_microunits": sum(
+            item.actual_cost_microunits for item in attempts
+        ),
     }
     common = {
         "preparation_id": f"preparation.{plan.plan_digest.removeprefix('sha256:')[:24]}",
@@ -206,6 +213,7 @@ async def prepare_candidate(
         validation=validation,
         scenario_case_id=resolved_scenario_case_id,
         targets=targets,
+        seed_id=(seed_id_resolver(parsed) if seed_id_resolver is not None else None),
     )
     outcome = PreparationOutcome(
         disposition=MutationPreparationState.READY,

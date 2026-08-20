@@ -33,6 +33,7 @@ ALLOWED_PYTHON_FILES = {
     "cli_entry.py",
     "clean_cases.py",
     "execution_contracts.py",
+    "fork.py",
     "interaction.py",
     "interaction_session.py",
     "models.py",

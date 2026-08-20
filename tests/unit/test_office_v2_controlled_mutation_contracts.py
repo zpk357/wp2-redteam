@@ -57,9 +57,11 @@ from sandbox.mutation.v2_preparation import (
     prepare_candidate,
 )
 from sandbox.mutation.v2_provider import (
+    MutationProviderResult,
     ProviderFailureClass,
     RuleBasedV2MutationProvider,
     V2ProviderFailure,
+    seal_failed_provider_attempt,
 )
 from sandbox.mutation.v2_validation import (
     CandidateValidationDisposition,
@@ -362,6 +364,87 @@ def test_exact_duplicate_is_rejected_without_predicting_coverage() -> None:
     )
     assert result.disposition is CandidateValidationDisposition.REJECTED
     assert result.exact_duplicate is True
+
+
+def test_unchanged_parent_text_is_rejected_as_noop() -> None:
+    item = plan()
+    parsed = parse_candidate(
+        plan=item,
+        raw_json=(
+            '{"slot_values":[{"payload_slot_id":"slot-1",'
+            '"generated_content":"parent"}]}'
+        ),
+        parent_text_by_slot={"slot-1": "parent"},
+    )
+    result = validate_candidate(
+        plan=item,
+        registry=build_v2_mutation_field_registry(),
+        candidate=parsed,
+    )
+    assert result.disposition is CandidateValidationDisposition.REJECTED
+    assert any(
+        check.reason_code == "candidate-noop" and not check.passed
+        for check in result.checks
+    )
+
+
+class RetryThenRuleProvider(RuleBasedV2MutationProvider):
+    async def generate(self, *, plan, brief, attempt_index):
+        if attempt_index == 1:
+            attempt = seal_failed_provider_attempt(
+                plan=plan,
+                attempt_index=attempt_index,
+                request_digest=digest("retry-request"),
+                failure_class=ProviderFailureClass.SERVER_TRANSIENT,
+                input_tokens=7,
+                output_tokens=3,
+                actual_cost_microunits=11,
+            )
+            raise V2ProviderFailure("temporary", attempt=attempt)
+        result: MutationProviderResult = await super().generate(
+            plan=plan, brief=brief, attempt_index=attempt_index
+        )
+        return result
+
+
+@pytest.mark.asyncio
+async def test_preparation_accumulates_failed_and_successful_attempt_costs() -> None:
+    item = plan()
+    brief = build_minimal_fact_brief(
+        plan=item,
+        frontier_description="Exercise an uncovered business-policy boundary.",
+        operator_instructions=("Change only the expression structure.",),
+        scenario_facts=(),
+        parent_payload_texts=("Parent test instruction",),
+    )
+    preparation, _ = await prepare_candidate(
+        campaign_id="campaign-1",
+        plan=item,
+        brief=brief,
+        registry=build_v2_mutation_field_registry(),
+        provider=RetryThenRuleProvider(),
+        parent_text_by_slot={"slot-1": "Parent test instruction"},
+        scenario_case_id="scenario-case-1",
+        targets=(
+            SlotMaterializationTarget(
+                payload_slot_id="slot-1",
+                resource_id="message-1",
+                resource_version="v1",
+                field_path="body",
+                original_content="Original business content",
+                operation=TextMaterializationOperation.APPEND,
+            ),
+        ),
+    )
+    assert preparation.state is MutationPreparationState.READY
+    assert len(preparation.provider_attempts) == 2
+    assert preparation.outcome.actual_input_tokens == (
+        7 + preparation.provider_attempts[1].input_tokens
+    )
+    assert preparation.outcome.actual_output_tokens == (
+        3 + preparation.provider_attempts[1].output_tokens
+    )
+    assert preparation.outcome.actual_cost_microunits == 11
 
 
 class FakeOllamaTransport:

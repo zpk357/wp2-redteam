@@ -28,6 +28,7 @@ class NonEpisodeDisposition(StrEnum):
     PREPARATION_REJECTED = "preparation_rejected"
     PREPARATION_PAUSED = "preparation_paused"
     WORK_PERMANENT_FAILURE = "work_permanent_failure"
+    WORK_AMBIGUOUS_FAILURE = "work_ambiguous_failure"
     CANCELLED_BEFORE_EXECUTION = "cancelled_before_execution"
 
 
@@ -259,7 +260,6 @@ def build_execution_handoff(
     if base != allocation:
         raise ValueError("preparation allocation differs from execution allocation")
     checks = {
-        "seed": (candidate.seed_id, allocation.parent_seed_id),
         "binding": (candidate.binding_source_digest, allocation.binding_source_digest),
         "baseline": (candidate.baseline_snapshot_digest, allocation.coverage_snapshot_digest),
         "generation allocation": (
@@ -350,7 +350,7 @@ def build_execution_closure_from_oracle(
             )
             for item in candidate.delivered_payloads
         )
-        if ExposureStage.OBSERVED in stages
+        if ExposureStage.OBSERVED in stages and len(candidate.delivered_payloads) == 1
         else ()
     )
     used = observed if ExposureStage.USED in stages else ()

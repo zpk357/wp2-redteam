@@ -583,9 +583,10 @@ def _union_snapshot(baseline: V2CoverageSnapshot, episodes: tuple[V2EpisodeCover
                 }
             )
         ),
-        "input_digests": tuple(
-            sorted({*baseline.input_digests, *(item.input_digest for item in episodes)})
-        ),
+        # Acquisition-specific input digests belong to artifact audit, not coverage.
+        # Keeping them out prevents direct/recording/replay of identical facts from
+        # manufacturing different Campaign snapshots.
+        "input_digests": baseline.input_digests,
         "primary_behavior_feature_keys": tuple(sorted(combined["primary"])),
         "secondary_behavior_feature_keys": tuple(sorted(combined["secondary"])),
         "behavior_profile_digests": tuple(sorted(combined["profiles"])),

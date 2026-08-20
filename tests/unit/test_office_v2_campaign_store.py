@@ -18,6 +18,7 @@ from sandbox.fuzzer.v2_frontier import (
     compile_risk_frontiers,
 )
 from sandbox.fuzzer.v2_identity import build_v2_campaign_identity_lock
+from sandbox.fuzzer.v2_report import build_v2_campaign_report
 from sandbox.fuzzer.v2_scheduler import (
     AllocationLane,
     GenerationAllocation,
@@ -139,6 +140,17 @@ def test_store_uses_wal_and_reopens_with_digest_locked_identity(tmp_path: Path) 
         assert reopened.load_identity("campaign-1") == expected
 
 
+def test_runtime_identity_is_immutable_across_resume(tmp_path: Path) -> None:
+    with create_store(tmp_path / "campaign.db") as store:
+        first = "sha256:" + "a" * 64
+        store.bind_runtime_identity("campaign-1", identity_digest=first)
+        store.bind_runtime_identity("campaign-1", identity_digest=first)
+        with pytest.raises(V2CampaignStoreError, match="runtime identity changed"):
+            store.bind_runtime_identity(
+                "campaign-1", identity_digest="sha256:" + "b" * 64
+            )
+
+
 def test_attempt_receipt_is_immutable_and_retryable_work_recovers(tmp_path: Path) -> None:
     with create_store(tmp_path / "campaign.db") as store:
         put_work(store)
@@ -165,6 +177,17 @@ def test_execution_window_without_receipt_becomes_ambiguous_and_never_resumes(
         assert first["ambiguous"] == ("work-1",)
         assert second["ambiguous"] == ("work-1",)
         assert store.load_work("work-1").state is CandidateWorkState.AMBIGUOUS
+
+
+def test_campaign_report_is_read_only_for_executing_work(tmp_path: Path) -> None:
+    with create_store(tmp_path / "campaign.db") as store:
+        put_work(store)
+        store.transition_work("work-1", state=CandidateWorkState.EXECUTING)
+
+        report = build_v2_campaign_report(store=store, campaign_id="campaign-1")
+
+        assert report["recovery"]["ambiguous"] == ["work-1"]
+        assert store.load_work("work-1").state is CandidateWorkState.EXECUTING
 
 
 def test_settlement_is_atomic_and_idempotent(tmp_path: Path) -> None:

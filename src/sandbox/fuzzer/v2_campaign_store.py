@@ -12,7 +12,8 @@ from sandbox.mutation.v2_preparation import MutationPreparation
 from sandbox.mutation.v2_provider import MutationProviderAttempt
 from sandbox.replay.digests import sha256_digest
 
-from .v2_campaign_state import V2CampaignStateSnapshot
+from .v2_campaign import evaluate_campaign_lifecycle
+from .v2_campaign_state import V2CampaignStateSnapshot, build_campaign_state
 from .v2_feedback import FindingRecord, NextGenerationFeedback
 from .v2_identity import (
     V2CampaignIdentityLock,
@@ -180,6 +181,10 @@ class V2CampaignStore:
               event_kind TEXT NOT NULL,
               detail_json TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS campaign_runtime_identity (
+              campaign_id TEXT PRIMARY KEY REFERENCES campaign(campaign_id),
+              runtime_identity_digest TEXT NOT NULL
+            );
             """
         )
         columns = {
@@ -236,6 +241,30 @@ class V2CampaignStore:
             is not None
         )
 
+    def bind_runtime_identity(self, campaign_id: str, *, identity_digest: str) -> None:
+        self._require_campaign(campaign_id)
+        if not identity_digest.startswith("sha256:") or len(identity_digest) != 71:
+            raise V2CampaignStoreError("runtime identity must be a SHA-256 digest")
+        with self._db:
+            existing = self._db.execute(
+                "SELECT runtime_identity_digest FROM campaign_runtime_identity "
+                "WHERE campaign_id=?",
+                (campaign_id,),
+            ).fetchone()
+            if existing is not None:
+                if existing["runtime_identity_digest"] != identity_digest:
+                    raise V2CampaignStoreError("campaign runtime identity changed")
+                return
+            self._db.execute(
+                "INSERT INTO campaign_runtime_identity VALUES (?, ?)",
+                (campaign_id, identity_digest),
+            )
+            self._audit(
+                campaign_id,
+                "runtime-identity-bound",
+                {"runtime_identity_digest": identity_digest},
+            )
+
     def commit_generation(
         self,
         *,
@@ -256,8 +285,13 @@ class V2CampaignStore:
         if feedback.generation_index != next_state.lifecycle.counters.generation_index:
             raise V2CampaignStoreError("generation feedback does not match next state")
         with self._db:
-            self._point_campaign_to_state(decision.campaign_id, next_state)
-            self.put_generation_checkpoint(closure=closure, feedback=feedback)
+            self._point_campaign_to_state(
+                decision.campaign_id,
+                next_state,
+                expected_state_digest=current.state_digest,
+            )
+            self._insert_generation_closure(closure)
+            self._insert_generation_feedback(feedback)
 
     def commit_scripted_generation(
         self,
@@ -285,6 +319,36 @@ class V2CampaignStore:
 
     def load_lifecycle(self, campaign_id: str):
         return self.load_state(campaign_id).lifecycle
+
+    def pause_campaign(self, campaign_id: str, *, reason: str) -> V2CampaignStateSnapshot:
+        current = self.load_state(campaign_id)
+        lifecycle = evaluate_campaign_lifecycle(
+            current=current.lifecycle,
+            baseline_ledger=current.exposure_ledger,
+            risk_frontier_states=tuple(
+                item.scheduling_state for item in current.frontiers.risk_frontiers
+            ),
+            behavior_frontier_states=tuple(
+                item.scheduling_state for item in current.frontiers.behavior_frontiers
+            ),
+            pause_reason=reason,
+        )
+        paused = build_campaign_state(
+            coverage=current.coverage,
+            corpus=current.corpus,
+            frontiers=current.frontiers,
+            exposure_ledger=current.exposure_ledger,
+            budget=current.budget,
+            lifecycle=lifecycle,
+        )
+        with self._db:
+            self._point_campaign_to_state(
+                campaign_id,
+                paused,
+                expected_state_digest=current.state_digest,
+            )
+            self._audit(campaign_id, "campaign-paused", {"reason": reason})
+        return paused
 
     def _require_campaign(self, campaign_id: str) -> sqlite3.Row:
         row = self._db.execute(
@@ -322,20 +386,30 @@ class V2CampaignStore:
         )
 
     def _point_campaign_to_state(
-        self, campaign_id: str, state: V2CampaignStateSnapshot
+        self,
+        campaign_id: str,
+        state: V2CampaignStateSnapshot,
+        *,
+        expected_state_digest: str | None = None,
     ) -> None:
         self._insert_state(state)
-        self._db.execute(
+        query = (
             "UPDATE campaign SET lifecycle_json=?, current_snapshot_digest=?, "
-            "current_state_digest=?, generation_index=? WHERE campaign_id=?",
-            (
-                self._json(state.lifecycle),
-                state.coverage.snapshot_digest,
-                state.state_digest,
-                state.lifecycle.counters.generation_index,
-                campaign_id,
-            ),
+            "current_state_digest=?, generation_index=? WHERE campaign_id=?"
         )
+        params: tuple[object, ...] = (
+            self._json(state.lifecycle),
+            state.coverage.snapshot_digest,
+            state.state_digest,
+            state.lifecycle.counters.generation_index,
+            campaign_id,
+        )
+        if expected_state_digest is not None:
+            query += " AND current_state_digest=?"
+            params = (*params, expected_state_digest)
+        cursor = self._db.execute(query, params)
+        if cursor.rowcount != 1:
+            raise V2CampaignStoreError("campaign state changed concurrently")
 
     def load_state(self, campaign_id: str) -> V2CampaignStateSnapshot:
         campaign = self._require_campaign(campaign_id)
@@ -369,21 +443,27 @@ class V2CampaignStore:
             or allocation["allocation_digest"] != work.generation_allocation_digest
         ):
             raise V2CampaignStoreError("candidate work requires persisted allocation")
-        payload = self._json(work)
         with self._db:
-            row = self._db.execute(
-                "SELECT work_digest, work_json FROM candidate_work WHERE work_id=?",
-                (work.work_id,),
-            ).fetchone()
-            if row is not None:
-                if row["work_digest"] != work.work_digest or row["work_json"] != payload:
-                    raise V2CampaignStoreError("candidate work is immutable; use transition_work")
-                return
-            self._db.execute(
-                "INSERT INTO candidate_work VALUES (?, ?, ?, ?)",
-                (work.work_id, work.campaign_id, work.work_digest, payload),
-            )
-            self._audit(work.campaign_id, "work-created", {"work_id": work.work_id})
+            self._insert_work(work)
+
+    def _insert_work(self, work: CandidateWork) -> bool:
+        payload = self._json(work)
+        row = self._db.execute(
+            "SELECT work_digest, work_json FROM candidate_work WHERE work_id=?",
+            (work.work_id,),
+        ).fetchone()
+        if row is not None:
+            if row["work_digest"] != work.work_digest or row["work_json"] != payload:
+                raise V2CampaignStoreError(
+                    "candidate work is immutable; use transition_work"
+                )
+            return False
+        self._db.execute(
+            "INSERT INTO candidate_work VALUES (?, ?, ?, ?)",
+            (work.work_id, work.campaign_id, work.work_digest, payload),
+        )
+        self._audit(work.campaign_id, "work-created", {"work_id": work.work_id})
+        return True
 
     def put_allocation(
         self, *, campaign_id: str, allocation: GenerationAllocation
@@ -778,6 +858,34 @@ class V2CampaignStore:
             "sealed_uncommitted": tuple(sorted(sealed)),
         }
 
+    def inspect_recovery(self, campaign_id: str) -> dict[str, tuple[str, ...]]:
+        """Classify recovery state without changing Work or Campaign records."""
+        self.load_identity(campaign_id)
+        self.load_state(campaign_id)
+        rows = self._db.execute(
+            "SELECT work_id FROM candidate_work WHERE campaign_id=?", (campaign_id,)
+        ).fetchall()
+        resumable: list[str] = []
+        ambiguous: list[str] = []
+        sealed: list[str] = []
+        for row in rows:
+            work = self.load_work(row["work_id"])
+            receipts = self.receipts_for_work(work.work_id)
+            if work.state is CandidateWorkState.EXECUTING:
+                if receipts and retry_allowed(work=work, receipts=receipts):
+                    resumable.append(work.work_id)
+                else:
+                    ambiguous.append(work.work_id)
+            elif work.state is CandidateWorkState.SEALED:
+                sealed.append(work.work_id)
+            elif work.state is CandidateWorkState.AMBIGUOUS:
+                ambiguous.append(work.work_id)
+        return {
+            "resumable": tuple(sorted(resumable)),
+            "ambiguous": tuple(sorted(ambiguous)),
+            "sealed_uncommitted": tuple(sorted(sealed)),
+        }
+
     def generation_index(self, campaign_id: str) -> int:
         return int(self._require_campaign(campaign_id)["generation_index"])
 
@@ -875,7 +983,11 @@ class V2CampaignStore:
                     payload,
                 ),
             )
-            self._point_campaign_to_state(reservation.campaign_id, next_state)
+            self._point_campaign_to_state(
+                reservation.campaign_id,
+                next_state,
+                expected_state_digest=current.state_digest,
+            )
             self._audit(
                 reservation.campaign_id,
                 "mutation-budget-reserved",
@@ -941,7 +1053,11 @@ class V2CampaignStore:
                 "WHERE reservation_id=?",
                 (settlement.settlement_id, settlement.reservation_id),
             )
-            self._point_campaign_to_state(settlement.campaign_id, next_state)
+            self._point_campaign_to_state(
+                settlement.campaign_id,
+                next_state,
+                expected_state_digest=current.state_digest,
+            )
             self._audit(
                 settlement.campaign_id,
                 "preparation-cost-settled",
@@ -956,6 +1072,7 @@ class V2CampaignStore:
         work: CandidateWork,
         next_state: V2CampaignStateSnapshot,
     ) -> bool:
+        current = self.load_state(handoff.campaign_id)
         if work.campaign_id != handoff.campaign_id:
             raise V2CampaignStoreError("handoff and Work use different Campaigns")
         if work.generation_allocation_digest != handoff.generation_allocation_digest:
@@ -979,7 +1096,7 @@ class V2CampaignStore:
                 ):
                     raise V2CampaignStoreError("execution handoff is immutable")
                 return False
-            self.put_work(work)
+            self._insert_work(work)
             self._db.execute(
                 "INSERT INTO execution_handoff VALUES (?, ?, ?, ?, ?, ?)",
                 (
@@ -991,7 +1108,11 @@ class V2CampaignStore:
                     payload,
                 ),
             )
-            self._point_campaign_to_state(handoff.campaign_id, next_state)
+            self._point_campaign_to_state(
+                handoff.campaign_id,
+                next_state,
+                expected_state_digest=current.state_digest,
+            )
             self._audit(
                 handoff.campaign_id,
                 "execution-handoff-created",
@@ -1060,7 +1181,11 @@ class V2CampaignStore:
                 self._insert_generation_feedback(feedback)
             if closure is not None:
                 self._insert_generation_closure(closure)
-            self._point_campaign_to_state(settlement.campaign_id, next_state)
+            self._point_campaign_to_state(
+                settlement.campaign_id,
+                next_state,
+                expected_state_digest=current.state_digest,
+            )
             self._audit(
                 settlement.campaign_id,
                 "non-episode-settled",
@@ -1151,23 +1276,8 @@ class V2CampaignStore:
         if feedback.generation_index != state.lifecycle.counters.generation_index:
             raise V2CampaignStoreError("generation feedback does not match current index")
         with self._db:
-            inserted = self.put_generation_closure(closure)
-            existing = self._db.execute(
-                "SELECT feedback_json FROM generation_feedback WHERE feedback_digest=?",
-                (feedback.feedback_digest,),
-            ).fetchone()
-            payload = self._json(feedback)
-            if existing is not None and existing["feedback_json"] != payload:
-                raise V2CampaignStoreError("generation feedback is immutable")
-            self._db.execute(
-                "INSERT OR IGNORE INTO generation_feedback VALUES (?, ?, ?, ?)",
-                (
-                    feedback.feedback_digest,
-                    feedback.campaign_id,
-                    feedback.generation_index,
-                    payload,
-                ),
-            )
+            inserted = self._insert_generation_closure(closure)
+            self._insert_generation_feedback(feedback)
         return inserted
 
     def load_latest_generation_closure(

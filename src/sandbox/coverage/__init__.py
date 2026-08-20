@@ -1,10 +1,12 @@
 """Behavior-profile and risk-dimension coverage for committed trajectories."""
 
+from importlib import import_module
+from typing import Any
+
 from sandbox.coverage.behavior import BehaviorFeatureExtractor
 from sandbox.coverage.correlation import BehaviorRiskCorrelator
 from sandbox.coverage.feedback import CampaignCoverageFeedbackBuilder
 from sandbox.coverage.heatmap import HeatmapGenerator
-from sandbox.coverage.input import CoverageInputResolver
 from sandbox.coverage.models import (
     BehaviorFeature,
     BehaviorFeatureKind,
@@ -139,6 +141,14 @@ from sandbox.coverage.v2_unexpected_risk import (
     V2UnexpectedRiskMappingError,
     map_v2_unexpected_risks,
 )
+
+
+def __getattr__(name: str) -> Any:
+    if name != "CoverageInputResolver":
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = import_module("sandbox.coverage.input").CoverageInputResolver
+    globals()[name] = value
+    return value
 
 __all__ = [
     "BehaviorFeature",

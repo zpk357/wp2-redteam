@@ -10,6 +10,16 @@ cd "$PROJECT_DIR"
 test "$(python3 -c 'import json; print(json.load(open("../stage.json"))["status"])')" = ready
 nvidia-smi -i "$GPU_DEVICE" > /dev/null
 mkdir -p "$RESULT_DIR"
+archive_preflight_failure() {
+  local status=$?
+  trap - EXIT
+  printf '{"schema_version":"office-v2-stage6-preflight-failure-v1","exit_code":%d}\n' \
+    "$status" > "$RESULT_DIR/failure.json"
+  docker ps -a --filter "label=trace-g.component=office-v2-llm-mutator" \
+    --format '{{.ID}} {{.Image}} {{.Status}}' > "$RESULT_DIR/container-residue.txt" || true
+  exit "$status"
+}
+trap archive_preflight_failure EXIT
 TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
   scripts/run_office_v2_stage6_preflight.py \
   --model-lock .trace-g/stage6-model-lock.json \
@@ -18,7 +28,9 @@ TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
   --mutator-image trace-g-office-v2-mutator-qwen:step6-local \
   --data-root "$PROJECT_DIR/.trace-g-data/preflight" \
   --gpu-device "$GPU_DEVICE" \
-  --output "$RESULT_DIR/stage6-preflight.json"
+  --output "$RESULT_DIR/stage6-preflight.json" \
+  > "$RESULT_DIR/preflight.log" 2>&1
 nvidia-smi -i "$GPU_DEVICE" --query-gpu=index,name,memory.total,driver_version \
   --format=csv,noheader,nounits > "$RESULT_DIR/gpu.txt"
+trap - EXIT
 echo "Office V2 Stage 6 preflight passed"

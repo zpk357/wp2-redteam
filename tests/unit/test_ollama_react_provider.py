@@ -12,8 +12,12 @@ from app.agent.ollama_react_provider import (
 )
 from app.agent.react_contract import SUBMIT_TOOL_SPEC, ReactMessage
 from app.protocol import ModelOptions, ModelProvider
-from app.replay.react_decision_recorder import ReactDecisionRecorder, RecordedReactProvider
+from app.replay.react_decision_recorder import (
+    ReactDecisionRecorder,
+    RecordedReactProvider,
+)
 from app.tools.base import ToolRegistry
+
 from sandbox.replay.models import RECORDED_MODEL_TOKEN_USAGE_KEY
 
 DIGEST = "sha256:" + "a" * 64

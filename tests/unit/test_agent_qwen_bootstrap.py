@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import json
 import signal
+import urllib.error
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from app.agent_qwen_bootstrap import (
     BootstrapConfig,
     BootstrapError,
     Supervisor,
+    request_json,
     verify_model_registry,
     wait_for_locked_model,
     warm_locked_model,
@@ -123,6 +126,34 @@ def test_warmup_uses_the_bounded_startup_timeout(monkeypatch: pytest.MonkeyPatch
     assert observed["path"] == "/api/generate"
     assert observed["payload"]["model"] == "qwen3:8b"
     assert observed["timeout_seconds"] == 37
+
+
+def test_request_json_preserves_bounded_ollama_http_error_detail() -> None:
+    error = urllib.error.HTTPError(
+        url="http://127.0.0.1:11434/api/chat",
+        code=400,
+        msg="Bad Request",
+        hdrs=None,
+        fp=None,
+    )
+    error.read = lambda _limit: b'{"error":"model does not support thinking"}'
+
+    with (
+        patch("urllib.request.urlopen", side_effect=error),
+        pytest.raises(BootstrapError) as captured,
+    ):
+        request_json(
+            "http://127.0.0.1:11434",
+            "/api/chat",
+            {"model": "locked"},
+        )
+
+    assert str(captured.value) == (
+        "Ollama /api/chat rejected request with HTTP 400: "
+        "model does not support thinking"
+    )
+    assert captured.value.failure_class == "configuration_permanent"
+    assert captured.value.http_status == 400
 
 
 def test_ready_status_is_atomic_and_identity_bound(tmp_path: Path) -> None:
