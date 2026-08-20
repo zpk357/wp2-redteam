@@ -138,11 +138,28 @@ async def run_preflight(args) -> dict[str, object]:
     )
     if residue:
         raise ValueError("Mutator preflight left a labeled container")
+    agent_residue = client.containers.list(
+        all=True, filters={"label": ["trace-g.component=agent-sandbox"]}
+    )
+    if agent_residue:
+        raise ValueError("Agent preflight left a labeled container")
+    volume_residue = client.volumes.list(
+        filters={"label": ["trace-g.execution-id=office-v2-stage6-clean-preflight"]}
+    )
+    if volume_residue:
+        raise ValueError("Agent preflight left a labeled workspace volume")
     return {
         "schema_version": "office-v2-stage6-preflight-v1",
         "passed": True,
         "model_name": lock.model_name,
         "model_digest": lock.manifest_digest,
+        "model_lock_digest": lock.lock_digest,
+        "controller_image_reference": lock.controller_image_reference,
+        "controller_image_id": lock.controller_image_id,
+        "agent_image_reference": agent.image_reference,
+        "agent_image_id": agent.image_id,
+        "mutator_image_reference": mutator.image_reference,
+        "mutator_image_id": mutator.image_id,
         "mutator_attempt_digest": mutation.attempt.attempt_digest,
         "mutator_input_tokens": mutation.attempt.input_tokens,
         "mutator_output_tokens": mutation.attempt.output_tokens,

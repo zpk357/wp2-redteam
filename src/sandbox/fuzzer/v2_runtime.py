@@ -40,7 +40,7 @@ class V2GenerationDriver(Protocol):
         decision: GenerationDecision,
         state: V2CampaignStateSnapshot,
         previous_feedback: NextGenerationFeedback | None,
-    ) -> V2GenerationAdvance: ...
+    ) -> V2GenerationAdvance | None: ...
 
 
 class V2CampaignRunResult(OfficeV2Contract):
@@ -93,11 +93,31 @@ def run_or_resume_campaign(
         if previous_decision is not None and previous_decision.generation_index == generation:
             decision = previous_decision
             if decision.input_state_digest != state.state_digest:
-                state = store.pause_campaign(
-                    campaign_id,
-                    reason="incomplete-generation-recovery-required",
+                resume = getattr(driver, "resume_incomplete", None)
+                if resume is None:
+                    state = store.pause_campaign(
+                        campaign_id,
+                        reason="incomplete-generation-recovery-required",
+                    )
+                    break
+                advance = resume(
+                    campaign_id=campaign_id,
+                    decision=decision,
+                    state=state,
+                    previous_feedback=previous_feedback,
                 )
-                break
+                if advance is None:
+                    state = store.load_state(campaign_id)
+                    break
+                state = _accept_advance(
+                    store=store,
+                    campaign_id=campaign_id,
+                    advance=advance,
+                    decision=decision,
+                )
+                if state.lifecycle.completion_status is not None:
+                    break
+                continue
         else:
             decision = decide_next_generation(
                 campaign_id=campaign_id,
@@ -114,27 +134,36 @@ def run_or_resume_campaign(
             state=state,
             previous_feedback=previous_feedback,
         )
-        if advance.persisted:
-            if store.load_state(campaign_id) != advance.next_state:
-                raise ValueError("generation driver persisted a different state")
-            if store.load_latest_generation_closure(campaign_id) != advance.closure:
-                raise ValueError("generation driver did not persist its closure")
-            if store.load_latest_feedback(campaign_id) != advance.feedback:
-                raise ValueError("generation driver did not persist its feedback")
-        else:
-            store.commit_generation(
-                decision=decision,
-                next_state=advance.next_state,
-                closure=advance.closure,
-                feedback=advance.feedback,
-            )
-        state = advance.next_state
+        state = _accept_advance(
+            store=store,
+            campaign_id=campaign_id,
+            advance=advance,
+            decision=decision,
+        )
         if state.lifecycle.completion_status is not None:
             break
         if progress_callback is not None and state.lifecycle.counters.generation_index % 5 == 0:
             progress_callback(_build_result(store, campaign_id, generation_count, resumed))
 
     return _build_result(store, campaign_id, generation_count, resumed)
+
+
+def _accept_advance(*, store, campaign_id, advance, decision):
+    if advance.persisted:
+        if store.load_state(campaign_id) != advance.next_state:
+            raise ValueError("generation driver persisted a different state")
+        if store.load_latest_generation_closure(campaign_id) != advance.closure:
+            raise ValueError("generation driver did not persist its closure")
+        if store.load_latest_feedback(campaign_id) != advance.feedback:
+            raise ValueError("generation driver did not persist its feedback")
+    else:
+        store.commit_generation(
+            decision=decision,
+            next_state=advance.next_state,
+            closure=advance.closure,
+            feedback=advance.feedback,
+        )
+    return advance.next_state
 
 
 def _build_result(

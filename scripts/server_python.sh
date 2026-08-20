@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 PROJECT_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd -P)"
-CONTROLLER_IMAGE="trace-redteam-controller:server"
+CONTROLLER_IMAGE="${TRACE_G_CONTROLLER_IMAGE:-trace-redteam-controller:server}"
 CONTROLLER_NETWORK="${TRACE_G_CONTROLLER_NETWORK:-trace-g-model-internal}"
 DOCKER_SOCKET="/var/run/docker.sock"
 RUN_DOCKER_E2E="${TRACE_G_RUN_DOCKER_E2E:-0}"

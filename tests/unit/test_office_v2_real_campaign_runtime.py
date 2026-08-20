@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from sandbox.fuzzer.v2_campaign_store import V2CampaignStore
 from sandbox.fuzzer.v2_real_episode import _recorded_agent_tokens
 from sandbox.fuzzer.v2_real_runtime import (
@@ -45,6 +47,35 @@ class ForbiddenEpisodeRunner:
 class RaisingEpisodeRunner:
     async def execute(self, **_kwargs):
         raise RuntimeError("simulated unclassified runner failure")
+
+
+class CountingInvalidProvider:
+    provider_id = RuleBasedV2MutationProvider.provider_id
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def generate(self, *, plan, brief, attempt_index):
+        from sandbox.mutation.v2_brief import ProviderSlotValue
+
+        self.calls += 1
+        result = await RuleBasedV2MutationProvider().generate(
+            plan=plan, brief=brief, attempt_index=attempt_index
+        )
+        return result.model_copy(
+            update={
+                "candidate": result.candidate.model_copy(
+                    update={
+                        "slot_values": (
+                            ProviderSlotValue(
+                                payload_slot_id="slot.unplanned",
+                                generated_content="invalid frozen slot",
+                            ),
+                        )
+                    }
+                )
+            }
+        )
 
 
 def test_recorded_agent_tokens_sum_prompt_and_completion_usage() -> None:
@@ -131,3 +162,90 @@ def test_real_runtime_seals_unknown_episode_failure_and_pauses(tmp_path) -> None
         assert next_state.budget.reserved_episodes == 0
         assert store.load_work(work["work_id"]).state == "ambiguous"
         assert receipts[0].disposition == "ambiguous"
+
+
+def test_resume_settles_sealed_preparation_without_recalling_provider(
+    tmp_path, monkeypatch
+) -> None:
+    _, state = loop_fixture()
+    path = tmp_path / "resume-preparation.sqlite3"
+    provider = CountingInvalidProvider()
+    with V2CampaignStore(path) as store:
+        monkeypatch.setattr(
+            store,
+            "settle_preparation_cost",
+            lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("power-loss")),
+        )
+        with pytest.raises(RuntimeError, match="power-loss"):
+            run_or_resume_real_campaign(
+                store=store,
+                campaign_id=CAMPAIGN_ID,
+                bootstrap=RealCampaignBootstrap(
+                    initial_state=state,
+                    model_identity_digest="sha256:" + "a" * 64,
+                ),
+                generation_count=1,
+                mutation_provider=provider,
+                episode_runner=ForbiddenEpisodeRunner(),
+            )
+    with V2CampaignStore(path) as reopened:
+        result = run_or_resume_real_campaign(
+            store=reopened,
+            campaign_id=CAMPAIGN_ID,
+            bootstrap=RealCampaignBootstrap(
+                initial_state=state,
+                model_identity_digest="sha256:" + "a" * 64,
+            ),
+            generation_count=1,
+            mutation_provider=provider,
+            episode_runner=ForbiddenEpisodeRunner(),
+        )
+
+    assert provider.calls == 1
+    assert result.completed_generation_count == 1
+
+
+def test_resume_pauses_ambiguous_provider_window_without_recalling_provider(
+    tmp_path, monkeypatch
+) -> None:
+    _, state = loop_fixture()
+    path = tmp_path / "ambiguous-provider.sqlite3"
+    provider = CountingInvalidProvider()
+    with V2CampaignStore(path) as store:
+        monkeypatch.setattr(
+            store,
+            "put_mutation_preparation",
+            lambda _preparation: (_ for _ in ()).throw(RuntimeError("power-loss")),
+        )
+        with pytest.raises(RuntimeError, match="power-loss"):
+            run_or_resume_real_campaign(
+                store=store,
+                campaign_id=CAMPAIGN_ID,
+                bootstrap=RealCampaignBootstrap(
+                    initial_state=state,
+                    model_identity_digest="sha256:" + "a" * 64,
+                ),
+                generation_count=1,
+                mutation_provider=provider,
+                episode_runner=ForbiddenEpisodeRunner(),
+            )
+    with V2CampaignStore(path) as reopened:
+        result = run_or_resume_real_campaign(
+            store=reopened,
+            campaign_id=CAMPAIGN_ID,
+            bootstrap=RealCampaignBootstrap(
+                initial_state=state,
+                model_identity_digest="sha256:" + "a" * 64,
+            ),
+            generation_count=1,
+            mutation_provider=provider,
+            episode_runner=ForbiddenEpisodeRunner(),
+        )
+        paused = reopened.load_state(CAMPAIGN_ID)
+
+    assert provider.calls == 1
+    assert result.completed_generation_count == 0
+    assert paused.lifecycle.completion_status == "paused"
+    assert paused.lifecycle.pause_reason == (
+        "ambiguous-provider-window-before-preparation-seal"
+    )

@@ -431,6 +431,18 @@ class V2CampaignStore:
             raise V2CampaignStoreError("campaign lifecycle pointer differs from state")
         return state
 
+    def load_state_by_digest(self, state_digest: str) -> V2CampaignStateSnapshot:
+        row = self._db.execute(
+            "SELECT state_json FROM campaign_state_snapshot WHERE state_digest=?",
+            (state_digest,),
+        ).fetchone()
+        if row is None:
+            raise V2CampaignStoreError("campaign state snapshot does not exist")
+        state = V2CampaignStateSnapshot.model_validate_json(row["state_json"])
+        if state.state_digest != state_digest:
+            raise V2CampaignStoreError("campaign state snapshot digest differs")
+        return state
+
     def put_work(self, work: CandidateWork) -> None:
         self._require_campaign(work.campaign_id)
         allocation = self._db.execute(
@@ -943,6 +955,50 @@ class V2CampaignStore:
         if row is None:
             raise V2CampaignStoreError("unknown mutation preparation")
         return MutationPreparation.model_validate_json(row["preparation_json"])
+
+    def load_mutation_reservation_for_allocation(
+        self, campaign_id: str, allocation_id: str
+    ) -> tuple[MutationBudgetReservation, bool] | None:
+        row = self._db.execute(
+            "SELECT reservation_json, settled_by FROM mutation_budget_reservation "
+            "WHERE campaign_id=? AND generation_allocation_id=?",
+            (campaign_id, allocation_id),
+        ).fetchone()
+        if row is None:
+            return None
+        return (
+            MutationBudgetReservation.model_validate_json(row["reservation_json"]),
+            row["settled_by"] is not None,
+        )
+
+    def load_preparation_for_allocation(
+        self, campaign_id: str, allocation_id: str
+    ) -> MutationPreparation | None:
+        row = self._db.execute(
+            "SELECT p.preparation_json FROM mutation_preparation AS p "
+            "JOIN mutation_budget_reservation AS r "
+            "ON r.campaign_id=p.campaign_id "
+            "WHERE p.campaign_id=? AND r.generation_allocation_id=? "
+            "AND json_extract(p.preparation_json, '$.plan.plan_digest')="
+            "json_extract(r.reservation_json, '$.mutation_plan_digest')",
+            (campaign_id, allocation_id),
+        ).fetchone()
+        return (
+            MutationPreparation.model_validate_json(row["preparation_json"])
+            if row is not None
+            else None
+        )
+
+    def load_handoff_for_preparation(self, preparation_id: str) -> ExecutionHandoff | None:
+        row = self._db.execute(
+            "SELECT handoff_json FROM execution_handoff WHERE preparation_id=?",
+            (preparation_id,),
+        ).fetchone()
+        return (
+            ExecutionHandoff.model_validate_json(row["handoff_json"])
+            if row is not None
+            else None
+        )
 
     def reserve_mutation(
         self,

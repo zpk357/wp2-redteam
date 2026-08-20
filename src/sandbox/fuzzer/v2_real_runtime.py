@@ -119,24 +119,30 @@ class _RealGenerationDriver:
         self.episode_runner = episode_runner
 
     def advance(self, *, campaign_id, decision, state, previous_feedback):
+        recovering = state.state_digest != decision.input_state_digest
+        base_state = (
+            self.store.load_state_by_digest(decision.input_state_digest)
+            if recovering
+            else state
+        )
         seed = next(
-            item for item in state.corpus.seeds
+            item for item in base_state.corpus.seeds
             if item.seed_id == decision.allocation.parent_seed_id
         )
         execution = next(
-            item for item in state.corpus.execution_records
+            item for item in base_state.corpus.execution_records
             if item.execution_record_id
             == decision.allocation.supporting_execution_record_id
         )
         parent_candidate = next(
-            item for item in state.corpus.materialized_candidates
+            item for item in base_state.corpus.materialized_candidates
             if item.materialized_candidate_id == execution.materialized_candidate_id
         )
         feedback_digest = (
             previous_feedback.feedback_digest
             if previous_feedback is not None
             else initial_feedback_digest(
-                campaign_id=campaign_id, state_digest=state.state_digest
+                campaign_id=campaign_id, state_digest=base_state.state_digest
             )
         )
         plan = build_expression_mutation_plan(
@@ -150,26 +156,39 @@ class _RealGenerationDriver:
         self.store.put_allocation(
             campaign_id=campaign_id, allocation=decision.allocation
         )
-        mutation_reservation = build_mutation_budget_reservation(
+        expected_reservation = build_mutation_budget_reservation(
             campaign_id=campaign_id,
             allocation=decision.allocation,
             mutation_plan_digest=plan.plan_digest,
             reserved_tokens=plan.budget.plan_total_token_budget,
             reserved_cost_microunits=plan.budget.reserved_total_cost_microunits,
         )
-        mutation_reserved_state = _replace_budget(
-            state,
-            reserve_mutation_budget(
-                state.budget,
-                tokens=mutation_reservation.reserved_tokens,
-                cost_microunits=mutation_reservation.reserved_cost_microunits,
-            ),
+        stored_reservation = self.store.load_mutation_reservation_for_allocation(
+            campaign_id, decision.allocation.generation_allocation_id
         )
-        self.store.reserve_mutation(
-            reservation=mutation_reservation, next_state=mutation_reserved_state
-        )
+        if stored_reservation is None:
+            mutation_reservation = expected_reservation
+            mutation_reserved_state = _replace_budget(
+                base_state,
+                reserve_mutation_budget(
+                    base_state.budget,
+                    tokens=mutation_reservation.reserved_tokens,
+                    cost_microunits=mutation_reservation.reserved_cost_microunits,
+                ),
+            )
+            self.store.reserve_mutation(
+                reservation=mutation_reservation, next_state=mutation_reserved_state
+            )
+            reservation_settled = False
+        else:
+            mutation_reservation, reservation_settled = stored_reservation
+            if mutation_reservation != expected_reservation:
+                raise ValueError("persisted mutation reservation differs from decision")
+            mutation_reserved_state = state
 
-        source_execution = _source_execution_for_seed(state, seed)
+        source_execution = _frozen_source_execution_for_seed(
+            base_state, seed, supporting_execution=execution
+        )
         source_case = source_attack_case(source_execution.scenario_case_id)
         canonical_world = load_canonical_world()
         purpose = infer_office_v2_compatibility_purpose(source_case, canonical_world)
@@ -203,46 +222,70 @@ class _RealGenerationDriver:
             scenario_facts=(),
             parent_payload_texts=(parent_payload.content,),
         )
-        preparation, materialized = asyncio.run(
-            prepare_candidate(
-                campaign_id=campaign_id,
-                plan=plan,
-                brief=brief,
-                registry=build_v2_mutation_field_registry(),
-                provider=self.mutation_provider,
-                parent_text_by_slot={slot.payload_slot_id: parent_payload.content},
-                scenario_case_id=source_case.case_id,
-                scenario_case_id_resolver=resolve_case_id,
-                seed_id_resolver=resolve_seed_id,
-                targets=(
-                    SlotMaterializationTarget(
-                        payload_slot_id=slot.payload_slot_id,
-                        resource_id=delivered.resource_id,
-                        resource_version=delivered.resource_version,
-                        field_path=delivered.field_path,
-                        original_content=parent_payload.content,
-                        operation=TextMaterializationOperation.REPLACE,
-                    ),
+        preparation = self.store.load_preparation_for_allocation(
+            campaign_id, decision.allocation.generation_allocation_id
+        )
+        if preparation is None:
+            if recovering:
+                self.store.pause_campaign(
+                    campaign_id,
+                    reason="ambiguous-provider-window-before-preparation-seal",
+                )
+                return None
+            try:
+                preparation, _materialized = asyncio.run(
+                    prepare_candidate(
+                        campaign_id=campaign_id,
+                        plan=plan,
+                        brief=brief,
+                        registry=build_v2_mutation_field_registry(),
+                        provider=self.mutation_provider,
+                        parent_text_by_slot={
+                            slot.payload_slot_id: parent_payload.content
+                        },
+                        scenario_case_id=source_case.case_id,
+                        scenario_case_id_resolver=resolve_case_id,
+                        seed_id_resolver=resolve_seed_id,
+                        targets=(
+                            SlotMaterializationTarget(
+                                payload_slot_id=slot.payload_slot_id,
+                                resource_id=delivered.resource_id,
+                                resource_version=delivered.resource_version,
+                                field_path=delivered.field_path,
+                                original_content=parent_payload.content,
+                                operation=TextMaterializationOperation.REPLACE,
+                            ),
+                        ),
+                    )
+                )
+            except Exception:
+                self.store.pause_campaign(
+                    campaign_id, reason="unclassified-provider-failure"
+                )
+                raise
+            self.store.put_mutation_preparation(preparation)
+        if not reservation_settled:
+            preparation_settlement = build_preparation_cost_settlement(
+                reservation=mutation_reservation, preparation=preparation
+            )
+            prepared_state = _replace_budget(
+                mutation_reserved_state,
+                settle_mutation_budget(
+                    mutation_reserved_state.budget,
+                    reserved_tokens=mutation_reservation.reserved_tokens,
+                    reserved_cost_microunits=mutation_reservation.reserved_cost_microunits,
+                    actual=preparation_settlement.actual_costs,
                 ),
             )
-        )
-        self.store.put_mutation_preparation(preparation)
-        preparation_settlement = build_preparation_cost_settlement(
-            reservation=mutation_reservation, preparation=preparation
-        )
-        prepared_state = _replace_budget(
-            mutation_reserved_state,
-            settle_mutation_budget(
-                mutation_reserved_state.budget,
-                reserved_tokens=mutation_reservation.reserved_tokens,
-                reserved_cost_microunits=mutation_reservation.reserved_cost_microunits,
-                actual=preparation_settlement.actual_costs,
-            ),
-        )
-        self.store.settle_preparation_cost(
-            settlement=preparation_settlement, next_state=prepared_state
-        )
-        if preparation.state is not MutationPreparationState.READY or materialized is None:
+            self.store.settle_preparation_cost(
+                settlement=preparation_settlement, next_state=prepared_state
+            )
+        else:
+            prepared_state = state
+        if (
+            preparation.state is not MutationPreparationState.READY
+            or preparation.materialized_candidate is None
+        ):
             return self._close_non_episode(
                 campaign_id=campaign_id,
                 decision=decision,
@@ -251,31 +294,48 @@ class _RealGenerationDriver:
                 previous_feedback=previous_feedback,
             )
 
-        handoff = build_execution_handoff(
-            campaign_id=campaign_id,
-            allocation=decision.allocation,
-            preparation=preparation,
-        )
+        handoff = self.store.load_handoff_for_preparation(preparation.preparation_id)
         agent_reservation = BudgetReservation(
             agent_tokens=1_000_000, elapsed_ms=plan.budget.timeout_ms * 3
         )
-        work = build_candidate_work_from_handoff(
-            handoff=handoff, reservation=agent_reservation
-        )
-        episode_reserved_state = _replace_budget(
-            prepared_state,
-            reserve_campaign_budget(prepared_state.budget, agent_reservation),
-        )
-        self.store.put_execution_handoff(
-            handoff=handoff, work=work, next_state=episode_reserved_state
-        )
+        if handoff is None:
+            handoff = build_execution_handoff(
+                campaign_id=campaign_id,
+                allocation=decision.allocation,
+                preparation=preparation,
+            )
+            work = build_candidate_work_from_handoff(
+                handoff=handoff, reservation=agent_reservation
+            )
+            episode_reserved_state = _replace_budget(
+                prepared_state,
+                reserve_campaign_budget(prepared_state.budget, agent_reservation),
+            )
+            self.store.put_execution_handoff(
+                handoff=handoff, work=work, next_state=episode_reserved_state
+            )
+        else:
+            work = self.store.load_work(handoff.work_id)
+            episode_reserved_state = state
+        if work.state is CandidateWorkState.EXECUTING:
+            self.store.pause_campaign(
+                campaign_id, reason="ambiguous-agent-window-without-sealed-result"
+            )
+            return None
+        if work.state is not CandidateWorkState.ALLOCATED:
+            self.store.pause_campaign(
+                campaign_id, reason=f"unsupported-incomplete-work-{work.state.value}"
+            )
+            return None
         self.store.transition_work(work.work_id, state=CandidateWorkState.EXECUTING)
         execution_id = f"v2-generation-{decision.generation_index}-{work.work_id[-12:]}"
         try:
             episode = asyncio.run(
                 self.episode_runner.execute(
                     source_scenario_case_id=source_case.case_id,
-                    generated_content=materialized.slot_values[0].visible_content,
+                    generated_content=dict(
+                        preparation.parsed_candidate.slot_values
+                    )[slot.payload_slot_id],
                     execution_id=execution_id,
                     seed=decision.generation_index,
                 )
@@ -436,6 +496,16 @@ class _RealGenerationDriver:
             closure=closure,
             feedback=feedback,
             persisted=True,
+        )
+
+    def resume_incomplete(
+        self, *, campaign_id, decision, state, previous_feedback
+    ) -> V2GenerationAdvance | None:
+        return self.advance(
+            campaign_id=campaign_id,
+            decision=decision,
+            state=state,
+            previous_feedback=previous_feedback,
         )
 
     def _close_non_episode(
@@ -652,13 +722,19 @@ def _build_derived_seed(*, parent, plan, parsed) -> AttackSeed:
     )
 
 
-def _source_execution_for_seed(state, seed):
-    source_seed_id = seed.root_seed_id
-    return next(
+def _frozen_source_execution_for_seed(state, seed, *, supporting_execution):
+    roots = tuple(
         item
         for item in state.corpus.execution_records
-        if item.seed_id == source_seed_id
+        if item.seed_id == seed.root_seed_id
+        and item.binding_source_digest == supporting_execution.binding_source_digest
     )
+    scenario_ids = {item.scenario_case_id for item in roots}
+    if not roots or len(scenario_ids) != 1:
+        raise ValueError(
+            "seed lineage does not identify one frozen source execution branch"
+        )
+    return roots[0]
 
 
 def _successful_receipt(
@@ -740,6 +816,7 @@ def run_or_resume_real_campaign(
     generation_count: int,
     mutation_provider: V2MutationProvider,
     episode_runner: OfficeV2EpisodeRunner,
+    runtime_identity_digest: str | None = None,
 ) -> V2CampaignRunResult:
     return run_or_resume_campaign(
         store=store,
@@ -752,7 +829,9 @@ def run_or_resume_real_campaign(
             mutation_provider=mutation_provider,
             episode_runner=episode_runner,
         ),
-        runtime_identity_digest=bootstrap.model_identity_digest,
+        runtime_identity_digest=(
+            runtime_identity_digest or bootstrap.model_identity_digest
+        ),
     )
 
 

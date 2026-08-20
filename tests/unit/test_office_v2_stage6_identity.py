@@ -4,8 +4,11 @@ import pytest
 
 from sandbox.agent_prompts import OFFICE_AGENT_BASE_RULES_V2_DIGEST
 from sandbox.fuzzer.v2_stage6_identity import (
+    Stage6RepairFileIdentity,
     Stage6Role,
     seal_inference_config,
+    seal_repair_plan_lock,
+    seal_repair_role_plan,
     seal_role_identity,
     seal_stage6_model_lock,
 )
@@ -77,4 +80,65 @@ def test_stage6_lock_rejects_one_image_identity_for_both_roles() -> None:
             controller_image_id=digest("7"),
             controller_archive_sha256=digest("8"),
             roles=(role(Stage6Role.AGENT, "a"), role(Stage6Role.MUTATOR, "a")),
+        )
+
+
+def test_repair_built_role_uses_build_receipt_instead_of_old_archive() -> None:
+    original = role(Stage6Role.AGENT, "a")
+    value = original.model_dump(
+        exclude={
+            "image_archive_sha256",
+            "image_build_receipt_digest",
+            "inference",
+            "role_digest",
+        }
+    )
+    repaired = seal_role_identity(
+        **value,
+        image_build_receipt_digest=digest("9"),
+        inference=original.inference,
+    )
+
+    assert repaired.image_archive_sha256 is None
+    assert repaired.image_build_receipt_digest == digest("9")
+
+    with pytest.raises(ValueError, match="exactly one image delivery"):
+        seal_role_identity(
+            **value,
+            image_archive_sha256=digest("8"),
+            image_build_receipt_digest=digest("9"),
+            inference=original.inference,
+        )
+
+
+def test_repair_plan_binds_base_images_and_exact_source_files() -> None:
+    roles = tuple(
+        seal_repair_role_plan(
+            role=role_kind,
+            base_image_reference=f"trace-g-{role_kind.value}:baseline",
+            base_image_id=digest("a" if role_kind is Stage6Role.AGENT else "b"),
+            final_image_reference=f"trace-g-{role_kind.value}:repair-v3",
+            dockerfile=f"agent_image/Dockerfile.{role_kind.value}",
+            dockerfile_sha256=digest("c"),
+            copied_files=(
+                Stage6RepairFileIdentity(path="src/sandbox/example.py", sha256=digest("d")),
+            ),
+        )
+        for role_kind in Stage6Role
+    )
+    lock = seal_repair_plan_lock(
+        source_revision="a" * 40,
+        source_archive_sha256=digest("1"),
+        source_archive_bytes=100,
+        model_digest=digest("2"),
+        base_model_lock_digest=digest("3"),
+        controller_image_reference="trace-redteam-controller:server",
+        controller_image_id=digest("4"),
+        roles=roles,
+    )
+
+    assert tuple(item.role for item in lock.roles) == tuple(Stage6Role)
+    with pytest.raises(ValueError, match="repair plan digest"):
+        type(lock).model_validate(
+            {**lock.model_dump(mode="python"), "source_archive_bytes": 101}
         )

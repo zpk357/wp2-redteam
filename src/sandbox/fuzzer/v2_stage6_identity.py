@@ -52,17 +52,24 @@ class Stage6RoleIdentity(OfficeV2Contract):
         pattern=r"^[a-z0-9][a-z0-9./_-]{0,200}:[a-z0-9][a-z0-9._-]{0,127}$"
     )
     image_id: Sha256Digest
-    image_archive_sha256: Sha256Digest
+    image_archive_sha256: Sha256Digest | None = None
+    image_build_receipt_digest: Sha256Digest | None = None
     prompt_identity_digest: Sha256Digest
     provider_identity: Identifier
     inference: Stage6InferenceConfig
     role_digest: Sha256Digest
 
     def digest_payload(self) -> dict[str, object]:
-        return self.model_dump(mode="json", exclude={"role_digest"}, exclude_none=False)
+        return self.model_dump(mode="json", exclude={"role_digest"}, exclude_none=True)
 
     @model_validator(mode="after")
     def role_contract_matches(self) -> Self:
+        if (self.image_archive_sha256 is None) == (
+            self.image_build_receipt_digest is None
+        ):
+            raise ValueError(
+                "Stage 6 role requires exactly one image delivery identity"
+            )
         expected_prompt = (
             OFFICE_AGENT_BASE_RULES_V2_DIGEST
             if self.role is Stage6Role.AGENT
@@ -122,7 +129,7 @@ class Stage6ModelLock(OfficeV2Contract):
         return tuple(sorted(value, key=lambda item: item.role.value))
 
     def digest_payload(self) -> dict[str, object]:
-        return self.model_dump(mode="json", exclude={"lock_digest"}, exclude_none=False)
+        return self.model_dump(mode="json", exclude={"lock_digest"}, exclude_none=True)
 
     @model_validator(mode="after")
     def complete_identity_matches(self) -> Self:
@@ -136,6 +143,101 @@ class Stage6ModelLock(OfficeV2Contract):
             raise ValueError("Stage 6 Campaign identity drifted")
         if self.lock_digest != sha256_digest(self.digest_payload()):
             raise ValueError("Stage 6 model lock digest does not match")
+        return self
+
+
+class Stage6RepairFileIdentity(OfficeV2Contract):
+    path: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,300}$")
+    sha256: Sha256Digest
+
+
+class Stage6RepairRolePlan(OfficeV2Contract):
+    role: Stage6Role
+    base_image_reference: str
+    base_image_id: Sha256Digest
+    final_image_reference: str
+    dockerfile: str
+    dockerfile_sha256: Sha256Digest
+    copied_files: tuple[Stage6RepairFileIdentity, ...] = Field(min_length=1)
+    role_plan_digest: Sha256Digest
+
+    def digest_payload(self) -> dict[str, object]:
+        return self.model_dump(
+            mode="json", exclude={"role_plan_digest"}, exclude_none=False
+        )
+
+    @model_validator(mode="after")
+    def role_plan_matches(self) -> Self:
+        if self.base_image_reference == self.final_image_reference:
+            raise ValueError("repair role must not overwrite its immutable base tag")
+        if self.role_plan_digest != sha256_digest(self.digest_payload()):
+            raise ValueError("Stage 6 repair role plan digest does not match")
+        return self
+
+
+class Stage6RepairPlanLock(OfficeV2Contract):
+    schema_version: Literal["office-v2-stage6-repair-plan-v2"]
+    source_revision: str = Field(pattern=r"^[0-9a-f]{7,40}$")
+    source_archive_sha256: Sha256Digest
+    source_archive_bytes: int = Field(gt=0)
+    model_digest: Sha256Digest
+    base_model_lock_digest: Sha256Digest
+    controller_image_reference: str
+    controller_image_id: Sha256Digest
+    roles: tuple[Stage6RepairRolePlan, Stage6RepairRolePlan]
+    lock_digest: Sha256Digest
+
+    @field_validator("roles")
+    @classmethod
+    def repair_roles_are_canonical(
+        cls, value: tuple[Stage6RepairRolePlan, Stage6RepairRolePlan]
+    ) -> tuple[Stage6RepairRolePlan, Stage6RepairRolePlan]:
+        return tuple(sorted(value, key=lambda item: item.role.value))
+
+    def digest_payload(self) -> dict[str, object]:
+        return self.model_dump(mode="json", exclude={"lock_digest"}, exclude_none=False)
+
+    @model_validator(mode="after")
+    def repair_plan_matches(self) -> Self:
+        if {item.role for item in self.roles} != set(Stage6Role):
+            raise ValueError("repair plan requires Agent and Mutator exactly once")
+        if self.lock_digest != sha256_digest(self.digest_payload()):
+            raise ValueError("Stage 6 repair plan digest does not match")
+        return self
+
+
+class Stage6AppliedRoleIdentity(OfficeV2Contract):
+    role: Stage6Role
+    image_reference: str
+    image_id: Sha256Digest
+    image_build_receipt_digest: Sha256Digest
+
+
+class Stage6RepairApplicationReceipt(OfficeV2Contract):
+    schema_version: Literal["office-v2-stage6-repair-application-v1"]
+    repair_lock_digest: Sha256Digest
+    active_model_lock_digest: Sha256Digest
+    roles: tuple[Stage6AppliedRoleIdentity, Stage6AppliedRoleIdentity]
+    receipt_digest: Sha256Digest
+
+    @field_validator("roles")
+    @classmethod
+    def applied_roles_are_canonical(
+        cls, value: tuple[Stage6AppliedRoleIdentity, Stage6AppliedRoleIdentity]
+    ) -> tuple[Stage6AppliedRoleIdentity, Stage6AppliedRoleIdentity]:
+        return tuple(sorted(value, key=lambda item: item.role.value))
+
+    def digest_payload(self) -> dict[str, object]:
+        return self.model_dump(
+            mode="json", exclude={"receipt_digest"}, exclude_none=False
+        )
+
+    @model_validator(mode="after")
+    def application_receipt_matches(self) -> Self:
+        if {item.role for item in self.roles} != set(Stage6Role):
+            raise ValueError("repair receipt requires Agent and Mutator exactly once")
+        if self.receipt_digest != sha256_digest(self.digest_payload()):
+            raise ValueError("Stage 6 repair application receipt digest does not match")
         return self
 
 
@@ -179,14 +281,64 @@ def seal_stage6_model_lock(**values: object) -> Stage6ModelLock:
     )
 
 
+def seal_repair_role_plan(**values: object) -> Stage6RepairRolePlan:
+    draft = Stage6RepairRolePlan.model_construct(
+        **values, role_plan_digest="sha256:" + "0" * 64
+    )
+    return Stage6RepairRolePlan(
+        **values, role_plan_digest=sha256_digest(draft.digest_payload())
+    )
+
+
+def seal_repair_plan_lock(**values: object) -> Stage6RepairPlanLock:
+    payload = {"schema_version": "office-v2-stage6-repair-plan-v2", **values}
+    if "roles" in payload:
+        payload["roles"] = tuple(
+            sorted(payload["roles"], key=lambda item: item.role.value)
+        )
+    draft = Stage6RepairPlanLock.model_construct(
+        **payload, lock_digest="sha256:" + "0" * 64
+    )
+    return Stage6RepairPlanLock(
+        **payload, lock_digest=sha256_digest(draft.digest_payload())
+    )
+
+
+def seal_repair_application_receipt(
+    **values: object,
+) -> Stage6RepairApplicationReceipt:
+    payload = {
+        "schema_version": "office-v2-stage6-repair-application-v1",
+        **values,
+    }
+    if "roles" in payload:
+        payload["roles"] = tuple(
+            sorted(payload["roles"], key=lambda item: item.role.value)
+        )
+    draft = Stage6RepairApplicationReceipt.model_construct(
+        **payload, receipt_digest="sha256:" + "0" * 64
+    )
+    return Stage6RepairApplicationReceipt(
+        **payload, receipt_digest=sha256_digest(draft.digest_payload())
+    )
+
+
 __all__ = [
     "STAGE6_MODEL_NAME",
     "STAGE6_PLAN_DIGEST",
+    "Stage6AppliedRoleIdentity",
     "Stage6InferenceConfig",
     "Stage6ModelLock",
+    "Stage6RepairApplicationReceipt",
+    "Stage6RepairFileIdentity",
+    "Stage6RepairPlanLock",
+    "Stage6RepairRolePlan",
     "Stage6Role",
     "Stage6RoleIdentity",
     "seal_inference_config",
+    "seal_repair_application_receipt",
+    "seal_repair_plan_lock",
+    "seal_repair_role_plan",
     "seal_role_identity",
     "seal_stage6_model_lock",
 ]

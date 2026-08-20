@@ -19,17 +19,40 @@ DB="$CAMPAIGN_ROOT/campaign.sqlite3"
 PREFLIGHT="$PROJECT_DIR/reports/server-stage6/preflight/stage6-preflight.json"
 cd "$PROJECT_DIR"
 test -f "$PREFLIGHT" || { echo "ERROR: preflight missing" >&2; exit 1; }
+mapfile -t LOCK_IMAGES < <(python3 - .trace-g/stage6-model-lock.json <<'PY'
+import json
+import sys
+
+lock = json.load(open(sys.argv[1], encoding="utf-8"))
+roles = {item["role"]: item for item in lock["roles"]}
+print(lock["controller_image_reference"])
+print(roles["agent"]["image_reference"])
+print(roles["mutator"]["image_reference"])
+PY
+)
+[[ "${#LOCK_IMAGES[@]}" -eq 3 ]] || { echo "ERROR: incomplete Stage 6 image lock" >&2; exit 1; }
+CONTROLLER_IMAGE="${LOCK_IMAGES[0]}"
+AGENT_IMAGE="${LOCK_IMAGES[1]}"
+MUTATOR_IMAGE="${LOCK_IMAGES[2]}"
 python3 - "$PREFLIGHT" .trace-g/stage6-model-lock.json <<'PY'
 import json
 import sys
 
 preflight = json.load(open(sys.argv[1], encoding="utf-8"))
 lock = json.load(open(sys.argv[2], encoding="utf-8"))
+roles = {item["role"]: item for item in lock["roles"]}
 if (
     preflight.get("schema_version") != "office-v2-stage6-preflight-v1"
     or preflight.get("passed") is not True
     or preflight.get("model_name") != lock.get("model_name")
     or preflight.get("model_digest") != lock.get("manifest_digest")
+    or preflight.get("model_lock_digest") != lock.get("lock_digest")
+    or preflight.get("controller_image_reference") != lock.get("controller_image_reference")
+    or preflight.get("controller_image_id") != lock.get("controller_image_id")
+    or preflight.get("agent_image_reference") != roles["agent"].get("image_reference")
+    or preflight.get("agent_image_id") != roles["agent"].get("image_id")
+    or preflight.get("mutator_image_reference") != roles["mutator"].get("image_reference")
+    or preflight.get("mutator_image_id") != roles["mutator"].get("image_id")
 ):
     raise SystemExit("ERROR: preflight identity does not match the active model lock")
 PY
@@ -39,7 +62,7 @@ archive_campaign() {
   local outcome="$1"
   local suffix="complete"
   [[ "$outcome" == failure ]] && suffix="failed"
-  TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+  TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
     scripts/audit_office_v2_stage6_campaign.py archive \
     --campaign-id "$CAMPAIGN_ID" --outcome "$outcome" \
     --campaign-root "$CAMPAIGN_ROOT" --result-root "$RESULT_ROOT" \
@@ -68,15 +91,15 @@ else
   test -f "$DB" || { echo "ERROR: resume requires an existing Campaign" >&2; exit 1; }
   CLI_COMMAND=real-resume
 fi
-TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh -m sandbox.fuzzer.v2_cli "$CLI_COMMAND" \
+TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh -m sandbox.fuzzer.v2_cli "$CLI_COMMAND" \
   --db "$DB" --campaign-id "$CAMPAIGN_ID" \
   --bootstrap .trace-g/stage6-bootstrap.json \
   --model-lock .trace-g/stage6-model-lock.json \
-  --agent-image trace-g-office-v2-agent-qwen:step6-local \
-  --mutator-image trace-g-office-v2-mutator-qwen:step6-local \
+  --agent-image "$AGENT_IMAGE" \
+  --mutator-image "$MUTATOR_IMAGE" \
   --data-root "$CAMPAIGN_ROOT" --generations "$TARGET" --gpu-device "$GPU_DEVICE" \
   > "$RESULT_ROOT/run-to-${TARGET}.json"
-TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh -m sandbox.fuzzer.v2_cli report \
+TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh -m sandbox.fuzzer.v2_cli report \
   --db "$DB" --campaign-id "$CAMPAIGN_ID" --output "$RESULT_ROOT/campaign-report.json"
 docker ps -a --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \
   --format '{{.ID}} {{.Image}} {{.Status}}' > "$RESULT_ROOT/container-residue.txt"
@@ -85,7 +108,7 @@ docker volume ls --filter "label=trace-g.campaign-id=$CAMPAIGN_ID" \
 test ! -s "$RESULT_ROOT/container-residue.txt"
 test ! -s "$RESULT_ROOT/volume-residue.txt"
 if (( TARGET >= 2 )); then
-  TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
+  TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none scripts/server_python.sh \
     scripts/audit_office_v2_stage6_campaign.py \
     two-generation-gate --db "$DB" --campaign-id "$CAMPAIGN_ID" \
     --output "$RESULT_ROOT/two-generation-gate.json"

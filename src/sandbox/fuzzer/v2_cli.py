@@ -133,8 +133,18 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
     ):
         raise SystemExit("real Campaign arguments differ from Stage6ModelLock")
     client = docker.from_env()
+    if (
+        client.images.get(lock.controller_image_reference).id.lower()
+        != lock.controller_image_id.lower()
+    ):
+        raise SystemExit("Controller image ID differs from Stage6ModelLock")
     if client.images.get(args.agent_image).id.lower() != agent_role.image_id.lower():
         raise SystemExit("Agent image ID differs from Stage6ModelLock")
+    if (
+        client.images.get(args.mutator_image).id.lower()
+        != mutator_role.image_id.lower()
+    ):
+        raise SystemExit("Mutator image ID differs from Stage6ModelLock")
     artifacts = ArtifactStore(args.data_root / "artifacts")
     config = WeekOneConfig(
         sandbox=SandboxConfig(
@@ -184,6 +194,7 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
         generation_count=args.generations,
         mutation_provider=provider,
         episode_runner=episode_runner,
+        runtime_identity_digest=lock.lock_digest,
     ).model_dump(mode="json", exclude_none=False)
 
 
