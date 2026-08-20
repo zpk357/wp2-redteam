@@ -104,6 +104,26 @@ def test_readiness_wait_can_be_interrupted_before_http_request(
     assert called is False
 
 
+def test_readiness_wait_fails_fast_for_permanent_identity_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = BootstrapConfig.from_environment(
+        environment(TRACE_G_STARTUP_TIMEOUT_SECONDS="180")
+    )
+    calls = 0
+
+    def permanent_error(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        raise BootstrapError("identity differs", failure_class="configuration_permanent")
+
+    monkeypatch.setattr("app.agent_qwen_bootstrap.request_json", permanent_error)
+
+    with pytest.raises(BootstrapError, match="identity differs"):
+        wait_for_locked_model(config)
+    assert calls == 1
+
+
 def test_warmup_uses_the_bounded_startup_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     config = BootstrapConfig.from_environment(
         environment(TRACE_G_STARTUP_TIMEOUT_SECONDS="37")

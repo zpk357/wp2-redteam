@@ -119,27 +119,64 @@ print(next(item.image_reference for item in lock.roles if item.role is Stage6Rol
 PY
 )"
 docker run --rm --network none --entrypoint python "$MUTATOR_IMAGE" -c \
-  'import importlib.util; from sandbox.mutation.v2_brief import MutationCandidateResponse; from sandbox.ollama_schema import ollama_compatible_schema; assert importlib.util.find_spec("docker") is None; schema=ollama_compatible_schema(MutationCandidateResponse); assert "maxLength" not in str(schema); print("mutator-import-schema-smoke=passed")'
+  'import importlib.util; from sandbox.mutation.v2_brief import MutationCandidateResponse; from sandbox.ollama_schema import ollama_compatible_schema; assert importlib.util.find_spec("docker") is None; schema=ollama_compatible_schema(MutationCandidateResponse.model_json_schema()); assert schema.get("type") == "object"; assert schema.get("properties"); print("mutator-import-schema-smoke=passed")'
+
+SOURCE_SWAPPED=0
+INSTALL_COMMITTED=0
+FAILED_DIR="$PERSIST_ROOT/.repair-failed-$SOURCE_REVISION"
+STAGE_JSON="$PERSIST_ROOT/stage.json"
+STAGE_JSON_BACKUP="$PERSIST_ROOT/.stage-before-$SOURCE_REVISION.json"
+[[ ! -e "$FAILED_DIR" ]] || { echo "ERROR: failed repair preservation path already exists" >&2; exit 1; }
+if [[ -f "$STAGE_JSON" ]]; then
+  cp "$STAGE_JSON" "$STAGE_JSON_BACKUP"
+fi
+python3 - "$STAGE_JSON" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+target = Path(sys.argv[1])
+temporary = target.with_suffix(".repairing.tmp")
+temporary.write_text(json.dumps({"schema_version": "office-v2-stage6-stage-v2", "status": "repairing"}, sort_keys=True) + "\n", encoding="utf-8")
+os.replace(temporary, target)
+PY
 
 rollback_source_swap() {
   local status=$?
-  trap - ERR
-  if [[ ! -e "$PROJECT_DIR" && -d "$BACKUP_DIR" ]]; then
+  trap - EXIT
+  if [[ "$INSTALL_COMMITTED" -eq 1 ]]; then
+    exit "$status"
+  fi
+  if [[ "$SOURCE_SWAPPED" -eq 1 && -d "$BACKUP_DIR" ]]; then
+    for persistent in .trace-g-data reports; do
+      if [[ -e "$PROJECT_DIR/$persistent" && ! -e "$BACKUP_DIR/$persistent" ]]; then
+        mv "$PROJECT_DIR/$persistent" "$BACKUP_DIR/$persistent"
+      fi
+    done
+    if [[ -d "$PROJECT_DIR" ]]; then
+      mv "$PROJECT_DIR" "$FAILED_DIR"
+    fi
     mv "$BACKUP_DIR" "$PROJECT_DIR"
+  fi
+  if [[ -f "$STAGE_JSON_BACKUP" ]]; then
+    mv "$STAGE_JSON_BACKUP" "$STAGE_JSON"
+  else
+    rm -f "$STAGE_JSON"
   fi
   exit "$status"
 }
-trap rollback_source_swap ERR
+trap rollback_source_swap EXIT
 mv "$PROJECT_DIR" "$BACKUP_DIR"
 mv "$STAGE_DIR" "$PROJECT_DIR"
-trap - ERR
+SOURCE_SWAPPED=1
 for persistent in .trace-g-data reports; do
   if [[ -e "$BACKUP_DIR/$persistent" ]]; then
     mv "$BACKUP_DIR/$persistent" "$PROJECT_DIR/$persistent"
   fi
 done
 chmod +x "$PROJECT_DIR"/scripts/*.sh
-python3 - "$PERSIST_ROOT/stage.json" "$SOURCE_REVISION" "$REPAIR_LOCK" <<'PY'
+python3 - "$STAGE_JSON" "$SOURCE_REVISION" "$REPAIR_LOCK" <<'PY'
 import json
 import os
 import sys
@@ -157,4 +194,7 @@ temporary = target.with_suffix(".tmp")
 temporary.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
 os.replace(temporary, target)
 PY
+INSTALL_COMMITTED=1
+rm -f "$STAGE_JSON_BACKUP"
+trap - EXIT
 echo "Office V2 Stage 6 repair applied; previous source preserved at $BACKUP_DIR"

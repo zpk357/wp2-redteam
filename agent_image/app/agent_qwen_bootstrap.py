@@ -206,7 +206,12 @@ def wait_for_locked_model(
             payload = request_json(config.ollama_endpoint, "/api/tags")
             verify_model_registry(payload, config)
             return True
-        except (BootstrapError, OSError, urllib.error.URLError) as exc:
+        except BootstrapError as exc:
+            if exc.failure_class.endswith("_permanent"):
+                raise
+            last_error = str(exc)
+            time.sleep(0.25)
+        except (OSError, urllib.error.URLError) as exc:
             last_error = str(exc)
             time.sleep(0.25)
     raise BootstrapError(f"locked Ollama model failed readiness: {last_error}")

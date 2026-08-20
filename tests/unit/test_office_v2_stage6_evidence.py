@@ -9,14 +9,17 @@ import pytest
 
 from sandbox.fuzzer.v2_campaign_store import V2CampaignStore
 from sandbox.fuzzer.v2_real_runtime import run_or_resume_real_campaign
+from sandbox.fuzzer.v2_report import write_v2_campaign_report
 from sandbox.fuzzer.v2_scripted_runtime import (
     ScriptedCampaignBootstrap,
     run_or_resume_scripted_campaign,
 )
 from sandbox.fuzzer.v2_stage6_evidence import (
+    audit_stage6_milestone,
     audit_two_generation_gate,
     build_stage6_evidence_archive,
     verify_stage6_evidence_archive,
+    write_stage6_milestone,
 )
 from sandbox.fuzzer.v2_work import (
     BudgetReservation,
@@ -165,6 +168,28 @@ def test_two_generation_gate_accepts_boundary_resume_without_duplicates(
     assert report["passed"] is True
 
 
+def test_milestone_gate_rejects_early_nonterminal_campaign(tmp_path: Path) -> None:
+    promoted, state = loop_fixture()
+    path = tmp_path / "campaign.sqlite3"
+    bootstrap = ScriptedCampaignBootstrap(
+        initial_state=state, execution=promoted.execution, delta=promoted.delta
+    )
+    with V2CampaignStore(path) as store:
+        run_or_resume_scripted_campaign(
+            store=store,
+            campaign_id=CAMPAIGN_ID,
+            bootstrap=bootstrap,
+            generation_count=2,
+        )
+        store.bind_runtime_identity(CAMPAIGN_ID, identity_digest=sha256_digest("runtime"))
+
+    report = audit_stage6_milestone(
+        db_path=path, campaign_id=CAMPAIGN_ID, target_generation=10
+    )
+    assert report["passed"] is False
+    assert report["result_kind"] == "target_not_reached"
+
+
 class InvalidSlotMutationProvider:
     provider_id = RuleBasedV2MutationProvider.provider_id
 
@@ -237,13 +262,90 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
     results = tmp_path / "results"
     campaign.mkdir()
     results.mkdir()
-    (campaign / "campaign.sqlite3").write_bytes(b"sqlite-evidence")
+    promoted, state = loop_fixture()
+    lock_payload = {"manifest_digest": sha256_digest("model")}
+    lock_payload["lock_digest"] = sha256_digest(lock_payload)
+    runtime_digest = lock_payload["lock_digest"]
+    bootstrap_value = ScriptedCampaignBootstrap(
+        initial_state=state,
+        execution=promoted.execution,
+        delta=promoted.delta,
+    )
+    with V2CampaignStore(campaign / "campaign.sqlite3") as store:
+        run_or_resume_scripted_campaign(
+            store=store,
+            campaign_id=CAMPAIGN_ID,
+            bootstrap=bootstrap_value,
+            generation_count=2,
+        )
+        store.bind_runtime_identity(CAMPAIGN_ID, identity_digest=runtime_digest)
+        write_v2_campaign_report(
+            store=store,
+            campaign_id=CAMPAIGN_ID,
+            output=results / "campaign-report.json",
+        )
+    write_stage6_milestone(
+        db_path=campaign / "campaign.sqlite3",
+        campaign_id=CAMPAIGN_ID,
+        target_generation=2,
+        output=results / "milestone-to-2.json",
+    )
     (campaign / "recording.json").write_text("{}\n", encoding="utf-8")
-    (results / "campaign-report.json").write_text("{}\n", encoding="utf-8")
+    (campaign / "replays" / "replay.stage6.fixture").mkdir(parents=True)
+    (campaign / "replays" / "replay.stage6.fixture" / "manifest.json").write_text(
+        json.dumps({"replay_id": "replay.stage6.fixture", "recording_complete": True}) + "\n",
+        encoding="utf-8",
+    )
+    report = json.loads((results / "campaign-report.json").read_text(encoding="utf-8"))
+    (results / "stage6-campaign-progress.jsonl").write_text(
+        json.dumps(
+            {
+                "schema_version": "office-v2-stage6-progress-v1",
+                "campaign_id": CAMPAIGN_ID,
+                "requested_target": 2,
+                "observed_generation": 2,
+                "completion_status": report["completion_status"],
+                "report_digest": report["report_digest"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (results / "stage6-replay-report.json").write_text(
+        json.dumps(
+            {
+                "replay_id": "replay.stage6.fixture",
+                "status": "matched",
+                "container_removed": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     paths = {"campaign": campaign, "results": results}
-    for name in ("model-lock", "bootstrap", "preflight"):
+    payloads = {
+        "model-lock": lock_payload,
+        "bootstrap": {"model_identity_digest": lock_payload["manifest_digest"]},
+        "preflight": {
+            "passed": True,
+            "model_digest": lock_payload["manifest_digest"],
+            "model_lock_digest": lock_payload["lock_digest"],
+            "mutator_completed_before_agent": True,
+            "agent_successful_tool_exchange_count": 1,
+            "agent_model_decision_count": 2,
+            "agent_post_tool_decision_proved": True,
+        },
+        "repair-receipt": {"active_model_lock_digest": lock_payload["lock_digest"]},
+        "server-host": {"captured": True},
+        "gpu-residency": {
+            "passed": True,
+            "full_residency": {"agent": True, "mutator": True},
+            "residual_observed_model_process_pids": [],
+        },
+    }
+    for name, payload in payloads.items():
         path = tmp_path / f"{name}.json"
-        path.write_text(f'{{"kind":"{name}"}}\n', encoding="utf-8")
+        path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
         paths[name] = path
     return paths
 
@@ -259,6 +361,9 @@ def test_complete_archive_contains_campaign_results_and_identity(tmp_path: Path)
         model_lock=paths["model-lock"],
         bootstrap=paths["bootstrap"],
         preflight=paths["preflight"],
+        repair_receipt=paths["repair-receipt"],
+        server_host=paths["server-host"],
+        gpu_residency=paths["gpu-residency"],
         output=output,
     )
     with tarfile.open(output, "r:gz") as archive:
@@ -270,6 +375,9 @@ def test_complete_archive_contains_campaign_results_and_identity(tmp_path: Path)
         "identity/stage6-model-lock.json",
         "identity/stage6-bootstrap.json",
         "preflight/stage6-preflight.json",
+        "identity/stage6-repair-application.json",
+        "preflight/stage6-server-host.json",
+        "preflight/stage6-gpu-residency.json",
         "stage6-evidence-manifest.json",
     }.issubset(names)
     assert output.with_name(output.name + ".sha256").is_file()
@@ -279,9 +387,32 @@ def test_complete_archive_contains_campaign_results_and_identity(tmp_path: Path)
     assert verify_stage6_evidence_archive(output)["campaign_id"] == CAMPAIGN_ID
 
 
+def test_archive_verifier_rejects_mixed_campaign_report(tmp_path: Path) -> None:
+    paths = _evidence_files(tmp_path)
+    report_path = paths["results"] / "campaign-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["campaign_id"] = "campaign.stage6.other"
+    report_path.write_text(json.dumps(report) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="database, report, and model identity differ"):
+        build_stage6_evidence_archive(
+            campaign_id=CAMPAIGN_ID,
+            outcome="success",
+            campaign_root=paths["campaign"],
+            result_root=paths["results"],
+            model_lock=paths["model-lock"],
+            bootstrap=paths["bootstrap"],
+            preflight=paths["preflight"],
+            repair_receipt=paths["repair-receipt"],
+            server_host=paths["server-host"],
+            gpu_residency=paths["gpu-residency"],
+            output=tmp_path / "mixed.tar.gz",
+        )
+
+
 def test_archive_failure_does_not_remove_original_evidence(tmp_path: Path) -> None:
     paths = _evidence_files(tmp_path)
     missing_lock = tmp_path / "missing-lock.json"
+    original_database = (paths["campaign"] / "campaign.sqlite3").read_bytes()
     with pytest.raises(ValueError, match="required evidence file"):
         build_stage6_evidence_archive(
             campaign_id=CAMPAIGN_ID,
@@ -291,9 +422,12 @@ def test_archive_failure_does_not_remove_original_evidence(tmp_path: Path) -> No
             model_lock=missing_lock,
             bootstrap=paths["bootstrap"],
             preflight=paths["preflight"],
+            repair_receipt=paths["repair-receipt"],
+            server_host=paths["server-host"],
+            gpu_residency=paths["gpu-residency"],
             output=tmp_path / "failed.tar.gz",
         )
-    assert (paths["campaign"] / "campaign.sqlite3").read_bytes() == b"sqlite-evidence"
+    assert (paths["campaign"] / "campaign.sqlite3").read_bytes() == original_database
 
 
 def test_archive_verifier_rejects_corruption(tmp_path: Path) -> None:
@@ -307,6 +441,9 @@ def test_archive_verifier_rejects_corruption(tmp_path: Path) -> None:
         model_lock=paths["model-lock"],
         bootstrap=paths["bootstrap"],
         preflight=paths["preflight"],
+        repair_receipt=paths["repair-receipt"],
+        server_host=paths["server-host"],
+        gpu_residency=paths["gpu-residency"],
         output=output,
     )
     payload = bytearray(output.read_bytes())

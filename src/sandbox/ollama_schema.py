@@ -7,6 +7,8 @@ OLLAMA_GRAMMAR_MAX_FINITE_REPEAT = 1024
 
 def ollama_compatible_schema(schema: dict) -> dict:
     """Drop finite string bounds that Ollama's grammar compiler rejects."""
+    if not isinstance(schema, dict):
+        raise TypeError("Ollama schema must be a JSON-schema object")
     stack: list[object] = [schema]
     while stack:
         current = stack.pop()

@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import json
 from pathlib import Path
+from uuid import uuid4
 
 import docker
 
@@ -14,7 +15,7 @@ from sandbox.client.artifact_transfer import ArtifactTransfer
 from sandbox.client.runtime_client import RuntimeClient
 from sandbox.config import SandboxConfig, SandboxLimits, TraceConfig, WeekOneConfig
 from sandbox.fuzzer.v2_orchestrator import decide_next_generation
-from sandbox.fuzzer.v2_real_episode import _recorded_agent_tokens
+from sandbox.fuzzer.v2_real_episode import OfficeV2RecordedOracleArtifact, _recorded_agent_tokens
 from sandbox.fuzzer.v2_real_runtime import RealCampaignBootstrap
 from sandbox.fuzzer.v2_stage6_identity import Stage6ModelLock, Stage6Role
 from sandbox.mutation.v2_brief import build_minimal_fact_brief
@@ -25,6 +26,7 @@ from sandbox.mutation.v2_plan_builder import (
 )
 from sandbox.replay.artifact_store import ArtifactStore
 from sandbox.replay.manifest import ManifestStore
+from sandbox.replay.models import RecordedModelDecision, RecordedToolInteraction
 from sandbox.replay.replay_engine import ReplayEngine
 from sandbox.scenarios.office_v2.cli_entry import (
     build_office_v2_public_request,
@@ -119,9 +121,10 @@ async def run_preflight(args) -> dict[str, object]:
         case_source=None,
     )
     selected = office_v2_public_case("clean.t1.apollo")
+    execution_id = f"office-v2-stage6-clean-preflight-{uuid4().hex}"
     request = build_office_v2_public_request(
         selected,
-        execution_id="office-v2-stage6-clean-preflight",
+        execution_id=execution_id,
         model_name=lock.model_name,
         model_digest=lock.manifest_digest,
         seed=0,
@@ -131,7 +134,32 @@ async def run_preflight(args) -> dict[str, object]:
     manifest = await engine.record_request(request)
     if manifest.office_v2_oracle is None:
         raise ValueError("clean Agent preflight did not produce an Office V2 Oracle artifact")
-    agent_tokens = _recorded_agent_tokens(artifacts.read_bytes(manifest.model_decisions))
+    decision_bytes = artifacts.read_bytes(manifest.model_decisions)
+    agent_tokens = _recorded_agent_tokens(decision_bytes)
+    decisions = tuple(
+        RecordedModelDecision.model_validate_json(line)
+        for line in decision_bytes.splitlines()
+        if line.strip()
+    )
+    tool_records = tuple(
+        RecordedToolInteraction.model_validate_json(line)
+        for line in artifacts.read_bytes(manifest.tool_records).splitlines()
+        if line.strip()
+    )
+    oracle = OfficeV2RecordedOracleArtifact.model_validate_json(
+        artifacts.read_bytes(manifest.office_v2_oracle)
+    )
+    successful_tools = tuple(
+        item for item in oracle.evidence_bundle.tool_exchanges if item.status.value == "succeeded"
+    )
+    if not successful_tools or not tool_records:
+        raise ValueError("clean Agent preflight did not complete an Office tool exchange")
+    if not any(
+        decision.sequence > interaction.sequence
+        for interaction in tool_records
+        for decision in decisions
+    ):
+        raise ValueError("clean Agent preflight did not decide again after a tool result")
 
     residue = client.containers.list(
         all=True, filters={"label": ["trace-g.component=office-v2-llm-mutator"]}
@@ -144,7 +172,7 @@ async def run_preflight(args) -> dict[str, object]:
     if agent_residue:
         raise ValueError("Agent preflight left a labeled container")
     volume_residue = client.volumes.list(
-        filters={"label": ["trace-g.execution-id=office-v2-stage6-clean-preflight"]}
+        filters={"label": [f"trace-g.execution-id={execution_id}"]}
     )
     if volume_residue:
         raise ValueError("Agent preflight left a labeled workspace volume")
@@ -164,7 +192,12 @@ async def run_preflight(args) -> dict[str, object]:
         "mutator_input_tokens": mutation.attempt.input_tokens,
         "mutator_output_tokens": mutation.attempt.output_tokens,
         "agent_manifest_digest": manifest.manifest_digest,
+        "agent_execution_id": execution_id,
         "agent_tokens": agent_tokens,
+        "agent_model_decision_count": len(decisions),
+        "agent_tool_exchange_count": len(oracle.evidence_bundle.tool_exchanges),
+        "agent_successful_tool_exchange_count": len(successful_tools),
+        "agent_post_tool_decision_proved": True,
         "mutator_completed_before_agent": True,
     }
 

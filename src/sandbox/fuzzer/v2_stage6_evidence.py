@@ -6,7 +6,9 @@ import gzip
 import hashlib
 import io
 import json
+import sqlite3
 import tarfile
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,7 +20,8 @@ from .v2_feedback import NextGenerationFeedback
 from .v2_orchestrator import GenerationClosureReceipt, GenerationDecision
 
 STAGE6_GATE_SCHEMA = "office-v2-stage6-two-generation-gate-v1"
-STAGE6_ARCHIVE_SCHEMA = "office-v2-stage6-evidence-archive-v1"
+STAGE6_ARCHIVE_SCHEMA = "office-v2-stage6-evidence-archive-v2"
+STAGE6_MILESTONE_SCHEMA = "office-v2-stage6-milestone-v1"
 
 
 def _check(checks: list[dict[str, object]], name: str, passed: bool, detail: str) -> None:
@@ -232,6 +235,60 @@ def write_two_generation_gate(
     return report
 
 
+def audit_stage6_milestone(
+    *, db_path: Path, campaign_id: str, target_generation: int
+) -> dict[str, object]:
+    """Classify a paid milestone without treating every clean exit as success."""
+
+    if target_generation not in {2, 10, 20, 30, 50}:
+        raise ValueError("target generation is not a Stage 6 milestone")
+    with V2CampaignStore(db_path) as store:
+        state = store.load_state(campaign_id)
+        generation = state.lifecycle.counters.generation_index
+        completion = state.lifecycle.completion_status
+        completion_value = completion.value if completion is not None else None
+        if completion_value == "saturated":
+            result_kind = "saturated"
+            passed = True
+        elif completion_value is None and generation >= target_generation:
+            result_kind = "target_reached"
+            passed = True
+        else:
+            result_kind = completion_value or "target_not_reached"
+            passed = False
+        runtime_row = store._db.execute(
+            "SELECT runtime_identity_digest FROM campaign_runtime_identity WHERE campaign_id=?",
+            (campaign_id,),
+        ).fetchone()
+        payload: dict[str, object] = {
+            "schema_version": STAGE6_MILESTONE_SCHEMA,
+            "campaign_id": campaign_id,
+            "target_generation": target_generation,
+            "actual_generation": generation,
+            "completion_status": completion_value,
+            "result_kind": result_kind,
+            "runtime_identity_digest": (
+                runtime_row["runtime_identity_digest"] if runtime_row is not None else None
+            ),
+            "passed": passed and runtime_row is not None,
+        }
+    payload["audit_digest"] = sha256_digest(payload)
+    return payload
+
+
+def write_stage6_milestone(
+    *, db_path: Path, campaign_id: str, target_generation: int, output: Path
+) -> dict[str, object]:
+    report = audit_stage6_milestone(
+        db_path=db_path,
+        campaign_id=campaign_id,
+        target_generation=target_generation,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    return report
+
+
 @dataclass(frozen=True)
 class _ArchiveSource:
     path: Path
@@ -285,7 +342,176 @@ def verify_stage6_evidence_archive(path: Path) -> dict[str, object]:
                 digest.update(block)
             if "sha256:" + digest.hexdigest() != item["sha256"]:
                 raise ValueError(f"archive member checksum differs: {item['path']}")
+        _verify_archived_stage6_closure(archive, manifest)
     return manifest
+
+
+def _json_member(archive: tarfile.TarFile, name: str) -> dict[str, Any]:
+    stream = archive.extractfile(name)
+    if stream is None:
+        raise ValueError(f"required closure member is missing: {name}")
+    value = json.loads(stream.read())
+    if not isinstance(value, dict):
+        raise ValueError(f"closure member is not an object: {name}")
+    return value
+
+
+def _json_lines_member(archive: tarfile.TarFile, name: str) -> list[dict[str, Any]]:
+    stream = archive.extractfile(name)
+    if stream is None:
+        raise ValueError(f"required closure member is missing: {name}")
+    values: list[dict[str, Any]] = []
+    for raw_line in stream.read().splitlines():
+        if not raw_line.strip():
+            continue
+        value = json.loads(raw_line)
+        if not isinstance(value, dict):
+            raise ValueError(f"closure JSONL row is not an object: {name}")
+        values.append(value)
+    if not values:
+        raise ValueError(f"closure JSONL member is empty: {name}")
+    return values
+
+
+def _verify_archived_stage6_closure(
+    archive: tarfile.TarFile, manifest: dict[str, object]
+) -> None:
+    """Bind identities, database state, reports, and host evidence to one Campaign."""
+
+    required = {
+        "identity/stage6-model-lock.json",
+        "identity/stage6-bootstrap.json",
+        "identity/stage6-repair-application.json",
+        "preflight/stage6-preflight.json",
+        "preflight/stage6-server-host.json",
+        "preflight/stage6-gpu-residency.json",
+    }
+    if manifest.get("outcome") == "success":
+        required.update(
+            {
+                "campaign/campaign.sqlite3",
+                "results/campaign-report.json",
+                "results/stage6-campaign-progress.jsonl",
+                "results/stage6-replay-report.json",
+            }
+        )
+    names = set(archive.getnames())
+    missing = required - names
+    if missing:
+        raise ValueError(f"archive closure members are missing: {sorted(missing)}")
+    campaign_id = str(manifest["campaign_id"])
+    lock = _json_member(archive, "identity/stage6-model-lock.json")
+    bootstrap = _json_member(archive, "identity/stage6-bootstrap.json")
+    repair = _json_member(archive, "identity/stage6-repair-application.json")
+    preflight = _json_member(archive, "preflight/stage6-preflight.json")
+    host = _json_member(archive, "preflight/stage6-server-host.json")
+    gpu = _json_member(archive, "preflight/stage6-gpu-residency.json")
+    lock_digest = lock.get("lock_digest")
+    if lock_digest != sha256_digest({k: v for k, v in lock.items() if k != "lock_digest"}):
+        raise ValueError("archived model lock digest differs")
+    full_residency = gpu.get("full_residency", {})
+    if (
+        bootstrap.get("model_identity_digest") != lock.get("manifest_digest")
+        or preflight.get("passed") is not True
+        or preflight.get("model_digest") != lock.get("manifest_digest")
+        or preflight.get("model_lock_digest") != lock_digest
+        or repair.get("active_model_lock_digest") != lock_digest
+        or host.get("captured") is not True
+        or gpu.get("passed") is not True
+        or full_residency.get("agent") is not True
+        or full_residency.get("mutator") is not True
+        or gpu.get("residual_observed_model_process_pids")
+        or preflight.get("mutator_completed_before_agent") is not True
+        or preflight.get("agent_successful_tool_exchange_count", 0) < 1
+        or preflight.get("agent_model_decision_count", 0) < 2
+        or preflight.get("agent_post_tool_decision_proved") is not True
+    ):
+        raise ValueError("archived Stage 6 identities or preflight evidence differ")
+    if "campaign/campaign.sqlite3" not in names:
+        return
+    db_stream = archive.extractfile("campaign/campaign.sqlite3")
+    if db_stream is None:
+        raise ValueError("archived Campaign database is missing")
+    with tempfile.TemporaryDirectory() as temporary:
+        database_path = Path(temporary) / "campaign.sqlite3"
+        database_path.write_bytes(db_stream.read())
+        database = sqlite3.connect(database_path)
+        database.row_factory = sqlite3.Row
+        try:
+            campaign = database.execute(
+                "SELECT identity_digest, generation_index FROM campaign WHERE campaign_id=?",
+                (campaign_id,),
+            ).fetchone()
+            runtime = database.execute(
+                "SELECT runtime_identity_digest FROM campaign_runtime_identity WHERE campaign_id=?",
+                (campaign_id,),
+            ).fetchone()
+        finally:
+            database.close()
+    if campaign is None or runtime is None:
+        raise ValueError("archive database does not contain the declared Campaign identity")
+    if runtime["runtime_identity_digest"] != lock_digest:
+        raise ValueError("archive Campaign database and model identity differ")
+    if "results/campaign-report.json" in names:
+        report = _json_member(archive, "results/campaign-report.json")
+        report_matches = (
+            report.get("campaign_id") == campaign_id
+            and report.get("identity_digest") == campaign["identity_digest"]
+            and report.get("generation_index") == campaign["generation_index"]
+        )
+    else:
+        report_matches = manifest.get("outcome") != "success"
+    if not report_matches:
+        raise ValueError("archive Campaign database, report, and model identity differ")
+    milestone_names = tuple(
+        name
+        for name in names
+        if name.startswith("results/milestone-to-") and name.endswith(".json")
+    )
+    if manifest.get("outcome") == "success":
+        if not milestone_names:
+            raise ValueError("successful archive has no milestone decision")
+        milestone_name = max(
+            milestone_names,
+            key=lambda name: int(
+                name.removeprefix("results/milestone-to-").removesuffix(".json")
+            ),
+        )
+        milestone = _json_member(archive, milestone_name)
+        if (
+            milestone.get("campaign_id") != campaign_id
+            or milestone.get("actual_generation") != campaign["generation_index"]
+            or milestone.get("runtime_identity_digest") != lock_digest
+            or milestone.get("passed") is not True
+        ):
+            raise ValueError("successful archive milestone does not match Campaign state")
+        progress_rows = _json_lines_member(
+            archive, "results/stage6-campaign-progress.jsonl"
+        )
+        progress = progress_rows[-1]
+        if (
+            progress.get("campaign_id") != campaign_id
+            or progress.get("observed_generation") != campaign["generation_index"]
+            or progress.get("report_digest") != report.get("report_digest")
+            or progress.get("completion_status") != report.get("completion_status")
+            or progress.get("requested_target") != milestone.get("target_generation")
+        ):
+            raise ValueError("successful archive progress does not match Campaign state")
+        replay = _json_member(archive, "results/stage6-replay-report.json")
+        replay_id = replay.get("replay_id")
+        if replay.get("status") != "matched" or replay.get("container_removed") is not True:
+            raise ValueError("successful archive replay gate did not match cleanly")
+        replay_bound = False
+        for name in names:
+            if name.startswith("campaign/replays/") and name.endswith("/manifest.json"):
+                candidate = _json_member(archive, name)
+                if candidate.get("replay_id") == replay_id:
+                    replay_bound = True
+                    break
+        if not replay_bound:
+            raise ValueError(
+                "successful archive replay result is not bound to an archived manifest"
+            )
 
 
 def _tree_sources(root: Path, prefix: str) -> list[_ArchiveSource]:
@@ -309,6 +535,9 @@ def build_stage6_evidence_archive(
     model_lock: Path,
     bootstrap: Path,
     preflight: Path,
+    repair_receipt: Path,
+    server_host: Path,
+    gpu_residency: Path,
     output: Path,
 ) -> dict[str, object]:
     """Create a normalized archive and a complete content manifest."""
@@ -319,6 +548,9 @@ def build_stage6_evidence_archive(
         "identity/stage6-model-lock.json": model_lock,
         "identity/stage6-bootstrap.json": bootstrap,
         "preflight/stage6-preflight.json": preflight,
+        "identity/stage6-repair-application.json": repair_receipt,
+        "preflight/stage6-server-host.json": server_host,
+        "preflight/stage6-gpu-residency.json": gpu_residency,
     }
     for path in required_files.values():
         if not path.is_file() or path.is_symlink():
@@ -377,8 +609,11 @@ def build_stage6_evidence_archive(
 __all__ = [
     "STAGE6_ARCHIVE_SCHEMA",
     "STAGE6_GATE_SCHEMA",
+    "STAGE6_MILESTONE_SCHEMA",
+    "audit_stage6_milestone",
     "audit_two_generation_gate",
     "build_stage6_evidence_archive",
     "verify_stage6_evidence_archive",
     "write_two_generation_gate",
+    "write_stage6_milestone",
 ]
