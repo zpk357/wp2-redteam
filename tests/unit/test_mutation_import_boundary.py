@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
 
 def test_v2_mutator_contract_import_does_not_require_docker_sdk() -> None:
@@ -31,3 +32,13 @@ assert MutationConfig.__name__ == "MutationConfig"
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_mutator_repair_layer_carries_the_import_boundary() -> None:
+    dockerfile = Path("agent_image/Dockerfile.qwen-mutator-repair").read_text(
+        encoding="utf-8"
+    )
+
+    assert "MUTATOR_BASE_IMAGE=trace-g-office-v2-mutator-qwen:step6-local" in dockerfile
+    assert "src/sandbox/mutation/__init__.py" in dockerfile
+    assert "src/sandbox/coverage/__init__.py" in dockerfile
