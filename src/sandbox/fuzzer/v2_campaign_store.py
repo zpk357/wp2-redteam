@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,7 @@ class V2CampaignStore:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self._db = sqlite3.connect(self.path)
         self._db.row_factory = sqlite3.Row
+        self._savepoint_sequence = 0
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA foreign_keys=ON")
         self._create_schema()
@@ -62,6 +64,30 @@ class V2CampaignStore:
 
     def __exit__(self, *_args: object) -> None:
         self.close()
+
+    @contextmanager
+    def _transaction(self):
+        if not self._db.in_transaction:
+            self._db.execute("BEGIN IMMEDIATE")
+            try:
+                yield
+            except BaseException:
+                self._db.rollback()
+                raise
+            else:
+                self._db.commit()
+            return
+        self._savepoint_sequence += 1
+        name = f"trace_g_nested_{self._savepoint_sequence}"
+        self._db.execute(f"SAVEPOINT {name}")
+        try:
+            yield
+        except BaseException:
+            self._db.execute(f"ROLLBACK TO SAVEPOINT {name}")
+            self._db.execute(f"RELEASE SAVEPOINT {name}")
+            raise
+        else:
+            self._db.execute(f"RELEASE SAVEPOINT {name}")
 
     def _create_schema(self) -> None:
         self._db.executescript(
@@ -206,7 +232,7 @@ class V2CampaignStore:
         initial_state: V2CampaignStateSnapshot,
     ) -> None:
         identity = require_v2_campaign_identity_lock(identity)
-        with self._db:
+        with self._transaction():
             self._insert_state(initial_state)
             existing = self._db.execute(
                 "SELECT identity_digest FROM campaign WHERE campaign_id=?",
@@ -245,7 +271,7 @@ class V2CampaignStore:
         self._require_campaign(campaign_id)
         if not identity_digest.startswith("sha256:") or len(identity_digest) != 71:
             raise V2CampaignStoreError("runtime identity must be a SHA-256 digest")
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT runtime_identity_digest FROM campaign_runtime_identity "
                 "WHERE campaign_id=?",
@@ -284,7 +310,7 @@ class V2CampaignStore:
             raise V2CampaignStoreError("generation closure does not produce next state")
         if feedback.generation_index != next_state.lifecycle.counters.generation_index:
             raise V2CampaignStoreError("generation feedback does not match next state")
-        with self._db:
+        with self._transaction():
             self._point_campaign_to_state(
                 decision.campaign_id,
                 next_state,
@@ -341,7 +367,7 @@ class V2CampaignStore:
             budget=current.budget,
             lifecycle=lifecycle,
         )
-        with self._db:
+        with self._transaction():
             self._point_campaign_to_state(
                 campaign_id,
                 paused,
@@ -455,7 +481,7 @@ class V2CampaignStore:
             or allocation["allocation_digest"] != work.generation_allocation_digest
         ):
             raise V2CampaignStoreError("candidate work requires persisted allocation")
-        with self._db:
+        with self._transaction():
             self._insert_work(work)
 
     def _insert_work(self, work: CandidateWork) -> bool:
@@ -482,7 +508,7 @@ class V2CampaignStore:
     ) -> None:
         self._require_campaign(campaign_id)
         payload = self._json(allocation)
-        with self._db:
+        with self._transaction():
             row = self._db.execute(
                 "SELECT allocation_digest, allocation_json FROM generation_allocation "
                 "WHERE generation_allocation_id=?",
@@ -550,7 +576,7 @@ class V2CampaignStore:
             raise V2CampaignStoreError("scheduled work requires one Episode reservation")
         allocation_payload = self._json(allocation)
         work_payload = self._json(work)
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT allocation_digest, allocation_json FROM generation_allocation "
                 "WHERE generation_allocation_id=?",
@@ -667,7 +693,7 @@ class V2CampaignStore:
             }
         )
         campaign_id = current.campaign_id
-        with self._db:
+        with self._transaction():
             self._db.execute(
                 "UPDATE candidate_work SET work_digest=?, work_json=? WHERE work_id=?",
                 (updated.work_digest, self._json(updated), work_id),
@@ -680,7 +706,7 @@ class V2CampaignStore:
         if work.state is not CandidateWorkState.EXECUTING:
             raise V2CampaignStoreError("attempt requires executing work")
         payload = self._json(receipt)
-        with self._db:
+        with self._transaction():
             row = self._db.execute(
                 "SELECT receipt_digest, receipt_json FROM attempt_receipt WHERE attempt_id=?",
                 (receipt.attempt_id,),
@@ -756,7 +782,7 @@ class V2CampaignStore:
             ):
                 return False
             raise V2CampaignStoreError("settlement requires sealed work")
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT settlement_digest FROM settlement WHERE settlement_id=?",
                 (settlement.settlement_id,),
@@ -904,7 +930,7 @@ class V2CampaignStore:
     def put_mutation_preparation(self, preparation: MutationPreparation) -> None:
         self._require_campaign(preparation.campaign_id)
         payload = self._json(preparation)
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT preparation_digest, preparation_json "
                 "FROM mutation_preparation WHERE preparation_id=?",
@@ -1011,7 +1037,7 @@ class V2CampaignStore:
         if next_state.coverage != current.coverage:
             raise V2CampaignStoreError("mutation reservation cannot change Coverage")
         payload = self._json(reservation)
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT reservation_digest, reservation_json "
                 "FROM mutation_budget_reservation WHERE reservation_id=?",
@@ -1068,7 +1094,7 @@ class V2CampaignStore:
                 "preparation cost settlement cannot change test facts"
             )
         payload = self._json(settlement)
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT settlement_digest, settlement_json "
                 "FROM preparation_cost_settlement WHERE settlement_id=?",
@@ -1138,7 +1164,7 @@ class V2CampaignStore:
         if work.baseline_snapshot_digest != handoff.baseline_snapshot_digest:
             raise V2CampaignStoreError("handoff and Work baseline differ")
         payload = self._json(handoff)
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT handoff_digest, handoff_json, work_id "
                 "FROM execution_handoff WHERE handoff_id=?",
@@ -1210,7 +1236,7 @@ class V2CampaignStore:
         ):
             raise V2CampaignStoreError("non-Episode closure lineage differs")
         payload = self._json(settlement)
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT settlement_digest, settlement_json "
                 "FROM non_episode_settlement WHERE settlement_id=?",
@@ -1252,7 +1278,7 @@ class V2CampaignStore:
     def put_generation_decision(self, decision: GenerationDecision) -> bool:
         self._require_campaign(decision.campaign_id)
         payload = self._json(decision)
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT decision_digest, decision_json FROM generation_decision "
                 "WHERE campaign_id=? AND generation_index=?",
@@ -1293,7 +1319,7 @@ class V2CampaignStore:
     def put_generation_closure(self, closure: GenerationClosureReceipt) -> bool:
         self._require_campaign(closure.campaign_id)
         payload = self._json(closure)
-        with self._db:
+        with self._transaction():
             existing = self._db.execute(
                 "SELECT closure_digest, closure_json FROM generation_closure "
                 "WHERE campaign_id=? AND generation_index=?",
@@ -1331,7 +1357,7 @@ class V2CampaignStore:
             raise V2CampaignStoreError("generation feedback belongs to another Campaign")
         if feedback.generation_index != state.lifecycle.counters.generation_index:
             raise V2CampaignStoreError("generation feedback does not match current index")
-        with self._db:
+        with self._transaction():
             inserted = self._insert_generation_closure(closure)
             self._insert_generation_feedback(feedback)
         return inserted

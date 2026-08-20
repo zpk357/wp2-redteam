@@ -151,6 +151,25 @@ def test_runtime_identity_is_immutable_across_resume(tmp_path: Path) -> None:
             )
 
 
+def test_nested_store_transaction_rolls_back_with_outer_failure(tmp_path: Path) -> None:
+    with create_store(tmp_path / "campaign.db") as store:
+        identity_digest = "sha256:" + "a" * 64
+
+        with (
+            pytest.raises(RuntimeError, match="simulated outer failure"),
+            store._transaction(),
+        ):
+            store.bind_runtime_identity("campaign-1", identity_digest=identity_digest)
+            raise RuntimeError("simulated outer failure")
+
+        row = store._db.execute(
+            "SELECT runtime_identity_digest FROM campaign_runtime_identity "
+            "WHERE campaign_id=?",
+            ("campaign-1",),
+        ).fetchone()
+        assert row is None
+
+
 def test_attempt_receipt_is_immutable_and_retryable_work_recovers(tmp_path: Path) -> None:
     with create_store(tmp_path / "campaign.db") as store:
         put_work(store)
