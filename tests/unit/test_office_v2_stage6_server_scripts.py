@@ -45,3 +45,9 @@ def test_repair_install_and_archive_bind_the_frozen_source_identity() -> None:
     assert "stage6-repair-plan.json" in repair
     assert "--source-tree-identity .trace-g/stage6-source-tree.json" in campaign
     assert "${CAMPAIGN_ID}-to-${TARGET}-${suffix}-${RUN_ATTEMPT_ID}.tar.gz" in campaign
+
+
+def test_repair_image_tags_are_unique_to_the_source_revision() -> None:
+    builder = _script("build_office_v2_stage6_repair_lock.py")
+    assert 'repair_tag = f"step6-repair-{args.revision[:12]}"' in builder
+    assert "step6-repair-core-v3" not in builder

@@ -28,7 +28,7 @@ ROLE_SPECS = (
         "base_image_reference": (
             "trace-g-office-v2-agent-qwen:step6-baseline-20260819"
         ),
-        "final_image_reference": "trace-g-office-v2-agent-qwen:step6-repair-core-v3",
+        "final_image_repository": "trace-g-office-v2-agent-qwen",
         "dockerfile": "agent_image/Dockerfile.qwen-agent-repair",
         "copied_files": (
             "agent_image/app/agent_qwen_bootstrap.py",
@@ -40,9 +40,7 @@ ROLE_SPECS = (
         "base_image_reference": (
             "trace-g-office-v2-mutator-qwen:step6-baseline-20260819"
         ),
-        "final_image_reference": (
-            "trace-g-office-v2-mutator-qwen:step6-repair-core-v3"
-        ),
+        "final_image_repository": "trace-g-office-v2-mutator-qwen",
         "dockerfile": "agent_image/Dockerfile.qwen-mutator-repair",
         "copied_files": (
             "agent_image/app/agent_qwen_bootstrap.py",
@@ -97,6 +95,7 @@ def _plan(args: argparse.Namespace) -> int:
     if args.controller_image != base_lock.controller_image_reference:
         raise ValueError("repair controller reference differs from the validated base lock")
     roles = []
+    repair_tag = f"step6-repair-{args.revision[:12]}"
     for spec in ROLE_SPECS:
         dockerfile = str(spec["dockerfile"])
         copied_files = tuple(str(item) for item in spec["copied_files"])
@@ -105,7 +104,7 @@ def _plan(args: argparse.Namespace) -> int:
                 role=Stage6Role(str(spec["role"])),
                 base_image_reference=spec["base_image_reference"],
                 base_image_id=_image_id(str(spec["base_image_reference"])),
-                final_image_reference=spec["final_image_reference"],
+                final_image_reference=f"{spec['final_image_repository']}:{repair_tag}",
                 dockerfile=dockerfile,
                 dockerfile_sha256=_bytes_sha256(
                     _git_blob(repository, args.revision, dockerfile)
