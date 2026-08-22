@@ -96,6 +96,22 @@ def test_preflight_success_requires_campaign_volume_cleanup() -> None:
     assert "--campaign-id stage6-preflight" in preflight
 
 
+def test_server_entrypoints_run_project_checks_in_locked_controller() -> None:
+    preflight = _script("server_preflight_office_v2_step6.sh")
+    campaign = _script("server_run_office_v2_step6.sh")
+    for script in (preflight, campaign):
+        assert 'CONTROLLER_IMAGE="${LOCK_IMAGES[0]}"' in script
+        assert "scripts/verify_office_v2_stage6_install.py verify" in script
+        assert "scripts/verify_office_v2_stage6_install.py chain" in script
+        assert 'PYTHONPATH="$PROJECT_DIR/src:$PROJECT_DIR" python3' not in script
+
+
+def test_locked_controller_can_read_root_stage_record() -> None:
+    runner = _script("server_python.sh")
+    assert 'ROOT_STAGE_RECORD="$PROJECT_DIR/../stage.json"' in runner
+    assert "stage_mount_args" in runner
+
+
 def test_source_archive_preserves_git_blob_bytes(tmp_path: Path) -> None:
     archive_path = tmp_path / "source.tar"
     relative = "src/sandbox/scenarios/office_v2/data/office-world-v2.0/calendar.json"

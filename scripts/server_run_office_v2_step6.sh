@@ -24,17 +24,6 @@ command -v flock >/dev/null || { echo "ERROR: flock is required" >&2; exit 1; }
 mkdir -p "$PERSIST_ROOT/locks"
 exec 9>"$PERSIST_ROOT/locks/gpu-$GPU_DEVICE.lock"
 flock -n 9 || { echo "ERROR: Stage 6 GPU $GPU_DEVICE is already leased" >&2; exit 1; }
-PYTHONPATH="$PROJECT_DIR/src:$PROJECT_DIR" python3 \
-  scripts/verify_office_v2_stage6_install.py verify \
-  --root "$PROJECT_DIR" --identity .trace-g/stage6-source-tree.json
-PYTHONPATH="$PROJECT_DIR/src:$PROJECT_DIR" python3 \
-  scripts/verify_office_v2_stage6_install.py chain \
-  --model-lock .trace-g/stage6-model-lock.json \
-  --repair-plan .trace-g/stage6-repair-plan.json \
-  --receipt .trace-g/stage6-repair-application.json \
-  --stage-record .trace-g/stage6-stage.json --root-stage ../stage.json
-test -f "$PREFLIGHT" || { echo "ERROR: preflight missing" >&2; exit 1; }
-test -f "$GPU_RESIDENCY" || { echo "ERROR: GPU residency evidence missing" >&2; exit 1; }
 mapfile -t LOCK_IMAGES < <(python3 - .trace-g/stage6-model-lock.json <<'PY'
 import json
 import sys
@@ -50,6 +39,24 @@ PY
 CONTROLLER_IMAGE="${LOCK_IMAGES[0]}"
 AGENT_IMAGE="${LOCK_IMAGES[1]}"
 MUTATOR_IMAGE="${LOCK_IMAGES[2]}"
+controller() {
+  local work_item_id="$1"
+  shift
+  TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none \
+    TRACE_G_CAMPAIGN_ID="$CAMPAIGN_ID" TRACE_G_WORK_ITEM_ID="$work_item_id" \
+    TRACE_G_ATTEMPT=1 scripts/server_python.sh "$@"
+}
+controller controller.verify-source \
+  scripts/verify_office_v2_stage6_install.py verify \
+  --root "$PROJECT_DIR" --identity .trace-g/stage6-source-tree.json
+controller controller.verify-chain \
+  scripts/verify_office_v2_stage6_install.py chain \
+  --model-lock .trace-g/stage6-model-lock.json \
+  --repair-plan .trace-g/stage6-repair-plan.json \
+  --receipt .trace-g/stage6-repair-application.json \
+  --stage-record .trace-g/stage6-stage.json --root-stage ../stage.json
+test -f "$PREFLIGHT" || { echo "ERROR: preflight missing" >&2; exit 1; }
+test -f "$GPU_RESIDENCY" || { echo "ERROR: GPU residency evidence missing" >&2; exit 1; }
 python3 - "$PREFLIGHT" "$GPU_RESIDENCY" .trace-g/stage6-model-lock.json <<'PY'
 import json
 import sys
@@ -87,14 +94,6 @@ if (
 PY
 mkdir -p "$CAMPAIGN_ROOT" "$RESULT_ROOT"
 RUN_ATTEMPT_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
-
-controller() {
-  local work_item_id="$1"
-  shift
-  TRACE_G_CONTROLLER_IMAGE="$CONTROLLER_IMAGE" TRACE_G_CONTROLLER_NETWORK=none \
-    TRACE_G_CAMPAIGN_ID="$CAMPAIGN_ID" TRACE_G_WORK_ITEM_ID="$work_item_id" \
-    TRACE_G_ATTEMPT=1 scripts/server_python.sh "$@"
-}
 
 archive_campaign() {
   local outcome="$1"

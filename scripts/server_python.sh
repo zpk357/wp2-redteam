@@ -22,6 +22,13 @@ fi
 
 extra_env_args=()
 label_args=(--label trace-g.role=controller)
+stage_mount_args=()
+ROOT_STAGE_RECORD="$PROJECT_DIR/../stage.json"
+if [[ -f "$ROOT_STAGE_RECORD" ]]; then
+  stage_mount_args+=(
+    --mount "type=bind,source=$ROOT_STAGE_RECORD,target=$ROOT_STAGE_RECORD,readonly"
+  )
+fi
 if [[ "$RUN_DOCKER_E2E" == "1" ]]; then
   extra_env_args+=(--env TRACE_G_RUN_DOCKER_E2E=1)
 fi
@@ -78,6 +85,7 @@ exec docker run --rm --init -i \
   --mount "type=bind,source=$PROJECT_DIR,target=$PROJECT_DIR,readonly" \
   --mount "type=bind,source=$PROJECT_DIR/.trace-g-data,target=$PROJECT_DIR/.trace-g-data" \
   --mount "type=bind,source=$PROJECT_DIR/reports,target=$PROJECT_DIR/reports" \
+  "${stage_mount_args[@]}" \
   --workdir "$WORK_DIR" \
   --env HOME=/tmp/controller-home \
   --env PYTHONDONTWRITEBYTECODE=1 \
