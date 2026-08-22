@@ -9,6 +9,14 @@ param(
 $ErrorActionPreference = "Stop"
 $repositoryPath = (Resolve-Path -LiteralPath $Repository).Path
 $baseLockPath = (Resolve-Path -LiteralPath $BaseModelLock).Path
+$pythonPaths = @(
+    (Join-Path $repositoryPath "src"),
+    (Join-Path $repositoryPath "agent_image")
+)
+if ($env:PYTHONPATH) {
+    $pythonPaths += $env:PYTHONPATH
+}
+$env:PYTHONPATH = $pythonPaths -join [IO.Path]::PathSeparator
 if (Test-Path -LiteralPath $OutputDirectory) {
     throw "Refusing to overwrite repair kit: $OutputDirectory"
 }

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from sandbox.replay.canonical import canonical_json_bytes
 from sandbox.replay.digests import sha256_bytes, sha256_digest
@@ -30,6 +30,10 @@ from sandbox.scenarios.office_v2.oracle_models import (
     TaskInputEvidenceRef,
     TerminationEvidenceRef,
     UtilityResult,
+)
+from sandbox.scenarios.office_v2.tools.contracts import (
+    OfficeToolInvocation,
+    OfficeToolResult,
 )
 from sandbox.scenarios.office_v2.world import EpisodeWorld, StateTransitionRecord
 
@@ -56,6 +60,17 @@ class _RecordingStateIdentity:
     episode_id: str
     initial_state_digest: str
     final_state_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class _VerifiedOracleArtifact:
+    execution_id: str
+    evidence_bundle: OracleEvidenceBundle
+    oracle_result: CompleteScenarioOracleResult
+
+
+_IDENTIFIER_ADAPTER = TypeAdapter(Identifier)
+_DIGEST_ADAPTER = TypeAdapter(Sha256Digest)
 
 
 class V2AcquisitionMetadata(OfficeV2Contract):
@@ -388,9 +403,81 @@ def _verified_v2_manifest(manifest: ReplayManifest) -> ReplayManifest:
     return trusted
 
 
+def _verified_oracle_artifact(
+    manifest: ReplayManifest,
+    payload: bytes,
+) -> _VerifiedOracleArtifact:
+    reference = manifest.office_v2_oracle
+    if reference is None:
+        raise V2CoverageInputError("manifest lacks trusted Office V2 Oracle facts")
+    if len(payload) != reference.size_bytes or sha256_bytes(payload) != reference.sha256:
+        raise V2CoverageInputError("Office V2 Oracle artifact does not match manifest")
+    try:
+        raw = json.loads(payload)
+        expected_keys = {
+            "schema_version",
+            "artifact_version",
+            "execution_id",
+            "trace_digest",
+            "trusted_facts_digest",
+            "evidence_bundle",
+            "oracle_result",
+            "artifact_digest",
+        }
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != expected_keys
+            or canonical_json_bytes(raw) != payload
+        ):
+            raise ValueError("Oracle artifact is not canonical")
+        if (
+            raw.get("schema_version") != "office-v2.0"
+            or raw.get("artifact_version") != "office-v2-live-oracle-artifact-v1"
+        ):
+            raise ValueError("Oracle artifact version is not supported")
+        artifact_digest = raw.get("artifact_digest")
+        artifact_payload = {
+            key: value for key, value in raw.items() if key != "artifact_digest"
+        }
+        if artifact_digest != sha256_digest(artifact_payload):
+            raise ValueError("Oracle artifact digest does not match payload")
+        execution_id = _IDENTIFIER_ADAPTER.validate_python(raw.get("execution_id"))
+        _DIGEST_ADAPTER.validate_python(raw.get("trace_digest"))
+        _DIGEST_ADAPTER.validate_python(raw.get("trusted_facts_digest"))
+        bundle = OracleEvidenceBundle.model_validate(raw.get("evidence_bundle"))
+        result = CompleteScenarioOracleResult.model_validate(raw.get("oracle_result"))
+        if result.input_bundle_digest != bundle.bundle_digest:
+            raise ValueError("Oracle result does not close over evidence bundle")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise V2CoverageInputError("invalid Office V2 Oracle artifact") from exc
+    return _VerifiedOracleArtifact(
+        execution_id=execution_id,
+        evidence_bundle=bundle,
+        oracle_result=result,
+    )
+
+
+def _ordered_transition_digests(bundle: OracleEvidenceBundle) -> tuple[str, ...]:
+    digests: list[str] = []
+    for entry in bundle.timeline:
+        digest = None
+        if entry.entry_kind is TimelineEntryKind.TOOL:
+            transition = bundle.tool_exchanges[entry.item_sequence].state_transition
+            if transition is not None:
+                digest = transition.transition_digest
+        else:
+            transition_ref = bundle.interaction_facts[entry.item_sequence].transition_ref
+            if transition_ref is not None:
+                digest = transition_ref.evidence_digest
+        if digest is not None and digest not in digests:
+            digests.append(digest)
+    return tuple(digests)
+
+
 def _verified_recording_state_identity(
     manifest: ReplayManifest,
     payload: bytes,
+    bundle: OracleEvidenceBundle,
 ) -> _RecordingStateIdentity:
     reference = manifest.office_v2_recording_state
     if reference is None:
@@ -399,9 +486,26 @@ def _verified_recording_state_identity(
         raise V2CoverageInputError("Office V2 recording state artifact does not match manifest")
     try:
         raw = json.loads(payload)
-        if not isinstance(raw, dict) or canonical_json_bytes(raw) != payload:
+        expected_keys = {
+            "schema_version",
+            "recording_state_version",
+            "session",
+            "tool_invocations",
+            "tool_results",
+            "interaction_events",
+            "pending_clarification_request_ids",
+            "recording_state_digest",
+        }
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != expected_keys
+            or canonical_json_bytes(raw) != payload
+        ):
             raise ValueError("recording state is not canonical JSON")
-        if raw.get("recording_state_version") != "office-v2-recording-state-v1":
+        if (
+            raw.get("schema_version") != "office-v2.0"
+            or raw.get("recording_state_version") != "office-v2-recording-state-v1"
+        ):
             raise ValueError("recording state version is not supported")
         recording_digest = raw.get("recording_state_digest")
         recording_payload = {
@@ -436,6 +540,70 @@ def _verified_recording_state_identity(
         )
         if episode.state_digest != session.get("state_digest"):
             raise ValueError("recording session final state does not match payload")
+
+        invocations_raw = raw.get("tool_invocations")
+        results_raw = raw.get("tool_results")
+        interactions_raw = raw.get("interaction_events")
+        if (
+            not isinstance(invocations_raw, list)
+            or not isinstance(results_raw, list)
+            or not isinstance(interactions_raw, list)
+        ):
+            raise ValueError("recording trusted facts are invalid")
+        invocations = tuple(
+            OfficeToolInvocation.model_validate(item) for item in invocations_raw
+        )
+        results = tuple(OfficeToolResult.model_validate(item) for item in results_raw)
+        exchanges = bundle.tool_exchanges
+        if len(invocations) != len(results) or len(invocations) != len(exchanges):
+            raise ValueError("recording tool fact counts do not match Oracle")
+        for invocation, result, exchange in zip(
+            invocations,
+            results,
+            exchanges,
+            strict=True,
+        ):
+            if (
+                invocation.canonical_digest()
+                != exchange.invocation_ref.evidence_digest
+                or result.execution_fact_digest != exchange.result_ref.evidence_digest
+                or invocation.invocation_id != exchange.invocation_ref.invocation_id
+                or result.invocation_id != exchange.result_ref.invocation_id
+            ):
+                raise ValueError("recording tool facts do not match Oracle")
+
+        if len(interactions_raw) != len(bundle.interaction_facts):
+            raise ValueError("recording interaction fact counts do not match Oracle")
+        interaction_keys = {
+            "schema_version",
+            "event_type",
+            "data",
+            "logical_time",
+            "input_digest",
+            "output_digest",
+            "state_digest",
+        }
+        for event, fact in zip(interactions_raw, bundle.interaction_facts, strict=True):
+            if (
+                not isinstance(event, dict)
+                or set(event) != interaction_keys
+                or event.get("schema_version") != "office-v2.0"
+                or not isinstance(event.get("data"), dict)
+                or event.get("event_type") != fact.event_kind.value
+                or event.get("logical_time") != fact.logical_time
+                or event.get("input_digest") != fact.input_digest
+                or event.get("output_digest") != fact.output_digest
+                or event.get("state_digest") != fact.state_digest
+                or sha256_digest(event["data"]) != fact.data_digest
+            ):
+                raise ValueError("recording interaction facts do not match Oracle")
+
+        if tuple(item.transition_digest for item in history) != _ordered_transition_digests(
+            bundle
+        ):
+            raise ValueError("recording state history does not match Oracle")
+        if session.get("base_world_digest") != bundle.identity.world_digest:
+            raise ValueError("recording base world does not match Oracle")
     except (TypeError, ValueError, UnicodeError) as exc:
         raise V2CoverageInputError("invalid Office V2 recording state artifact") from exc
     return _RecordingStateIdentity(
@@ -447,15 +615,17 @@ def _verified_recording_state_identity(
 
 def v2_coverage_input_from_recording(
     manifest: ReplayManifest,
-    artifact: LiveOracleArtifact,
     *,
+    oracle_artifact_payload: bytes,
     recording_state_payload: bytes,
     container_removed: bool,
 ) -> V2CoverageInput:
     trusted_manifest = _verified_v2_manifest(manifest)
+    artifact = _verified_oracle_artifact(trusted_manifest, oracle_artifact_payload)
     recording_identity = _verified_recording_state_identity(
         trusted_manifest,
         recording_state_payload,
+        artifact.evidence_bundle,
     )
     identity = artifact.evidence_bundle.identity
     if (
@@ -486,18 +656,24 @@ def v2_coverage_input_from_recording(
 def v2_coverage_input_from_strict_replay(
     source_manifest: ReplayManifest,
     replay_result: ReplayResult,
-    replay_artifact: LiveOracleArtifact,
     *,
+    source_oracle_artifact_payload: bytes,
     source_recording_state_payload: bytes,
 ) -> V2CoverageInput:
     manifest = _verified_v2_manifest(source_manifest)
+    source_artifact = _verified_oracle_artifact(
+        manifest,
+        source_oracle_artifact_payload,
+    )
     recording_identity = _verified_recording_state_identity(
         manifest,
         source_recording_state_payload,
+        source_artifact.evidence_bundle,
     )
-    identity = replay_artifact.evidence_bundle.identity
+    identity = source_artifact.evidence_bundle.identity
     if (
         manifest.case_id != identity.scenario_case_id
+        or recording_identity.episode_id != source_artifact.execution_id
         or recording_identity.initial_state_digest != identity.initial_state_digest
         or recording_identity.final_state_digest != identity.final_state_digest
         or replay_result.source_replay_id != manifest.replay_id
@@ -518,7 +694,7 @@ def v2_coverage_input_from_strict_replay(
         or replay_result.source_behavior_digest != manifest.normalized_behavior_trace_digest
     ):
         raise V2CoverageInputError("strict replay behavior digest does not match")
-    final_digest = replay_artifact.evidence_bundle.identity.final_state_digest
+    final_digest = identity.final_state_digest
     if (
         replay_result.source_final_state_digest is None
         or replay_result.replay_final_state_digest is None
@@ -528,7 +704,7 @@ def v2_coverage_input_from_strict_replay(
         raise V2CoverageInputError("strict replay final state digest does not match")
     acquisition = _sealed_acquisition(
         source_kind=V2AcquisitionKind.STRICT_REPLAY,
-        execution_id=replay_artifact.execution_id,
+        execution_id=replay_result.replay_run_id,
         source_digest=sha256_digest(
             replay_result.model_dump(mode="json", exclude_none=False)
         ),
@@ -540,8 +716,8 @@ def v2_coverage_input_from_strict_replay(
         parent_replay_id=manifest.replay_id,
     )
     return _build_v2_coverage_input(
-        bundle=replay_artifact.evidence_bundle,
-        result=replay_artifact.oracle_result,
+        bundle=source_artifact.evidence_bundle,
+        result=source_artifact.oracle_result,
         acquisition=acquisition,
     )
 

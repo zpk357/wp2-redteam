@@ -89,7 +89,7 @@ def _artifact_ref(label: str) -> ArtifactRef:
 
 
 def _recording_state_payload(execution_id: str, bundle) -> bytes:
-    materialization = _recording()[0]
+    materialization, invocation, result, _, _ = _recording()
     state = materialization.initial_state
     assert state.canonical_digest() == bundle.identity.initial_state_digest
     assert state.canonical_digest() == bundle.identity.final_state_digest
@@ -101,7 +101,11 @@ def _recording_state_payload(execution_id: str, bundle) -> bytes:
         "base_world_digest": materialization.scenario_case.base_world_digest,
         "initial_state_digest": bundle.identity.initial_state_digest,
         "state": state.model_dump(mode="json", exclude_none=False),
-        "history": [],
+        "history": (
+            []
+            if result.state_transition is None
+            else [result.state_transition.model_dump(mode="json", exclude_none=False)]
+        ),
         "state_digest": bundle.identity.final_state_digest,
     }
     session["snapshot_digest"] = sha256_digest(session)
@@ -109,8 +113,10 @@ def _recording_state_payload(execution_id: str, bundle) -> bytes:
         "schema_version": "office-v2.0",
         "recording_state_version": "office-v2-recording-state-v1",
         "session": session,
-        "tool_invocations": [],
-        "tool_results": [],
+        "tool_invocations": [
+            invocation.model_dump(mode="json", exclude_none=False)
+        ],
+        "tool_results": [result.model_dump(mode="json", exclude_none=False)],
         "interaction_events": [],
         "pending_clarification_request_ids": [],
     }
@@ -128,10 +134,15 @@ def _recording_state_ref(payload: bytes) -> ArtifactRef:
     )
 
 
+def _oracle_artifact_payload(artifact: OfficeV2LiveOracleArtifact) -> bytes:
+    return canonical_json_bytes(artifact)
+
+
 def _manifest(
     bundle,
     *,
     recording_state_payload: bytes,
+    oracle_artifact_payload: bytes,
     recording_complete: bool = True,
 ) -> ReplayManifest:
     generic = _artifact_ref("generic")
@@ -165,7 +176,7 @@ def _manifest(
         tool_records=generic,
         checkpoints=generic,
         office_v2_recording_state=_recording_state_ref(recording_state_payload),
-        office_v2_oracle=_artifact_ref("oracle"),
+        office_v2_oracle=_recording_state_ref(oracle_artifact_payload),
     )
     return seal_manifest(manifest)
 
@@ -190,28 +201,29 @@ def test_direct_recording_and_strict_replay_share_canonical_facts() -> None:
     direct_artifact = _artifact("execution.coverage.direct.001", direct_bundle)
     recording_execution_id = "execution.coverage.recording.001"
     recording_artifact = _artifact(recording_execution_id, recording_bundle)
-    replay_artifact = _artifact("execution.coverage.replay.001", replay_bundle)
     recording_state_payload = _recording_state_payload(
         recording_execution_id,
         recording_bundle,
     )
+    recording_oracle_payload = _oracle_artifact_payload(recording_artifact)
     manifest = _manifest(
         recording_bundle,
         recording_state_payload=recording_state_payload,
+        oracle_artifact_payload=recording_oracle_payload,
     )
     assert manifest.initial_state_digest != recording_bundle.identity.initial_state_digest
 
     direct = v2_coverage_input_from_direct(direct_artifact, container_removed=True)
     recording = v2_coverage_input_from_recording(
         manifest,
-        recording_artifact,
+        oracle_artifact_payload=recording_oracle_payload,
         recording_state_payload=recording_state_payload,
         container_removed=True,
     )
     replay = v2_coverage_input_from_strict_replay(
         manifest,
         _matched_replay(manifest, replay_bundle),
-        replay_artifact,
+        source_oracle_artifact_payload=recording_oracle_payload,
         source_recording_state_payload=recording_state_payload,
     )
 
@@ -294,20 +306,26 @@ def test_incomplete_recording_diverged_replay_and_missing_cleanup_are_rejected()
         v2_coverage_input_from_direct(artifact, container_removed=False)
 
     recording_state_payload = _recording_state_payload(artifact.execution_id, bundle)
+    oracle_artifact_payload = _oracle_artifact_payload(artifact)
     incomplete = _manifest(
         bundle,
         recording_state_payload=recording_state_payload,
+        oracle_artifact_payload=oracle_artifact_payload,
         recording_complete=False,
     )
     with pytest.raises(V2CoverageInputError, match="incomplete recording"):
         v2_coverage_input_from_recording(
             incomplete,
-            artifact,
+            oracle_artifact_payload=oracle_artifact_payload,
             recording_state_payload=recording_state_payload,
             container_removed=True,
         )
 
-    manifest = _manifest(bundle, recording_state_payload=recording_state_payload)
+    manifest = _manifest(
+        bundle,
+        recording_state_payload=recording_state_payload,
+        oracle_artifact_payload=oracle_artifact_payload,
+    )
     replay = _matched_replay(manifest, bundle).model_copy(
         update={"status": ReplayStatus.DIVERGED}
     )
@@ -315,7 +333,7 @@ def test_incomplete_recording_diverged_replay_and_missing_cleanup_are_rejected()
         v2_coverage_input_from_strict_replay(
             manifest,
             replay,
-            artifact,
+            source_oracle_artifact_payload=oracle_artifact_payload,
             source_recording_state_payload=recording_state_payload,
         )
 
@@ -325,12 +343,17 @@ def test_recording_state_artifact_and_episode_identity_tampering_are_rejected() 
     execution_id = "execution.coverage.identity.001"
     artifact = _artifact(execution_id, bundle)
     recording_state_payload = _recording_state_payload(execution_id, bundle)
-    manifest = _manifest(bundle, recording_state_payload=recording_state_payload)
+    oracle_artifact_payload = _oracle_artifact_payload(artifact)
+    manifest = _manifest(
+        bundle,
+        recording_state_payload=recording_state_payload,
+        oracle_artifact_payload=oracle_artifact_payload,
+    )
 
     with pytest.raises(V2CoverageInputError, match="artifact does not match manifest"):
         v2_coverage_input_from_recording(
             manifest,
-            artifact,
+            oracle_artifact_payload=oracle_artifact_payload,
             recording_state_payload=recording_state_payload + b"\n",
             container_removed=True,
         )
@@ -348,14 +371,70 @@ def test_recording_state_artifact_and_episode_identity_tampering_are_rejected() 
     }
     raw["recording_state_digest"] = sha256_digest(recording_payload)
     mixed_payload = canonical_json_bytes(raw)
-    mixed_manifest = _manifest(bundle, recording_state_payload=mixed_payload)
+    mixed_manifest = _manifest(
+        bundle,
+        recording_state_payload=mixed_payload,
+        oracle_artifact_payload=oracle_artifact_payload,
+    )
 
     with pytest.raises(V2CoverageInputError, match="identity does not match"):
         v2_coverage_input_from_recording(
             mixed_manifest,
-            artifact,
+            oracle_artifact_payload=oracle_artifact_payload,
             recording_state_payload=mixed_payload,
             container_removed=True,
+        )
+
+
+def test_recording_tool_facts_must_match_the_manifest_bound_oracle() -> None:
+    bundle, _, _ = _bundles()
+    execution_id = "execution.coverage.tool-mismatch.001"
+    artifact = _artifact(execution_id, bundle)
+    oracle_artifact_payload = _oracle_artifact_payload(artifact)
+    raw = json.loads(_recording_state_payload(execution_id, bundle))
+    raw["tool_invocations"] = []
+    raw["tool_results"] = []
+    recording_payload = {
+        key: value for key, value in raw.items() if key != "recording_state_digest"
+    }
+    raw["recording_state_digest"] = sha256_digest(recording_payload)
+    mismatched_state_payload = canonical_json_bytes(raw)
+    manifest = _manifest(
+        bundle,
+        recording_state_payload=mismatched_state_payload,
+        oracle_artifact_payload=oracle_artifact_payload,
+    )
+
+    with pytest.raises(V2CoverageInputError, match="invalid Office V2 recording state"):
+        v2_coverage_input_from_recording(
+            manifest,
+            oracle_artifact_payload=oracle_artifact_payload,
+            recording_state_payload=mismatched_state_payload,
+            container_removed=True,
+        )
+
+
+def test_strict_replay_rejects_an_oracle_artifact_outside_the_source_manifest() -> None:
+    bundle, other_bundle, _ = _bundles()
+    execution_id = "execution.coverage.replay-source.001"
+    source_artifact = _artifact(execution_id, bundle)
+    source_oracle_payload = _oracle_artifact_payload(source_artifact)
+    recording_state_payload = _recording_state_payload(execution_id, bundle)
+    manifest = _manifest(
+        bundle,
+        recording_state_payload=recording_state_payload,
+        oracle_artifact_payload=source_oracle_payload,
+    )
+    foreign_oracle_payload = _oracle_artifact_payload(
+        _artifact("execution.coverage.replay-foreign.001", other_bundle)
+    )
+
+    with pytest.raises(V2CoverageInputError, match="Oracle artifact does not match manifest"):
+        v2_coverage_input_from_strict_replay(
+            manifest,
+            _matched_replay(manifest, bundle),
+            source_oracle_artifact_payload=foreign_oracle_payload,
+            source_recording_state_payload=recording_state_payload,
         )
 
 

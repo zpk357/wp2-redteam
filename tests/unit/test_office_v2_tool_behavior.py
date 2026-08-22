@@ -27,6 +27,7 @@ from tests.unit.test_office_v2_coverage_input import (
     _bundles,
     _manifest,
     _matched_replay,
+    _oracle_artifact_payload,
     _recording_state_payload,
 )
 
@@ -155,9 +156,12 @@ def test_acquisition_paths_produce_the_same_tool_behavior() -> None:
         recording_execution_id,
         recording_bundle,
     )
+    recording_artifact = _artifact(recording_execution_id, recording_bundle)
+    oracle_artifact_payload = _oracle_artifact_payload(recording_artifact)
     manifest = _manifest(
         recording_bundle,
         recording_state_payload=recording_state_payload,
+        oracle_artifact_payload=oracle_artifact_payload,
     )
     direct = v2_coverage_input_from_direct(
         _artifact("execution.tool.direct.001", direct_bundle),
@@ -165,14 +169,14 @@ def test_acquisition_paths_produce_the_same_tool_behavior() -> None:
     )
     recording = v2_coverage_input_from_recording(
         manifest,
-        _artifact(recording_execution_id, recording_bundle),
+        oracle_artifact_payload=oracle_artifact_payload,
         recording_state_payload=recording_state_payload,
         container_removed=True,
     )
     replay = v2_coverage_input_from_strict_replay(
         manifest,
         _matched_replay(manifest, replay_bundle),
-        _artifact("execution.tool.replay.001", replay_bundle),
+        source_oracle_artifact_payload=oracle_artifact_payload,
         source_recording_state_payload=recording_state_payload,
     )
 

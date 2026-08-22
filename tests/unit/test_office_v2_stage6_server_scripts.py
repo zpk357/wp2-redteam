@@ -173,3 +173,11 @@ def test_repair_kit_writes_linux_compatible_checksum_lines() -> None:
     builder = _script("build_office_v2_stage6_repair_kit.ps1")
     assert '$sumPayload = ($sumLines -join "`n") + "`n"' in builder
     assert "[IO.File]::WriteAllLines" not in builder
+
+
+def test_repair_kit_supplies_project_python_paths_to_child_scripts() -> None:
+    builder = _script("build_office_v2_stage6_repair_kit.ps1")
+    assert '(Join-Path $repositoryPath "src")' in builder
+    assert '(Join-Path $repositoryPath "agent_image")' in builder
+    assert "$pythonPaths += $env:PYTHONPATH" in builder
+    assert "$env:PYTHONPATH = $pythonPaths -join [IO.Path]::PathSeparator" in builder
