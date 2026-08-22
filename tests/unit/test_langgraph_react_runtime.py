@@ -8,6 +8,7 @@ from app.adapter.langgraph_react_runtime import (
     SYSTEM_PROMPT,
     LangGraphReactRuntime,
     _LangGraphChatProvider,
+    _RejectedControlExecution,
 )
 from app.adapter.trace_react_adapter import TraceReactAdapter
 from app.agent.react_contract import ReactMessage
@@ -430,6 +431,18 @@ async def test_langgraph_provider_exposes_normalized_token_usage() -> None:
         "prompt_tokens": 12,
         "completion_tokens": 3,
     }
+
+
+def test_invalid_control_arguments_have_a_recoverable_model_result() -> None:
+    execution = _RejectedControlExecution()
+
+    assert execution.final_answer is None
+    assert execution.follow_up_user_message is None
+    assert execution.model_visible_payload() == {
+        "status": "rejected",
+        "error": "invalid_arguments",
+    }
+    assert execution.neutral_trace_events() == ()
 
 
 async def test_recording_strict_replays_without_calling_the_chat_model(

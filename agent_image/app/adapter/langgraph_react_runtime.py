@@ -121,6 +121,18 @@ class _V1ControlExecution:
 
 
 @dataclass(frozen=True, slots=True)
+class _RejectedControlExecution:
+    final_answer: None = None
+    follow_up_user_message: None = None
+
+    def model_visible_payload(self) -> dict[str, str]:
+        return {"status": "rejected", "error": "invalid_arguments"}
+
+    def neutral_trace_events(self) -> tuple[()]:
+        return ()
+
+
+@dataclass(frozen=True, slots=True)
 class _V1AgentSessionSurface:
     registry: ToolRegistry
     business_tool_specs: tuple[ModelToolSpec, ...]
@@ -780,9 +792,12 @@ class LangGraphReactRuntime(AgentAdapter):
                             kind=CheckpointKind.BEFORE_TOOL,
                             resume_phase=ResumePhase.CALL_TOOL,
                         )
-                    execution = surface.handle_control_call(
-                        call.name, call.arguments
-                    )
+                    try:
+                        execution = surface.handle_control_call(
+                            call.name, call.arguments
+                        )
+                    except ValidationError:
+                        execution = _RejectedControlExecution()
                     if execution.final_answer is not None:
                         final_answer = execution.final_answer
                         emit(
