@@ -58,6 +58,10 @@ def test_repair_image_tags_are_unique_to_the_source_revision() -> None:
     builder = _script("build_office_v2_stage6_repair_lock.py")
     assert 'repair_tag = f"step6-repair-{args.revision[:12]}"' in builder
     assert "step6-repair-core-v3" not in builder
+    assert "agent_image/app/adapter/langgraph_react_runtime.py" in builder
+    assert "agent_image/app/adapter/langgraph_react_runtime.py" in _script(
+        "../agent_image/Dockerfile.qwen-agent-repair"
+    )
 
 
 def test_gpu_monitor_is_scoped_to_the_preflight_campaign(monkeypatch) -> None:

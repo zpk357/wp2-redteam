@@ -172,6 +172,7 @@ class _LangGraphChatProvider:
 
     def __init__(self, chat_model: Any) -> None:
         self._chat_model = chat_model
+        self.last_token_usage: dict[str, int] | None = None
 
     async def generate(
         self,
@@ -231,6 +232,7 @@ class _LangGraphChatProvider:
                 "langgraph_invalid_model_response",
                 "the bound chat model did not return an AIMessage",
             )
+        self.last_token_usage = self._token_usage(response)
         return ReactTurn(
             assistant_text=response.content or None,
             tool_calls=[
@@ -243,6 +245,34 @@ class _LangGraphChatProvider:
             ],
             stop_reason=response.response_metadata.get("done_reason"),
         )
+
+    @staticmethod
+    def _token_usage(response: Any) -> dict[str, int] | None:
+        usage = response.usage_metadata or {}
+        prompt_tokens = usage.get("input_tokens")
+        completion_tokens = usage.get("output_tokens")
+        if prompt_tokens is None or completion_tokens is None:
+            metadata = response.response_metadata or {}
+            prompt_tokens = metadata.get("prompt_eval_count")
+            completion_tokens = metadata.get("eval_count")
+        if prompt_tokens is None or completion_tokens is None:
+            return None
+        if (
+            not isinstance(prompt_tokens, int)
+            or isinstance(prompt_tokens, bool)
+            or prompt_tokens < 0
+            or not isinstance(completion_tokens, int)
+            or isinstance(completion_tokens, bool)
+            or completion_tokens < 0
+        ):
+            raise AdapterExecutionError(
+                "langgraph_invalid_token_usage",
+                "the bound chat model returned invalid token usage",
+            )
+        return {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+        }
 
 
 class LangGraphReactRuntime(AgentAdapter):

@@ -7,8 +7,10 @@ from pathlib import Path
 from app.adapter.langgraph_react_runtime import (
     SYSTEM_PROMPT,
     LangGraphReactRuntime,
+    _LangGraphChatProvider,
 )
 from app.adapter.trace_react_adapter import TraceReactAdapter
+from app.agent.react_contract import ReactMessage
 from app.protocol import ExecutionRequest
 from app.replay.react_decision_recorder import RecordedReactProvider
 from app.replay.state_codec import StateCodec
@@ -213,6 +215,21 @@ class BlockingChatModel:
         )
 
 
+class TokenUsageChatModel:
+    def bind_tools(self, tools):
+        return self
+
+    async def ainvoke(self, input_messages):
+        return AIMessage(
+            content="done",
+            usage_metadata={
+                "input_tokens": 12,
+                "output_tokens": 3,
+                "total_tokens": 15,
+            },
+        )
+
+
 class ForkSuffixChatModel:
     def __init__(self, replacement: str) -> None:
         self.turn = 0
@@ -400,6 +417,19 @@ async def test_trace_events_stream_before_the_model_finishes() -> None:
     model.release.set()
     remaining = [event async for event in events]
     assert remaining[-1].event_type == "execution_finished"
+
+
+async def test_langgraph_provider_exposes_normalized_token_usage() -> None:
+    provider = _LangGraphChatProvider(TokenUsageChatModel())
+
+    await provider.generate(
+        (ReactMessage(role="user", content="test"),), (), seed=0
+    )
+
+    assert provider.last_token_usage == {
+        "prompt_tokens": 12,
+        "completion_tokens": 3,
+    }
 
 
 async def test_recording_strict_replays_without_calling_the_chat_model(

@@ -32,6 +32,7 @@ ROLE_SPECS = (
         "dockerfile": "agent_image/Dockerfile.qwen-agent-repair",
         "copied_files": (
             "agent_image/app/agent_qwen_bootstrap.py",
+            "agent_image/app/adapter/langgraph_react_runtime.py",
             "agent_image/app/replay/replay_adapter.py",
         ),
     },
