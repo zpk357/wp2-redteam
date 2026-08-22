@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import tarfile
 from pathlib import Path
+
+from sandbox.replay.digests import sha256_bytes
+from scripts import monitor_office_v2_stage6_gpu
+from scripts.build_g5_source_archive import build_archive
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -51,3 +58,73 @@ def test_repair_image_tags_are_unique_to_the_source_revision() -> None:
     builder = _script("build_office_v2_stage6_repair_lock.py")
     assert 'repair_tag = f"step6-repair-{args.revision[:12]}"' in builder
     assert "step6-repair-core-v3" not in builder
+
+
+def test_gpu_monitor_is_scoped_to_the_preflight_campaign(monkeypatch) -> None:
+    commands: list[tuple[str, ...]] = []
+
+    def capture(*command: str) -> str:
+        commands.append(command)
+        return ""
+
+    monkeypatch.setattr(monitor_office_v2_stage6_gpu, "_run", capture)
+    monitor_office_v2_stage6_gpu._containers(
+        "trace-g.component=agent-sandbox", "stage6-preflight"
+    )
+
+    assert commands == [
+        (
+            "docker",
+            "ps",
+            "--filter",
+            "label=trace-g.component=agent-sandbox",
+            "--filter",
+            "label=trace-g.campaign-id=stage6-preflight",
+            "--format",
+            "{{.ID}}",
+        )
+    ]
+
+
+def test_preflight_success_requires_campaign_volume_cleanup() -> None:
+    preflight = _script("server_preflight_office_v2_step6.sh")
+    volume_filter = (
+        "docker volume ls --filter 'label=trace-g.component=workspace-volume' "
+        "--filter 'label=trace-g.campaign-id=stage6-preflight'"
+    )
+    assert preflight.count(volume_filter) == 1
+    assert "--campaign-id stage6-preflight" in preflight
+
+
+def test_source_archive_preserves_git_blob_bytes(tmp_path: Path) -> None:
+    archive_path = tmp_path / "source.tar"
+    relative = "src/sandbox/scenarios/office_v2/data/office-world-v2.0/calendar.json"
+    manifest_relative = (
+        "src/sandbox/scenarios/office_v2/data/office-world-v2.0/manifest.json"
+    )
+    build_archive(ROOT, archive_path, "HEAD")
+    expected = subprocess.run(
+        ["git", "show", f"HEAD:{relative}"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout
+    with tarfile.open(archive_path, "r:") as archive:
+        stream = archive.extractfile("./" + relative)
+        manifest_stream = archive.extractfile("./" + manifest_relative)
+        assert stream is not None and manifest_stream is not None
+        archived = stream.read()
+        manifest = json.loads(manifest_stream.read())
+    expected_digest = next(
+        item["sha256"]
+        for item in manifest["files"]
+        if item["filename"] == "calendar.json"
+    )
+    assert archived == expected
+    assert sha256_bytes(archived) == expected_digest
+
+
+def test_repair_kit_writes_linux_compatible_checksum_lines() -> None:
+    builder = _script("build_office_v2_stage6_repair_kit.ps1")
+    assert '$sumPayload = ($sumLines -join "`n") + "`n"' in builder
+    assert "[IO.File]::WriteAllLines" not in builder

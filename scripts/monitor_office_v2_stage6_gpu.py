@@ -44,8 +44,17 @@ def _gpu_processes(device: str) -> dict[int, int]:
     return result
 
 
-def _containers(label: str) -> tuple[str, ...]:
-    raw = _run("docker", "ps", "--filter", f"label={label}", "--format", "{{.ID}}")
+def _containers(label: str, campaign_id: str) -> tuple[str, ...]:
+    raw = _run(
+        "docker",
+        "ps",
+        "--filter",
+        f"label={label}",
+        "--filter",
+        f"label=trace-g.campaign-id={campaign_id}",
+        "--format",
+        "{{.ID}}",
+    )
     return tuple(line for line in raw.splitlines() if line)
 
 
@@ -70,7 +79,14 @@ def _ollama_models(container_id: str) -> list[dict[str, object]]:
     return []
 
 
-def monitor(*, device: str, output: Path, stop_file: Path, interval: float) -> bool:
+def monitor(
+    *,
+    device: str,
+    campaign_id: str,
+    output: Path,
+    stop_file: Path,
+    interval: float,
+) -> bool:
     samples: list[dict[str, object]] = []
     observed_pids: set[int] = set()
     observed_roles: set[str] = set()
@@ -78,7 +94,7 @@ def monitor(*, device: str, output: Path, stop_file: Path, interval: float) -> b
         try:
             gpu = _gpu_processes(device)
             for role, label in ROLE_FILTERS.items():
-                for container_id in _containers(label):
+                for container_id in _containers(label, campaign_id):
                     pids = _container_pids(container_id)
                     models = _ollama_models(container_id)
                     active = {pid: gpu[pid] for pid in pids if pid in gpu}
@@ -113,6 +129,7 @@ def monitor(*, device: str, output: Path, stop_file: Path, interval: float) -> b
     }
     payload = {
         "schema_version": "office-v2-stage6-gpu-residency-v1",
+        "campaign_id": campaign_id,
         "gpu_device": device,
         "observed_roles": sorted(observed_roles),
         "full_residency": full_residency,
@@ -137,12 +154,14 @@ def monitor(*, device: str, output: Path, stop_file: Path, interval: float) -> b
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--gpu-device", required=True)
+    parser.add_argument("--campaign-id", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--stop-file", type=Path, required=True)
     parser.add_argument("--interval", type=float, default=0.5)
     args = parser.parse_args()
     return 0 if monitor(
         device=args.gpu_device,
+        campaign_id=args.campaign_id,
         output=args.output,
         stop_file=args.stop_file,
         interval=args.interval,

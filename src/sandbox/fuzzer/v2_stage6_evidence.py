@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from sandbox.replay.digests import sha256_digest
+from sandbox.replay.models import ReplayResult
 
 from .v2_campaign_store import V2CampaignStore
 from .v2_feedback import NextGenerationFeedback
@@ -496,6 +497,7 @@ def _verify_archived_stage6_closure(
         or source_tree.get("source_revision") != repair_plan.get("source_revision")
         or host.get("captured") is not True
         or gpu.get("passed") is not True
+        or gpu.get("campaign_id") != "stage6-preflight"
         or full_residency.get("agent") is not True
         or full_residency.get("mutator") is not True
         or gpu.get("residual_observed_model_process_pids")
@@ -607,20 +609,39 @@ def _verify_archived_stage6_closure(
             or progress.get("requested_target") != milestone.get("target_generation")
         ):
             raise ValueError("successful archive progress does not match Campaign state")
-        replay = _json_member(archive, "results/stage6-replay-report.json")
-        replay_id = replay.get("replay_id")
-        if replay.get("status") != "matched" or replay.get("container_removed") is not True:
+        replay_payload = _json_member(archive, "results/stage6-replay-report.json")
+        try:
+            replay = ReplayResult.model_validate(replay_payload)
+        except ValueError as exc:
+            raise ValueError("successful archive replay report is invalid") from exc
+        if replay.status.value != "matched" or replay.container_removed is not True:
             raise ValueError("successful archive replay gate did not match cleanly")
-        replay_bound = False
-        for name in names:
-            if name.startswith("campaign/replays/") and name.endswith("/manifest.json"):
-                candidate = _json_member(archive, name)
-                if candidate.get("replay_id") == replay_id:
-                    replay_bound = True
-                    break
-        if not replay_bound:
+        replay_parts = (replay.source_replay_id, replay.replay_run_id)
+        if any(
+            not value or value in {".", ".."} or any(char in value for char in "/\\:")
+            for value in replay_parts
+        ):
+            raise ValueError("successful archive replay identity is invalid")
+        replay_root = f"campaign/replays/{replay.source_replay_id}"
+        manifest_name = f"{replay_root}/manifest.json"
+        result_name = f"{replay_root}/runs/{replay.replay_run_id}/result.json"
+        if manifest_name not in names or result_name not in names:
             raise ValueError(
-                "successful archive replay result is not bound to an archived manifest"
+                "successful archive replay result is not bound to archived run artifacts"
+            )
+        replay_manifest = _json_member(archive, manifest_name)
+        archived_result = _json_member(archive, result_name)
+        if (
+            replay_manifest.get("replay_id") != replay.source_replay_id
+            or (
+                replay.source_trajectory_id is not None
+                and replay_manifest.get("trajectory_id")
+                != replay.source_trajectory_id
+            )
+            or archived_result != replay.model_dump(mode="json")
+        ):
+            raise ValueError(
+                "successful archive replay report differs from archived run artifacts"
             )
 
 

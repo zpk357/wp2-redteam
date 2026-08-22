@@ -88,6 +88,7 @@ archive_preflight_failure() {
 trap archive_preflight_failure EXIT
 python3 scripts/monitor_office_v2_stage6_gpu.py \
   --gpu-device "$GPU_DEVICE" \
+  --campaign-id stage6-preflight \
   --output "$RESULT_DIR/stage6-gpu-residency.json" \
   --stop-file "$GPU_STOP_FILE" &
 GPU_MONITOR_PID=$!
@@ -109,5 +110,6 @@ GPU_MONITOR_PID=""
 rm -f "$GPU_STOP_FILE"
 [[ -z "$(docker ps -a --filter 'label=trace-g.component=office-v2-llm-mutator' --filter 'label=trace-g.campaign-id=stage6-preflight' --format '{{.ID}}')" ]]
 [[ -z "$(docker ps -a --filter 'label=trace-g.component=agent-sandbox' --filter 'label=trace-g.campaign-id=stage6-preflight' --format '{{.ID}}')" ]]
+[[ -z "$(docker volume ls --filter 'label=trace-g.component=workspace-volume' --filter 'label=trace-g.campaign-id=stage6-preflight' --format '{{.Name}}')" ]]
 trap - EXIT
 echo "Office V2 Stage 6 preflight passed"

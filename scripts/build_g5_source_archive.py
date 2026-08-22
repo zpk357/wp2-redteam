@@ -53,6 +53,15 @@ def git_visible_files(repository: Path, revision: str = "HEAD") -> list[str]:
     )
 
 
+def git_blob(repository: Path, revision: str, path: str) -> bytes:
+    return subprocess.run(
+        ["git", "show", f"{revision}:{path}"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+
 def build_archive(repository: Path, output: Path, revision: str = "HEAD") -> int:
     repository = repository.resolve()
     output = output.resolve()
@@ -79,7 +88,11 @@ def build_archive(repository: Path, output: Path, revision: str = "HEAD") -> int
             member.mtime = 0
             member.uid = member.gid = 0
             member.uname = member.gname = ""
-            payload = source_archive.extractfile(member) if member.isfile() else None
+            payload = None
+            if member.isfile():
+                raw = git_blob(repository, revision, relative)
+                member.size = len(raw)
+                payload = io.BytesIO(raw)
             archive.addfile(member, payload)
     return len(files)
 

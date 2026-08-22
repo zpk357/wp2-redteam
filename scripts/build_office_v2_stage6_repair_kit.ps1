@@ -48,6 +48,11 @@ $sumLines = foreach ($relative in $relativeFiles) {
     $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $full).Hash.ToLowerInvariant()
     "$hash  $($relative.Replace('\', '/'))"
 }
-[IO.File]::WriteAllLines((Join-Path $OutputDirectory "SHA256SUMS"), $sumLines)
+$sumPayload = ($sumLines -join "`n") + "`n"
+[IO.File]::WriteAllText(
+    (Join-Path $OutputDirectory "SHA256SUMS"),
+    $sumPayload,
+    [Text.UTF8Encoding]::new($false)
+)
 Write-Output "repair-kit=$OutputDirectory"
 Write-Output "source-revision=$revisionId"
