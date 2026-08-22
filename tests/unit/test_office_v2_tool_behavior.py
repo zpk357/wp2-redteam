@@ -27,6 +27,7 @@ from tests.unit.test_office_v2_coverage_input import (
     _bundles,
     _manifest,
     _matched_replay,
+    _recording_state_payload,
 )
 
 
@@ -149,20 +150,30 @@ def test_real_long_chain_extracts_order_domain_shape_source_permission_and_resul
 
 def test_acquisition_paths_produce_the_same_tool_behavior() -> None:
     direct_bundle, recording_bundle, replay_bundle = _bundles()
-    manifest = _manifest(recording_bundle)
+    recording_execution_id = "execution.tool.recording.001"
+    recording_state_payload = _recording_state_payload(
+        recording_execution_id,
+        recording_bundle,
+    )
+    manifest = _manifest(
+        recording_bundle,
+        recording_state_payload=recording_state_payload,
+    )
     direct = v2_coverage_input_from_direct(
         _artifact("execution.tool.direct.001", direct_bundle),
         container_removed=True,
     )
     recording = v2_coverage_input_from_recording(
         manifest,
-        _artifact("execution.tool.recording.001", recording_bundle),
+        _artifact(recording_execution_id, recording_bundle),
+        recording_state_payload=recording_state_payload,
         container_removed=True,
     )
     replay = v2_coverage_input_from_strict_replay(
         manifest,
         _matched_replay(manifest, replay_bundle),
         _artifact("execution.tool.replay.001", replay_bundle),
+        source_recording_state_payload=recording_state_payload,
     )
 
     extractions = tuple(extract_v2_tool_behavior(item) for item in (direct, recording, replay))

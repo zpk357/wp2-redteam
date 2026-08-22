@@ -55,6 +55,7 @@ from tests.unit.test_office_v2_coverage_input import (
     _bundles,
     _manifest,
     _matched_replay,
+    _recording_state_payload,
 )
 from tests.unit.test_office_v2_episode_behavior import _clean_artifact
 from tests.unit.test_office_v2_milestone_evaluator import (
@@ -77,7 +78,15 @@ def _comparison(check_id: str, passed: bool, evidence: dict[str, Any]) -> dict[s
 
 def _acquisition_inputs():
     direct_bundle, recording_bundle, replay_bundle = _bundles()
-    manifest = _manifest(recording_bundle)
+    recording_execution_id = "execution.step2.recording.001"
+    recording_state_payload = _recording_state_payload(
+        recording_execution_id,
+        recording_bundle,
+    )
+    manifest = _manifest(
+        recording_bundle,
+        recording_state_payload=recording_state_payload,
+    )
     return (
         v2_coverage_input_from_direct(
             _artifact("execution.step2.direct.001", direct_bundle),
@@ -85,13 +94,15 @@ def _acquisition_inputs():
         ),
         v2_coverage_input_from_recording(
             manifest,
-            _artifact("execution.step2.recording.001", recording_bundle),
+            _artifact(recording_execution_id, recording_bundle),
+            recording_state_payload=recording_state_payload,
             container_removed=True,
         ),
         v2_coverage_input_from_strict_replay(
             manifest,
             _matched_replay(manifest, replay_bundle),
             _artifact("execution.step2.replay.001", replay_bundle),
+            source_recording_state_payload=recording_state_payload,
         ),
     )
 

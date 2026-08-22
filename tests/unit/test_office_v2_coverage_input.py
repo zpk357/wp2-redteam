@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -21,7 +22,9 @@ from sandbox.coverage.v2_input import (
     v2_coverage_input_from_strict_replay,
 )
 from sandbox.protocol import ToolReplayMode
-from sandbox.replay.digests import sha256_digest
+from sandbox.replay.artifact_store import ArtifactStore
+from sandbox.replay.canonical import canonical_json_bytes
+from sandbox.replay.digests import sha256_bytes, sha256_digest
 from sandbox.replay.manifest import seal_manifest
 from sandbox.replay.models import ArtifactRef, ReplayManifest, ReplayResult, ReplayStatus
 from sandbox.scenarios.office_v2.oracle import evaluate_scenario_oracle
@@ -85,7 +88,52 @@ def _artifact_ref(label: str) -> ArtifactRef:
     )
 
 
-def _manifest(bundle, *, recording_complete: bool = True) -> ReplayManifest:
+def _recording_state_payload(execution_id: str, bundle) -> bytes:
+    materialization = _recording()[0]
+    state = materialization.initial_state
+    assert state.canonical_digest() == bundle.identity.initial_state_digest
+    assert state.canonical_digest() == bundle.identity.final_state_digest
+    session = {
+        "schema_version": "office-v2.0",
+        "snapshot_version": "office-v2-session-snapshot-v1",
+        "execution_envelope_digest": sha256_digest("test-execution-envelope"),
+        "episode_id": execution_id,
+        "base_world_digest": materialization.scenario_case.base_world_digest,
+        "initial_state_digest": bundle.identity.initial_state_digest,
+        "state": state.model_dump(mode="json", exclude_none=False),
+        "history": [],
+        "state_digest": bundle.identity.final_state_digest,
+    }
+    session["snapshot_digest"] = sha256_digest(session)
+    recording_state = {
+        "schema_version": "office-v2.0",
+        "recording_state_version": "office-v2-recording-state-v1",
+        "session": session,
+        "tool_invocations": [],
+        "tool_results": [],
+        "interaction_events": [],
+        "pending_clarification_request_ids": [],
+    }
+    recording_state["recording_state_digest"] = sha256_digest(recording_state)
+    return canonical_json_bytes(recording_state)
+
+
+def _recording_state_ref(payload: bytes) -> ArtifactRef:
+    digest = sha256_bytes(payload)
+    return ArtifactRef(
+        media_type="application/json",
+        sha256=digest,
+        size_bytes=len(payload),
+        relative_path=ArtifactStore.relative_path_for_digest(digest),
+    )
+
+
+def _manifest(
+    bundle,
+    *,
+    recording_state_payload: bytes,
+    recording_complete: bool = True,
+) -> ReplayManifest:
     generic = _artifact_ref("generic")
     manifest = ReplayManifest(
         replay_id="replay.coverage.001",
@@ -104,7 +152,9 @@ def _manifest(bundle, *, recording_complete: bool = True) -> ReplayManifest:
         recording_complete=recording_complete,
         incomplete_reason=None if recording_complete else "test-incomplete",
         prompt_digest=sha256_digest("prompt"),
-        initial_state_digest=bundle.identity.initial_state_digest,
+        initial_state_digest=sha256_digest(
+            {"generic_recording_envelope": bundle.identity.initial_state_digest}
+        ),
         normalized_behavior_trace_digest=sha256_digest("normalized-behavior"),
         determinism_config_digest=sha256_digest("determinism"),
         prompt=generic,
@@ -114,7 +164,7 @@ def _manifest(bundle, *, recording_complete: bool = True) -> ReplayManifest:
         model_decisions=generic,
         tool_records=generic,
         checkpoints=generic,
-        office_v2_recording_state=_artifact_ref("recording-state"),
+        office_v2_recording_state=_recording_state_ref(recording_state_payload),
         office_v2_oracle=_artifact_ref("oracle"),
     )
     return seal_manifest(manifest)
@@ -138,20 +188,31 @@ def _matched_replay(manifest: ReplayManifest, bundle) -> ReplayResult:
 def test_direct_recording_and_strict_replay_share_canonical_facts() -> None:
     direct_bundle, recording_bundle, replay_bundle = _bundles()
     direct_artifact = _artifact("execution.coverage.direct.001", direct_bundle)
-    recording_artifact = _artifact("execution.coverage.recording.001", recording_bundle)
+    recording_execution_id = "execution.coverage.recording.001"
+    recording_artifact = _artifact(recording_execution_id, recording_bundle)
     replay_artifact = _artifact("execution.coverage.replay.001", replay_bundle)
-    manifest = _manifest(recording_bundle)
+    recording_state_payload = _recording_state_payload(
+        recording_execution_id,
+        recording_bundle,
+    )
+    manifest = _manifest(
+        recording_bundle,
+        recording_state_payload=recording_state_payload,
+    )
+    assert manifest.initial_state_digest != recording_bundle.identity.initial_state_digest
 
     direct = v2_coverage_input_from_direct(direct_artifact, container_removed=True)
     recording = v2_coverage_input_from_recording(
         manifest,
         recording_artifact,
+        recording_state_payload=recording_state_payload,
         container_removed=True,
     )
     replay = v2_coverage_input_from_strict_replay(
         manifest,
         _matched_replay(manifest, replay_bundle),
         replay_artifact,
+        source_recording_state_payload=recording_state_payload,
     )
 
     assert direct.canonical_fact_digest == recording.canonical_fact_digest
@@ -232,20 +293,70 @@ def test_incomplete_recording_diverged_replay_and_missing_cleanup_are_rejected()
     with pytest.raises(V2CoverageInputError, match="acquisition metadata"):
         v2_coverage_input_from_direct(artifact, container_removed=False)
 
-    incomplete = _manifest(bundle, recording_complete=False)
+    recording_state_payload = _recording_state_payload(artifact.execution_id, bundle)
+    incomplete = _manifest(
+        bundle,
+        recording_state_payload=recording_state_payload,
+        recording_complete=False,
+    )
     with pytest.raises(V2CoverageInputError, match="incomplete recording"):
         v2_coverage_input_from_recording(
             incomplete,
             artifact,
+            recording_state_payload=recording_state_payload,
             container_removed=True,
         )
 
-    manifest = _manifest(bundle)
+    manifest = _manifest(bundle, recording_state_payload=recording_state_payload)
     replay = _matched_replay(manifest, bundle).model_copy(
         update={"status": ReplayStatus.DIVERGED}
     )
     with pytest.raises(V2CoverageInputError, match="must be matched"):
-        v2_coverage_input_from_strict_replay(manifest, replay, artifact)
+        v2_coverage_input_from_strict_replay(
+            manifest,
+            replay,
+            artifact,
+            source_recording_state_payload=recording_state_payload,
+        )
+
+
+def test_recording_state_artifact_and_episode_identity_tampering_are_rejected() -> None:
+    bundle, _, _ = _bundles()
+    execution_id = "execution.coverage.identity.001"
+    artifact = _artifact(execution_id, bundle)
+    recording_state_payload = _recording_state_payload(execution_id, bundle)
+    manifest = _manifest(bundle, recording_state_payload=recording_state_payload)
+
+    with pytest.raises(V2CoverageInputError, match="artifact does not match manifest"):
+        v2_coverage_input_from_recording(
+            manifest,
+            artifact,
+            recording_state_payload=recording_state_payload + b"\n",
+            container_removed=True,
+        )
+
+    raw = json.loads(recording_state_payload)
+    raw["session"]["episode_id"] = "execution.coverage.other.001"
+    session_payload = {
+        key: value
+        for key, value in raw["session"].items()
+        if key != "snapshot_digest"
+    }
+    raw["session"]["snapshot_digest"] = sha256_digest(session_payload)
+    recording_payload = {
+        key: value for key, value in raw.items() if key != "recording_state_digest"
+    }
+    raw["recording_state_digest"] = sha256_digest(recording_payload)
+    mixed_payload = canonical_json_bytes(raw)
+    mixed_manifest = _manifest(bundle, recording_state_payload=mixed_payload)
+
+    with pytest.raises(V2CoverageInputError, match="identity does not match"):
+        v2_coverage_input_from_recording(
+            mixed_manifest,
+            artifact,
+            recording_state_payload=mixed_payload,
+            container_removed=True,
+        )
 
 
 def test_oracle_result_must_close_over_the_exact_bundle() -> None:

@@ -132,11 +132,18 @@ class DockerOfficeV2EpisodeRunner:
         elapsed_ms = max(1, round((time.monotonic() - started) * 1000))
         if manifest.office_v2_oracle is None:
             raise ValueError("recorded Office V2 Episode has no Oracle artifact")
+        if manifest.office_v2_recording_state is None:
+            raise ValueError("recorded Office V2 Episode has no recording state artifact")
         oracle = OfficeV2RecordedOracleArtifact.model_validate_json(
             self.artifact_store.read_bytes(manifest.office_v2_oracle)
         )
         coverage_input = v2_coverage_input_from_recording(
-            manifest, oracle, container_removed=True
+            manifest,
+            oracle,
+            recording_state_payload=self.artifact_store.read_bytes(
+                manifest.office_v2_recording_state
+            ),
+            container_removed=True,
         )
         agent_tokens = _recorded_agent_tokens(
             self.artifact_store.read_bytes(manifest.model_decisions)

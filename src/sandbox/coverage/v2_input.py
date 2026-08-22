@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
 from pydantic import Field, field_validator, model_validator
 
-from sandbox.replay.digests import sha256_digest
+from sandbox.replay.canonical import canonical_json_bytes
+from sandbox.replay.digests import sha256_bytes, sha256_digest
 from sandbox.replay.manifest import verify_manifest
 from sandbox.replay.models import ReplayManifest, ReplayResult, ReplayStatus
+from sandbox.scenarios.office_v2.canonical_world import OfficeWorldState
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.oracle_evidence import (
     EpisodeTimelineEntry,
@@ -27,6 +31,7 @@ from sandbox.scenarios.office_v2.oracle_models import (
     TerminationEvidenceRef,
     UtilityResult,
 )
+from sandbox.scenarios.office_v2.world import EpisodeWorld, StateTransitionRecord
 
 
 class V2CoverageInputError(ValueError):
@@ -44,6 +49,13 @@ class LiveOracleArtifact(Protocol):
     artifact_digest: str
     evidence_bundle: OracleEvidenceBundle
     oracle_result: CompleteScenarioOracleResult
+
+
+@dataclass(frozen=True, slots=True)
+class _RecordingStateIdentity:
+    episode_id: str
+    initial_state_digest: str
+    final_state_digest: str
 
 
 class V2AcquisitionMetadata(OfficeV2Contract):
@@ -376,17 +388,81 @@ def _verified_v2_manifest(manifest: ReplayManifest) -> ReplayManifest:
     return trusted
 
 
+def _verified_recording_state_identity(
+    manifest: ReplayManifest,
+    payload: bytes,
+) -> _RecordingStateIdentity:
+    reference = manifest.office_v2_recording_state
+    if reference is None:
+        raise V2CoverageInputError("manifest lacks trusted Office V2 recording state")
+    if len(payload) != reference.size_bytes or sha256_bytes(payload) != reference.sha256:
+        raise V2CoverageInputError("Office V2 recording state artifact does not match manifest")
+    try:
+        raw = json.loads(payload)
+        if not isinstance(raw, dict) or canonical_json_bytes(raw) != payload:
+            raise ValueError("recording state is not canonical JSON")
+        if raw.get("recording_state_version") != "office-v2-recording-state-v1":
+            raise ValueError("recording state version is not supported")
+        recording_digest = raw.get("recording_state_digest")
+        recording_payload = {
+            key: value for key, value in raw.items() if key != "recording_state_digest"
+        }
+        if recording_digest != sha256_digest(recording_payload):
+            raise ValueError("recording state digest does not match payload")
+
+        session = raw.get("session")
+        if not isinstance(session, dict):
+            raise ValueError("recording state session is missing")
+        if session.get("snapshot_version") != "office-v2-session-snapshot-v1":
+            raise ValueError("recording session version is not supported")
+        snapshot_digest = session.get("snapshot_digest")
+        snapshot_payload = {
+            key: value for key, value in session.items() if key != "snapshot_digest"
+        }
+        if snapshot_digest != sha256_digest(snapshot_payload):
+            raise ValueError("recording session digest does not match payload")
+
+        state = OfficeWorldState.model_validate(session.get("state"))
+        history_raw = session.get("history")
+        if not isinstance(history_raw, list):
+            raise ValueError("recording session history is invalid")
+        history = tuple(StateTransitionRecord.model_validate(item) for item in history_raw)
+        episode = EpisodeWorld.restore(
+            episode_id=session.get("episode_id"),
+            base_world_digest=session.get("base_world_digest"),
+            state=state,
+            history=history,
+            initial_state_digest=session.get("initial_state_digest"),
+        )
+        if episode.state_digest != session.get("state_digest"):
+            raise ValueError("recording session final state does not match payload")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise V2CoverageInputError("invalid Office V2 recording state artifact") from exc
+    return _RecordingStateIdentity(
+        episode_id=episode.episode_id,
+        initial_state_digest=session["initial_state_digest"],
+        final_state_digest=episode.state_digest,
+    )
+
+
 def v2_coverage_input_from_recording(
     manifest: ReplayManifest,
     artifact: LiveOracleArtifact,
     *,
+    recording_state_payload: bytes,
     container_removed: bool,
 ) -> V2CoverageInput:
     trusted_manifest = _verified_v2_manifest(manifest)
+    recording_identity = _verified_recording_state_identity(
+        trusted_manifest,
+        recording_state_payload,
+    )
     identity = artifact.evidence_bundle.identity
     if (
         trusted_manifest.case_id != identity.scenario_case_id
-        or trusted_manifest.initial_state_digest != identity.initial_state_digest
+        or recording_identity.episode_id != artifact.execution_id
+        or recording_identity.initial_state_digest != identity.initial_state_digest
+        or recording_identity.final_state_digest != identity.final_state_digest
     ):
         raise V2CoverageInputError("recording manifest identity does not match V2 facts")
     acquisition = _sealed_acquisition(
@@ -411,12 +487,19 @@ def v2_coverage_input_from_strict_replay(
     source_manifest: ReplayManifest,
     replay_result: ReplayResult,
     replay_artifact: LiveOracleArtifact,
+    *,
+    source_recording_state_payload: bytes,
 ) -> V2CoverageInput:
     manifest = _verified_v2_manifest(source_manifest)
+    recording_identity = _verified_recording_state_identity(
+        manifest,
+        source_recording_state_payload,
+    )
     identity = replay_artifact.evidence_bundle.identity
     if (
         manifest.case_id != identity.scenario_case_id
-        or manifest.initial_state_digest != identity.initial_state_digest
+        or recording_identity.initial_state_digest != identity.initial_state_digest
+        or recording_identity.final_state_digest != identity.final_state_digest
         or replay_result.source_replay_id != manifest.replay_id
         or (
             replay_result.source_trajectory_id is not None

@@ -21,6 +21,7 @@ from tests.unit.test_office_v2_coverage_input import (
     _bundles,
     _manifest,
     _matched_replay,
+    _recording_state_payload,
 )
 
 
@@ -133,7 +134,15 @@ def test_initialization_overlay_does_not_become_agent_state_coverage() -> None:
 
 def test_acquisition_paths_produce_the_same_complete_behavior_profile() -> None:
     direct_bundle, recording_bundle, replay_bundle = _bundles()
-    manifest = _manifest(recording_bundle)
+    recording_execution_id = "execution.profile.recording.001"
+    recording_state_payload = _recording_state_payload(
+        recording_execution_id,
+        recording_bundle,
+    )
+    manifest = _manifest(
+        recording_bundle,
+        recording_state_payload=recording_state_payload,
+    )
     inputs = (
         v2_coverage_input_from_direct(
             _artifact("execution.profile.direct.001", direct_bundle),
@@ -141,13 +150,15 @@ def test_acquisition_paths_produce_the_same_complete_behavior_profile() -> None:
         ),
         v2_coverage_input_from_recording(
             manifest,
-            _artifact("execution.profile.recording.001", recording_bundle),
+            _artifact(recording_execution_id, recording_bundle),
+            recording_state_payload=recording_state_payload,
             container_removed=True,
         ),
         v2_coverage_input_from_strict_replay(
             manifest,
             _matched_replay(manifest, replay_bundle),
             _artifact("execution.profile.replay.001", replay_bundle),
+            source_recording_state_payload=recording_state_payload,
         ),
     )
 
