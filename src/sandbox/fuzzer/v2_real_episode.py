@@ -83,7 +83,7 @@ class DockerOfficeV2EpisodeRunner:
         model_name: str,
         model_digest: str,
         max_steps: int = 40,
-        timeout_seconds: int = 900,
+        timeout_seconds: int = 600,
     ) -> None:
         self.replay_engine = replay_engine
         self.artifact_store = artifact_store

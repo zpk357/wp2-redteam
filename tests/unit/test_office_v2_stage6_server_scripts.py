@@ -120,10 +120,15 @@ def test_locked_controller_can_read_root_stage_record() -> None:
 def test_preflight_timeout_stays_within_execution_contract() -> None:
     preflight = _script("run_office_v2_stage6_preflight.py")
     campaign = (ROOT / "src/sandbox/fuzzer/v2_cli.py").read_text(encoding="utf-8")
+    episode = (ROOT / "src/sandbox/fuzzer/v2_real_episode.py").read_text(
+        encoding="utf-8"
+    )
     assert "timeout_seconds=600" in preflight
     assert "\n        timeout_seconds=900," not in preflight
     assert "startup_timeout_seconds=600" in preflight
     assert "startup_timeout_seconds=600" in campaign
+    assert "timeout_seconds: int = 600" in episode
+    assert "timeout_seconds: int = 900" not in episode
 
 
 def test_preflight_and_campaign_share_non_noop_mutation_instructions() -> None:
