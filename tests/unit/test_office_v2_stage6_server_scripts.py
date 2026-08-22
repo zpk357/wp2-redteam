@@ -112,6 +112,12 @@ def test_locked_controller_can_read_root_stage_record() -> None:
     assert "stage_mount_args" in runner
 
 
+def test_preflight_timeout_stays_within_execution_contract() -> None:
+    preflight = _script("run_office_v2_stage6_preflight.py")
+    assert "timeout_seconds=600" in preflight
+    assert "\n        timeout_seconds=900," not in preflight
+
+
 def test_source_archive_preserves_git_blob_bytes(tmp_path: Path) -> None:
     archive_path = tmp_path / "source.tar"
     relative = "src/sandbox/scenarios/office_v2/data/office-world-v2.0/calendar.json"

@@ -130,7 +130,7 @@ async def run_preflight(args) -> dict[str, object]:
         model_digest=lock.manifest_digest,
         seed=0,
         max_steps=40,
-        timeout_seconds=900,
+        timeout_seconds=600,
     )
     manifest = await engine.record_request(
         request,
