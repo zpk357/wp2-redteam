@@ -34,6 +34,7 @@ from sandbox.fuzzer.v2_work import (
 from sandbox.mutation.v2_brief import ProviderSlotValue
 from sandbox.mutation.v2_provider import RuleBasedV2MutationProvider
 from sandbox.replay.digests import sha256_digest
+from sandbox.replay.models import ReplayResult
 from scripts.build_office_v2_stage6_bootstrap import build_stage6_bootstrap
 from tests.unit.test_office_v2_feedback_loop_batch_c import loop_fixture
 
@@ -283,6 +284,7 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
         ],
     }
     lock_payload["lock_digest"] = sha256_digest(lock_payload)
+    lock_payload["roles"][0]["image_archive_sha256"] = None
     runtime_digest = lock_payload["lock_digest"]
     bootstrap_value = ScriptedCampaignBootstrap(
         initial_state=state,
@@ -309,9 +311,20 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
         output=results / "milestone-to-2.json",
     )
     (campaign / "recording.json").write_text("{}\n", encoding="utf-8")
-    (campaign / "replays" / "replay.stage6.fixture").mkdir(parents=True)
+    replay_id = "replay.stage6.fixture"
+    replay_run_id = "run.stage6.fixture"
+    source_trajectory_id = "trajectory.stage6.fixture"
+    replay_root = campaign / "replays" / replay_id
+    replay_root.mkdir(parents=True)
     (campaign / "replays" / "replay.stage6.fixture" / "manifest.json").write_text(
-        json.dumps({"replay_id": "replay.stage6.fixture", "recording_complete": True}) + "\n",
+        json.dumps(
+            {
+                "replay_id": replay_id,
+                "trajectory_id": source_trajectory_id,
+                "recording_complete": True,
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
     report = json.loads((results / "campaign-report.json").read_text(encoding="utf-8"))
@@ -342,16 +355,32 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
         + "\n",
         encoding="utf-8",
     )
+    replay_result = ReplayResult.model_validate({
+        "replay_run_id": replay_run_id,
+        "source_replay_id": replay_id,
+        "source_trajectory_id": source_trajectory_id,
+        "replay_trajectory_id": "trajectory.stage6.fixture.strict",
+        "status": "matched",
+        "source_behavior_digest": sha256_digest("behavior"),
+        "replay_behavior_digest": sha256_digest("behavior"),
+        "source_final_state_digest": sha256_digest("state"),
+        "replay_final_state_digest": sha256_digest("state"),
+        "checkpoint_comparisons": [],
+        "first_divergence_behavior_index": None,
+        "source_divergence_sequence": None,
+        "replay_divergence_sequence": None,
+        "divergence_reason": None,
+        "error_code": None,
+        "missing_artifacts": [],
+        "container_removed": True,
+    }).model_dump(mode="json")
     (results / "stage6-replay-report.json").write_text(
-        json.dumps(
-            {
-                "replay_id": "replay.stage6.fixture",
-                "status": "matched",
-                "container_removed": True,
-            }
-        )
-        + "\n",
-        encoding="utf-8",
+        json.dumps(replay_result) + "\n", encoding="utf-8"
+    )
+    replay_run = replay_root / "runs" / replay_run_id
+    replay_run.mkdir(parents=True)
+    (replay_run / "result.json").write_text(
+        json.dumps(replay_result) + "\n", encoding="utf-8"
     )
     paths = {"campaign": campaign, "results": results}
     payloads = {
@@ -410,6 +439,7 @@ def _evidence_files(tmp_path: Path) -> dict[str, Path]:
         "server-host": {"captured": True},
         "gpu-residency": {
             "passed": True,
+            "campaign_id": "stage6-preflight",
             "full_residency": {"agent": True, "mutator": True},
             "residual_observed_model_process_pids": [],
         },
@@ -510,6 +540,34 @@ def test_archive_verifier_rejects_mixed_campaign_report(tmp_path: Path) -> None:
             server_host=paths["server-host"],
             gpu_residency=paths["gpu-residency"],
             output=tmp_path / "mixed.tar.gz",
+        )
+
+
+def test_archive_verifier_rejects_replay_report_from_another_run(
+    tmp_path: Path,
+) -> None:
+    paths = _evidence_files(tmp_path)
+    replay_report = paths["results"] / "stage6-replay-report.json"
+    payload = json.loads(replay_report.read_text(encoding="utf-8"))
+    payload["replay_run_id"] = "run.stage6.other"
+    replay_report.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="not bound to archived run artifacts"):
+        build_stage6_evidence_archive(
+            campaign_id=CAMPAIGN_ID,
+            outcome="success",
+            campaign_root=paths["campaign"],
+            result_root=paths["results"],
+            model_lock=paths["model-lock"],
+            bootstrap=paths["bootstrap"],
+            preflight=paths["preflight"],
+            repair_plan=paths["repair-plan"],
+            repair_receipt=paths["repair-receipt"],
+            stage_record=paths["stage-record"],
+            source_tree_identity=paths["source-tree"],
+            server_host=paths["server-host"],
+            gpu_residency=paths["gpu-residency"],
+            output=tmp_path / "mixed-replay.tar.gz",
         )
 
 

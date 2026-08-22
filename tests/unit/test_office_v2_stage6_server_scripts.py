@@ -5,6 +5,7 @@ import subprocess
 import tarfile
 from pathlib import Path
 
+from sandbox.fuzzer.v2_real_runtime import REAL_MUTATION_OPERATOR_INSTRUCTIONS
 from sandbox.replay.digests import sha256_bytes
 from scripts import monitor_office_v2_stage6_gpu
 from scripts.build_g5_source_archive import build_archive
@@ -123,6 +124,16 @@ def test_preflight_timeout_stays_within_execution_contract() -> None:
     assert "\n        timeout_seconds=900," not in preflight
     assert "startup_timeout_seconds=600" in preflight
     assert "startup_timeout_seconds=600" in campaign
+
+
+def test_preflight_and_campaign_share_non_noop_mutation_instructions() -> None:
+    preflight = _script("run_office_v2_stage6_preflight.py")
+    campaign = (ROOT / "src/sandbox/fuzzer/v2_real_runtime.py").read_text(
+        encoding="utf-8"
+    )
+    assert "REAL_MUTATION_OPERATOR_INSTRUCTIONS" in preflight
+    assert "operator_instructions=REAL_MUTATION_OPERATOR_INSTRUCTIONS" in campaign
+    assert any("must differ" in item for item in REAL_MUTATION_OPERATOR_INSTRUCTIONS)
 
 
 def test_source_archive_preserves_git_blob_bytes(tmp_path: Path) -> None:

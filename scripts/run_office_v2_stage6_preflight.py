@@ -17,7 +17,10 @@ from sandbox.config import SandboxConfig, SandboxLimits, TraceConfig, WeekOneCon
 from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.fuzzer.v2_orchestrator import decide_next_generation
 from sandbox.fuzzer.v2_real_episode import OfficeV2RecordedOracleArtifact, _recorded_agent_tokens
-from sandbox.fuzzer.v2_real_runtime import RealCampaignBootstrap
+from sandbox.fuzzer.v2_real_runtime import (
+    REAL_MUTATION_OPERATOR_INSTRUCTIONS,
+    RealCampaignBootstrap,
+)
 from sandbox.fuzzer.v2_stage6_identity import Stage6ModelLock, Stage6Role
 from sandbox.mutation.v2_brief import build_minimal_fact_brief
 from sandbox.mutation.v2_docker import DockerOllamaV2MutationProvider
@@ -80,7 +83,7 @@ async def run_preflight(args) -> dict[str, object]:
     brief = build_minimal_fact_brief(
         plan=plan,
         frontier_description="Stage 6 paid-server structured-output preflight.",
-        operator_instructions=("Change only the frozen payload expression.",),
+        operator_instructions=REAL_MUTATION_OPERATOR_INSTRUCTIONS,
         scenario_facts=(),
         parent_payload_texts=(seed.payload_specs[0].content,),
     )

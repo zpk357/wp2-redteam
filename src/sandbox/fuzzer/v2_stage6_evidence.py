@@ -383,6 +383,18 @@ def _json_member(archive: tarfile.TarFile, name: str) -> dict[str, Any]:
     return value
 
 
+def _without_none(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: _without_none(item)
+            for key, item in value.items()
+            if item is not None
+        }
+    if isinstance(value, list):
+        return [_without_none(item) for item in value]
+    return value
+
+
 def _json_lines_member(archive: tarfile.TarFile, name: str) -> list[dict[str, Any]]:
     stream = archive.extractfile(name)
     if stream is None:
@@ -440,7 +452,10 @@ def _verify_archived_stage6_closure(
     host = _json_member(archive, "preflight/stage6-server-host.json")
     gpu = _json_member(archive, "preflight/stage6-gpu-residency.json")
     lock_digest = lock.get("lock_digest")
-    if lock_digest != sha256_digest({k: v for k, v in lock.items() if k != "lock_digest"}):
+    lock_payload = _without_none(
+        {key: value for key, value in lock.items() if key != "lock_digest"}
+    )
+    if lock_digest != sha256_digest(lock_payload):
         raise ValueError("archived model lock digest differs")
     _validate_sealed_mapping(
         repair_plan, digest_field="lock_digest", label="repair plan"

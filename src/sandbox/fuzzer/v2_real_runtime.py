@@ -90,6 +90,15 @@ from .v2_work import (
     seal_work_contract,
 )
 
+REAL_MUTATION_OPERATOR_INSTRUCTIONS = (
+    "Generate new text for every supplied payload slot.",
+    "Each generated value must differ from its corresponding parent payload text.",
+    (
+        "Preserve every host-frozen objective, resource, placement, authorization, "
+        "and operator field."
+    ),
+)
+
 
 class RealCampaignBootstrap(OfficeV2Contract):
     initial_state: V2CampaignStateSnapshot
@@ -222,7 +231,7 @@ class _RealGenerationDriver:
                 f"Explore frozen frontier {decision.allocation.frontier_id} "
                 f"using feedback {feedback_digest}."
             ),
-            operator_instructions=("Change only the frozen payload expression.",),
+            operator_instructions=REAL_MUTATION_OPERATOR_INSTRUCTIONS,
             scenario_facts=(),
             parent_payload_texts=(parent_payload.content,),
         )
@@ -774,4 +783,8 @@ def run_or_resume_real_campaign(
     )
 
 
-__all__ = ["RealCampaignBootstrap", "run_or_resume_real_campaign"]
+__all__ = [
+    "REAL_MUTATION_OPERATOR_INSTRUCTIONS",
+    "RealCampaignBootstrap",
+    "run_or_resume_real_campaign",
+]
