@@ -114,8 +114,11 @@ def test_locked_controller_can_read_root_stage_record() -> None:
 
 def test_preflight_timeout_stays_within_execution_contract() -> None:
     preflight = _script("run_office_v2_stage6_preflight.py")
+    campaign = (ROOT / "src/sandbox/fuzzer/v2_cli.py").read_text(encoding="utf-8")
     assert "timeout_seconds=600" in preflight
     assert "\n        timeout_seconds=900," not in preflight
+    assert "startup_timeout_seconds=600" in preflight
+    assert "startup_timeout_seconds=600" in campaign
 
 
 def test_source_archive_preserves_git_blob_bytes(tmp_path: Path) -> None:

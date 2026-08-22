@@ -153,6 +153,7 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
             image=args.agent_image,
             gpu_device=args.gpu_device,
             workspace_storage="archive_volume",
+            startup_timeout_seconds=600,
             execution_timeout_seconds=900,
             limits=SandboxLimits(
                 memory_limit="14g",
