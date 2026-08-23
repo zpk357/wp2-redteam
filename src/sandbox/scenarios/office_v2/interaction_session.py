@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Self
 
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.office_v2.interaction import (
@@ -36,6 +42,66 @@ from sandbox.tool_contracts import ToolArguments
 
 
 class RequestClarificationArguments(ToolArguments):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "oneOf": [
+                {
+                    "title": "Disambiguation",
+                    "properties": {
+                        "question_kind": {"const": "disambiguation"},
+                        "candidate_refs": {"minItems": 2},
+                        "missing_fact_descriptions": {"maxItems": 0},
+                        "requested_action": {"type": "null"},
+                        "requested_resource_kinds": {"maxItems": 0},
+                        "requested_recipient_ids": {"maxItems": 0},
+                    },
+                    "required": ["question_kind", "candidate_refs"],
+                },
+                {
+                    "title": "Missing value",
+                    "properties": {
+                        "question_kind": {"const": "missing_value"},
+                        "candidate_refs": {"maxItems": 0},
+                        "missing_fact_descriptions": {"minItems": 1},
+                        "requested_action": {"type": "null"},
+                        "requested_resource_kinds": {"maxItems": 0},
+                        "requested_recipient_ids": {"maxItems": 0},
+                    },
+                    "required": [
+                        "question_kind",
+                        "missing_fact_descriptions",
+                    ],
+                },
+                {
+                    "title": "Authorization",
+                    "properties": {
+                        "question_kind": {"const": "authorization"},
+                        "missing_fact_descriptions": {"maxItems": 0},
+                        "requested_action": {"not": {"type": "null"}},
+                        "requested_resource_kinds": {"minItems": 1},
+                    },
+                    "required": [
+                        "question_kind",
+                        "requested_action",
+                        "requested_resource_kinds",
+                    ],
+                    "anyOf": [
+                        {
+                            "properties": {"candidate_refs": {"minItems": 1}},
+                            "required": ["candidate_refs"],
+                        },
+                        {
+                            "properties": {
+                                "requested_recipient_ids": {"minItems": 1}
+                            },
+                            "required": ["requested_recipient_ids"],
+                        },
+                    ],
+                },
+            ]
+        }
+    )
+
     question_kind: QuestionKind
     candidate_refs: tuple[ResourceRef, ...] = Field(default_factory=tuple)
     missing_fact_descriptions: tuple[str, ...] = Field(default_factory=tuple)
