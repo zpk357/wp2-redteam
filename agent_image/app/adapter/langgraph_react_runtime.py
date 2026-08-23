@@ -24,12 +24,12 @@ from app.agent.react_contract import (
     ReactToolCall,
     ReactTurn,
 )
+from app.office_v2_runtime_surface import build_office_v2_runtime_surface
 from app.office_v2_session import (
     OfficeV2ContainerSession,
     OfficeV2LiveOracleArtifact,
     OfficeV2RecordingState,
     OfficeV2SessionSnapshot,
-    load_office_v2_session,
 )
 from app.protocol import ExecutionRequest, TraceEvent
 from app.replay.checkpoint import RecordingSession
@@ -47,19 +47,9 @@ from sandbox.agent_prompts import (
 from sandbox.agent_prompts import (
     OFFICE_AGENT_SYSTEM_PROMPT_VERSION as SYSTEM_PROMPT_VERSION,
 )
-from sandbox.agent_prompts import render_office_v2_agent_system_prompt
 from sandbox.replay.digests import sha256_digest
 from sandbox.replay.exceptions import ReplayDivergenceError
 from sandbox.replay.models import CheckpointKind, ResumePhase
-from sandbox.scenarios.office_v2.agent_context import (
-    assemble_agent_workspace_context,
-    derive_agent_identity_context,
-    derive_agent_policy_capability_context,
-)
-from sandbox.scenarios.office_v2.interaction_session import (
-    DeterministicInteractionSession,
-    ScriptedResponseDirective,
-)
 from sandbox.tool_contracts import OFFICE_SCENARIO_TOOL_SPECS, ToolSpec
 
 
@@ -175,6 +165,7 @@ class _GraphState(TypedDict, total=False):
     has_tool_calls: bool
     submitted: bool
     final_answer: str | None
+    pending_trusted_followup: str | None
 
 
 class _LangGraphChatProvider:
@@ -291,6 +282,14 @@ class LangGraphReactRuntime(AgentAdapter):
     """Run the formal office Agent through StateGraph and the TRACE 1.2 contract."""
 
     version = "trace-langgraph-office-g4"
+    composition_digest = sha256_digest(
+        {
+            "runtime_kind": "langgraph",
+            "runtime_version": version,
+            "graph_contract": "trace-react-v2-office-v2",
+            "interaction_order": "immediate-followup-v1",
+        }
+    )
 
     def __init__(
         self,
@@ -299,11 +298,25 @@ class LangGraphReactRuntime(AgentAdapter):
         provider_factory: Callable[[ExecutionRequest], Any] | None = None,
         registry_factory: Callable[[], ToolRegistry] = ToolRegistry,
         session_surface: AgentSessionSurface | None = None,
+        producer_runtime_kind: str = "langgraph",
+        producer_runtime_version: str | None = None,
+        producer_runtime_composition_digest: str | None = None,
+        defer_trusted_followup_until_idle: bool = False,
+        recording_audit_events: Sequence[dict[str, Any]] = (),
     ) -> None:
         self._chat_model = chat_model
         self._provider_factory = provider_factory
         self._registry_factory = registry_factory
         self._session_surface = session_surface
+        self._producer_runtime_kind = producer_runtime_kind
+        self._producer_runtime_version = producer_runtime_version or self.version
+        self._producer_runtime_composition_digest = (
+            producer_runtime_composition_digest or self.composition_digest
+        )
+        self._defer_trusted_followup_until_idle = (
+            defer_trusted_followup_until_idle
+        )
+        self._recording_audit_events = tuple(recording_audit_events)
         self.last_checkpoint_digests = []
         self.last_final_state_digest: str | None = None
         self.last_v2_session: OfficeV2ContainerSession | None = None
@@ -492,7 +505,13 @@ class LangGraphReactRuntime(AgentAdapter):
                     if v2_session is not None
                     else None
                 ),
+                producer_runtime_kind=self._producer_runtime_kind,
+                producer_runtime_version=self._producer_runtime_version,
+                producer_runtime_composition_digest=(
+                    self._producer_runtime_composition_digest
+                ),
             )
+            recording.audit_events.extend(self._recording_audit_events)
             recording.audit_events.extend(recording_audit_events)
             provider = recording.model
             registry = recording.tools
@@ -593,6 +612,8 @@ class LangGraphReactRuntime(AgentAdapter):
                 "case_id": request.case_id,
                 "scenario_id": request.scenario_id,
                 "execution_backend": "trace_react_v2",
+                "agent_runtime": self._producer_runtime_kind,
+                "agent_runtime_version": self._producer_runtime_version,
             },
         )
         if v2_session is not None:
@@ -642,6 +663,7 @@ class LangGraphReactRuntime(AgentAdapter):
             if turn > request.max_steps:
                 raise AgentNoSubmitError(limit_type="turn")
             current_messages = list(state["messages"])
+            pending_followup = state.get("pending_trusted_followup")
             snapshot = state_snapshot(current_messages, turn=turn - 1, final_answer=None)
             before_model = recording.before_model(snapshot, turn) if recording else None
             replay_before_model_id = (
@@ -691,6 +713,11 @@ class LangGraphReactRuntime(AgentAdapter):
                 calls,
                 control_tool_names={spec.name for spec in surface.control_tool_specs},
             )
+            if pending_followup is not None and calls:
+                raise AdapterExecutionError(
+                    "harness_followup_idle_boundary_missing",
+                    "the recorded Harness activity did not preserve its idle boundary",
+                )
             current_messages.append(
                 ReactMessage(
                     role="assistant",
@@ -729,15 +756,25 @@ class LangGraphReactRuntime(AgentAdapter):
                 ),
             )
             if not calls:
-                current_messages.append(ReactMessage(role="user", content=CONTINUE_PROMPT))
+                if pending_followup is not None:
+                    current_messages.append(
+                        ReactMessage(role="user", content=pending_followup)
+                    )
+                    pending_followup = None
+                else:
+                    current_messages.append(
+                        ReactMessage(role="user", content=CONTINUE_PROMPT)
+                    )
             return {
                 "messages": current_messages,
                 "turn": turn,
                 "has_tool_calls": bool(calls),
+                "pending_trusted_followup": pending_followup,
             }
 
         async def tool_node(state: _GraphState) -> dict[str, Any]:
             current_messages = list(state["messages"])
+            pending_followup = state.get("pending_trusted_followup")
             message = next(
                 (
                     candidate
@@ -851,12 +888,20 @@ class LangGraphReactRuntime(AgentAdapter):
                         )
                     )
                     if execution.follow_up_user_message is not None:
-                        current_messages.append(
-                            ReactMessage(
-                                role="user",
-                                content=execution.follow_up_user_message,
+                        if self._defer_trusted_followup_until_idle:
+                            if pending_followup is not None:
+                                raise AdapterExecutionError(
+                                    "harness_followup_queue_invalid",
+                                    "more than one trusted followup is pending",
+                                )
+                            pending_followup = execution.follow_up_user_message
+                        else:
+                            current_messages.append(
+                                ReactMessage(
+                                    role="user",
+                                    content=execution.follow_up_user_message,
+                                )
                             )
-                        )
                     after_control = None
                     if recording:
                         after_state_digest = current_state_digest()
@@ -1040,6 +1085,7 @@ class LangGraphReactRuntime(AgentAdapter):
                 "messages": current_messages,
                 "submitted": final_answer is not None,
                 "final_answer": final_answer,
+                "pending_trusted_followup": pending_followup,
             }
 
         def after_model(state: _GraphState) -> str:
@@ -1149,6 +1195,7 @@ class LangGraphReactRuntime(AgentAdapter):
                         "has_tool_calls": False,
                         "submitted": False,
                         "final_answer": None,
+                        "pending_trusted_followup": None,
                     },
                     config={"recursion_limit": request.max_steps * 3 + 5},
                 )
@@ -1179,69 +1226,7 @@ class LangGraphReactRuntime(AgentAdapter):
         *,
         snapshot: OfficeV2SessionSnapshot | None = None,
     ) -> tuple[OfficeV2ContainerSession, AgentSessionSurface]:
-        envelope = request.office_v2_execution
-        if envelope is None:
-            raise AdapterConfigurationError(
-                "v2_configuration_error",
-                "Office V2 execution requires its frozen envelope",
-            )
-        session = load_office_v2_session(
-            envelope,
-            episode_id=(snapshot.episode_id if snapshot is not None else request.execution_id),
-            snapshot=snapshot,
-        )
-        context = assemble_agent_workspace_context(
-            derive_agent_identity_context(
-                session.episode.state,
-                session.runtime.actor,
-                session.runtime.task,
-            ),
-            derive_agent_policy_capability_context(
-                session.episode.state,
-                session.runtime.task,
-                session.runtime.definitions,
-            ),
-        )
-
-        interaction = DeterministicInteractionSession(
-            episode=session.episode,
-            task=session.runtime.task,
-            actor_id=session.runtime.actor.actor_id,
-            response_directives=tuple(
-                ScriptedResponseDirective.model_validate(
-                    item.model_dump(mode="json", exclude_none=False),
-                    strict=False,
-                )
-                for item in envelope.interaction_response_directives
-            ),
-        )
-
-        def handle_control(name: str, arguments: dict[str, Any]) -> Any:
-            if name == REQUEST_CLARIFICATION_TOOL_SPEC.name:
-                execution = interaction.handle_request(arguments)
-                session.record_trusted_interaction(execution)
-                return execution
-            if name != SUBMIT_TOOL_SPEC.name:
-                raise AdapterExecutionError(
-                    "langgraph_unknown_control_tool",
-                    f"unsupported Agent control tool: {name}",
-                )
-            try:
-                answer = SUBMIT_TOOL_SPEC.validate_arguments(arguments).answer
-            except ValidationError as exc:
-                raise AdapterExecutionError(
-                    "agent_invalid_submit",
-                    f"submit arguments are invalid: {exc.errors()[0]['msg']}",
-                ) from exc
-            return _V1ControlExecution(final_answer=answer)
-
-        surface = session.build_agent_surface(
-            rendered_prompt=render_office_v2_agent_system_prompt(context),
-            control_tool_specs=(REQUEST_CLARIFICATION_TOOL_SPEC, SUBMIT_TOOL_SPEC),
-            control_handler=handle_control,
-            business_result_observer=interaction.observe_result,
-        )
-        return session, surface
+        return build_office_v2_runtime_surface(request, snapshot=snapshot)
 
     @staticmethod
     def select_specs(specs: Sequence[ToolSpec]) -> tuple[ToolSpec, ...]:

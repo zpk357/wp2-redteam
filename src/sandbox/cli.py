@@ -20,7 +20,7 @@ from sandbox.config import (
     WeekOneConfig,
 )
 from sandbox.fuzzer.models import SandboxRunContext
-from sandbox.protocol import ModelOptions, ModelProvider
+from sandbox.protocol import AgentRuntimeKind, ModelOptions, ModelProvider
 from sandbox.replay.artifact_store import ArtifactStore
 from sandbox.replay.manifest import ManifestStore
 from sandbox.replay.models import ForkInjection, ForkSuffixMode, ReplayMode
@@ -40,6 +40,10 @@ def _storage_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--manifest-dir", type=Path, default=Path("data/replays"))
 
 
+def _gpu_device(value: str) -> str | None:
+    return None if value.lower() in {"none", "off", "cpu"} else value
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="trace-redteam")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -52,12 +56,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scenario_run.add_argument("--case", required=True, dest="case_id")
     scenario_run.add_argument("--image", required=True)
+    scenario_run.add_argument(
+        "--agent-runtime",
+        choices=[kind.value for kind in AgentRuntimeKind],
+        default=AgentRuntimeKind.LANGGRAPH.value,
+    )
     scenario_run.add_argument("--model-name", required=True)
     scenario_run.add_argument("--model-digest", required=True)
     scenario_run.add_argument("--seed", type=int, default=0)
     scenario_run.add_argument("--max-steps", type=int, default=60)
     scenario_run.add_argument("--timeout-seconds", type=int, default=600)
-    scenario_run.add_argument("--gpu-device", default="0")
+    scenario_run.add_argument("--gpu-device", type=_gpu_device, default="0")
     scenario_run.add_argument("--memory-limit", default="8g")
     scenario_run.add_argument("--nano-cpus", type=int, default=4_000_000_000)
     scenario_run.add_argument("--pids-limit", type=int, default=512)
@@ -141,8 +150,8 @@ def _config(args) -> WeekOneConfig:
     )
 
 
-def _replay_engine(config: WeekOneConfig) -> ReplayEngine:
-    docker_client = docker.from_env()
+def _replay_engine(config: WeekOneConfig, *, docker_client=None) -> ReplayEngine:
+    docker_client = docker_client or docker.from_env()
     artifact_store = ArtifactStore(config.replay.artifact_dir)
     scheduler = DockerSandboxScheduler(config.sandbox, client=docker_client)
     runtime = RuntimeClient(config.tracing, docker_client=docker_client)
@@ -156,6 +165,30 @@ def _replay_engine(config: WeekOneConfig) -> ReplayEngine:
         ArtifactTransfer(docker_client, artifact_store),
         case_source=None,
     )
+
+
+def _validate_agent_runtime_image(docker_client, image: str, runtime_kind: str) -> None:
+    labels = docker_client.images.get(image).attrs.get("Config", {}).get("Labels") or {}
+    selected = AgentRuntimeKind(runtime_kind)
+    image_kind = labels.get("org.trace-g.agent-runtime")
+    image_version = labels.get("org.trace-g.runtime")
+    if selected is AgentRuntimeKind.DEEPSEEK_HARNESS:
+        expected = {
+            "org.trace-g.agent-runtime": AgentRuntimeKind.DEEPSEEK_HARNESS.value,
+            "org.trace-g.runtime": "deepseek-harness-h4-v1",
+            "org.trace-g.composition-sha256": (
+                "d330f6e8c3f173332e7f6267d8c2a2a0bb4d6c10cc7df9502ed91b224858bfad"
+            ),
+        }
+        if any(labels.get(key) != value for key, value in expected.items()):
+            raise SystemExit(
+                "selected DeepSeek Harness runtime does not match the image identity labels"
+            )
+        return
+    if image_kind not in {None, AgentRuntimeKind.LANGGRAPH.value} or (
+        image_version is not None and image_version.startswith("deepseek-harness-")
+    ):
+        raise SystemExit("selected LangGraph runtime does not match the image identity labels")
 
 
 def _fork_injection_content(args):
@@ -180,6 +213,8 @@ def main() -> int:
 
     config = _config(args)
     if args.command == "scenario":
+        docker_client = docker.from_env()
+        _validate_agent_runtime_image(docker_client, args.image, args.agent_runtime)
         selected = office_v2_public_case(args.case_id)
         execution_id = f"scenario-{uuid4().hex}"
         request = build_office_v2_public_request(
@@ -192,7 +227,9 @@ def main() -> int:
             timeout_seconds=args.timeout_seconds,
             use_frozen_response=args.use_frozen_response,
         )
-        manifest = asyncio.run(_replay_engine(config).record_request(request))
+        manifest = asyncio.run(
+            _replay_engine(config, docker_client=docker_client).record_request(request)
+        )
         print(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2))
         return 0
 

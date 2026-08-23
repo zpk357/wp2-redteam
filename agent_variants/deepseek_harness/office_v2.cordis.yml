@@ -1,0 +1,75 @@
+# H4 Office V2 composition. Stdout belongs exclusively to JSON-RPC.
+
+- id: sdk-jsonrpc-server
+  name: '@deepseek-ai/dsh-sdk-jsonrpc-server'
+  config:
+    maxTokensAsSuccess: false
+
+- id: llm-office-local
+  name: '@deepseek-ai/dsh-llm-pi-ai'
+  config:
+    providers:
+      office-local:
+        displayName: Office local model
+        apiKeyEnv: DSH_PROBE_API_KEY
+        api: openai-completions
+        baseURL: !!js process.env.DSH_MODEL_BASE_URL
+        streamIdleTimeoutMs: 10000
+        models:
+          - id: qwen3.5:27b-q4_K_M
+            name: Qwen 3.5 27B local
+            contextWindow: 8192
+            maxTokens: 1024
+
+- id: agent-spine
+  name: '@deepseek-ai/dsh-agent-spine-demo'
+  config:
+    includeHarnessIdentity: false
+    includeRuntimeContext: false
+    persona: You are an assistant operating a synthetic Office workspace.
+    workspaceContext: false
+    maxParallelToolCalls: 1
+    skills:
+      enabled: false
+    toolBash: false
+    toolJobs: false
+
+- id: sessions
+  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  config:
+    root: !!js process.env.DSH_SESSION_ROOT
+    compression: none
+
+- id: session-checkpoints
+  name: '@deepseek-ai/dsh-session-checkpoint-policy'
+
+- id: office-v2-mcp
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: office_v2
+    transport: stdio
+    command: node
+    args:
+      - runtime/mcp_launcher.mjs
+    cwd: !!js process.env.DSH_VARIANT_ROOT
+    env:
+      DSH_PYTHON_EXECUTABLE: !!js process.env.DSH_PYTHON_EXECUTABLE
+      DSH_OFFICE_BRIDGE: !!js process.env.DSH_OFFICE_BRIDGE
+      DSH_RUNTIME_ROOT: !!js process.env.DSH_RUNTIME_ROOT
+      DSH_H4_REQUEST_PATH: !!js process.env.DSH_H4_REQUEST_PATH
+      DSH_H4_BOOTSTRAP_PATH: !!js process.env.DSH_H4_BOOTSTRAP_PATH
+      DSH_H4_RECORDS_PATH: !!js process.env.DSH_H4_RECORDS_PATH
+      DSH_H4_SUMMARY_PATH: !!js process.env.DSH_H4_SUMMARY_PATH
+      DSH_H4_FOLLOWUPS_PATH: !!js process.env.DSH_H4_FOLLOWUPS_PATH
+      DSH_H4_FOLLOWUP_ACK_PATH: !!js process.env.DSH_H4_FOLLOWUP_ACK_PATH
+      DSH_H4_TRACE_PATH: !!js process.env.DSH_H4_TRACE_PATH
+      DSH_H4_RECORDING_STATE_PATH: !!js process.env.DSH_H4_RECORDING_STATE_PATH
+      DSH_H4_ORACLE_PATH: !!js process.env.DSH_H4_ORACLE_PATH
+      PYTHONPATH: !!js process.env.PYTHONPATH
+    toolCallTimeoutMs: 30000
+    failOnStartupError: true
+    reconnect:
+      enabled: false
+
+- id: token-meter
+  name: '@deepseek-ai/dsh-token-meter'

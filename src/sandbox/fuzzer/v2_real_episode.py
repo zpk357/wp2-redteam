@@ -10,8 +10,10 @@ from pydantic import model_validator
 from sandbox.coverage.v2_input import (
     V2CoverageInput,
     v2_coverage_input_from_recording,
+    verify_v2_recording_runtime_identity,
 )
 from sandbox.fuzzer.models import SandboxRunContext
+from sandbox.protocol import AgentRuntimeKind, ModelProvider
 from sandbox.replay.artifact_store import ArtifactStore
 from sandbox.replay.digests import sha256_digest
 from sandbox.replay.models import (
@@ -23,6 +25,7 @@ from sandbox.replay.replay_engine import ReplayEngine
 from sandbox.scenarios.office_v2.attack_models import MaterializedScenarioCase
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
 from sandbox.scenarios.office_v2.cli_entry import (
+    IN_CONTAINER_OLLAMA_ENDPOINT,
     OfficeV2PublicCase,
     build_office_v2_public_request,
     office_v2_public_cases,
@@ -82,6 +85,11 @@ class DockerOfficeV2EpisodeRunner:
         artifact_store: ArtifactStore,
         model_name: str,
         model_digest: str,
+        producer_runtime_kind: AgentRuntimeKind,
+        producer_runtime_version: str,
+        producer_runtime_composition_digest: str,
+        model_provider: ModelProvider = ModelProvider.OLLAMA,
+        model_endpoint: str | None = IN_CONTAINER_OLLAMA_ENDPOINT,
         max_steps: int = 40,
         timeout_seconds: int = 600,
     ) -> None:
@@ -89,8 +97,25 @@ class DockerOfficeV2EpisodeRunner:
         self.artifact_store = artifact_store
         self.model_name = model_name
         self.model_digest = model_digest
+        self.producer_runtime_kind = producer_runtime_kind
+        self.producer_runtime_version = producer_runtime_version
+        self.producer_runtime_composition_digest = (
+            producer_runtime_composition_digest
+        )
+        self.model_provider = model_provider
+        self.model_endpoint = model_endpoint
         self.max_steps = max_steps
         self.timeout_seconds = timeout_seconds
+
+    @property
+    def producer_runtime_identity(self) -> dict[str, str]:
+        return {
+            "producer_runtime_kind": self.producer_runtime_kind.value,
+            "producer_runtime_version": self.producer_runtime_version,
+            "producer_runtime_composition_digest": (
+                self.producer_runtime_composition_digest
+            ),
+        }
 
     async def execute(
         self,
@@ -124,6 +149,8 @@ class DockerOfficeV2EpisodeRunner:
             seed=seed,
             max_steps=self.max_steps,
             timeout_seconds=self.timeout_seconds,
+            model_provider=self.model_provider,
+            model_endpoint=self.model_endpoint,
         )
         started = time.monotonic()
         manifest = await self.replay_engine.record_request(
@@ -136,6 +163,17 @@ class DockerOfficeV2EpisodeRunner:
             raise ValueError("recorded Office V2 Episode has no recording state artifact")
         oracle_payload = self.artifact_store.read_bytes(manifest.office_v2_oracle)
         oracle = OfficeV2RecordedOracleArtifact.model_validate_json(oracle_payload)
+        verify_v2_recording_runtime_identity(
+            manifest,
+            determinism_config_payload=self.artifact_store.read_bytes(
+                manifest.determinism_config
+            ),
+            expected_runtime_kind=self.producer_runtime_kind,
+            expected_runtime_version=self.producer_runtime_version,
+            expected_runtime_composition_digest=(
+                self.producer_runtime_composition_digest
+            ),
+        )
         coverage_input = v2_coverage_input_from_recording(
             manifest,
             oracle_artifact_payload=oracle_payload,

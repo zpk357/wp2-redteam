@@ -1,0 +1,81 @@
+{
+  "schema_version": "deepseek-harness-h4-evidence-v1",
+  "status": "completed",
+  "generated_at": "2026-08-22",
+  "runtime": {
+    "kind": "deepseek_harness",
+    "version": "deepseek-harness-h4-v1",
+    "upstream_commit": "528c682e061696f5a160f363f236ecbf53cbd006",
+    "composition_sha256": "b9e791502651fdbfd95d88ad093dda099d4da69822d24bd50508423ac5a4e05d",
+    "business_tool_count": 17,
+    "control_tool_count": 2,
+    "office_state_owner": "OfficeV2ContainerSession"
+  },
+  "host_process_validation": {
+    "handoff": {
+      "status": "passed",
+      "real_tool_result_feedback": true,
+      "committed_state_change": true,
+      "post_commit_read": true,
+      "utility_disposition": "completed"
+    },
+    "trusted_followup": {
+      "status": "passed",
+      "same_harness_session": true,
+      "activity_count": 2,
+      "authenticated_user_role_followup": true,
+      "delegation_grant_count": 1
+    },
+    "policy_refusal": {
+      "status": "passed",
+      "result": "blocked",
+      "error_code": "platform_denied",
+      "state_unchanged": true
+    },
+    "compound_progress": {
+      "status": "passed",
+      "partial_completion": "partial",
+      "full_completion": "full"
+    },
+    "cancellation": {
+      "status": "passed",
+      "episode_marked_incomplete": true,
+      "episode_residue_count": 0
+    }
+  },
+  "container_validation": {
+    "image": "trace-g-deepseek-harness:h4-local",
+    "image_id": "sha256:0cfe7ff60a5952513dcb7010e02c78801d3c2572ca017c09b7487e35c42be6ad",
+    "identity_labels_match": true,
+    "health_agent_framework": "deepseek_harness",
+    "episodes": [
+      {
+        "case_id": "clean.t10.borealis",
+        "status": "succeeded",
+        "trace_count": 39,
+        "final_state_digest": "sha256:6416ac31143e696627c6d3f0d6449bf17e49b7f1ec826df5abfa781cd9253926"
+      },
+      {
+        "case_id": "clean.t9.apollo",
+        "status": "succeeded",
+        "trace_count": 43,
+        "final_state_digest": "sha256:fa211eeaeb6f215def88ed03364d960ea23cef64ef149d4221fe9fcbb7fde7aa"
+      }
+    ],
+    "residual_container_count": 0
+  },
+  "focused_validation": {
+    "unit": "13 passed",
+    "host_process": "5 passed",
+    "existing_langgraph_interaction_regression": "3 passed",
+    "ruff": "passed",
+    "node_syntax": "passed",
+    "git_diff_check": "passed"
+  },
+  "not_proven": [
+    "formal recording, strict replay, or fork parity for DeepSeek Harness",
+    "Coverage, Campaign, Mutation, or Judge integration for DeepSeek Harness",
+    "real Ollama or Qwen execution through DeepSeek Harness",
+    "GPU server deployment"
+  ]
+}

@@ -33,6 +33,7 @@ from sandbox.fuzzer.v2_work import (
     CandidateWorkState,
     seal_work_contract,
 )
+from sandbox.protocol import AgentRuntimeKind
 from sandbox.replay.digests import sha256_digest
 
 
@@ -149,6 +150,42 @@ def test_runtime_identity_is_immutable_across_resume(tmp_path: Path) -> None:
             store.bind_runtime_identity(
                 "campaign-1", identity_digest="sha256:" + "b" * 64
             )
+        with pytest.raises(V2CampaignStoreError, match="legacy campaign"):
+            store.bind_producer_runtime_identity(
+                "campaign-1",
+                producer_runtime_kind=AgentRuntimeKind.DEEPSEEK_HARNESS,
+                producer_runtime_version="deepseek-harness-h4-v1",
+                producer_runtime_composition_digest="sha256:" + "c" * 64,
+            )
+
+
+def test_producer_runtime_identity_is_complete_immutable_and_recoverable(
+    tmp_path: Path,
+) -> None:
+    with create_store(tmp_path / "campaign.db") as store:
+        composition = "sha256:" + "c" * 64
+        expected = {
+            "producer_runtime_kind": AgentRuntimeKind.DEEPSEEK_HARNESS.value,
+            "producer_runtime_version": "deepseek-harness-h4-v1",
+            "producer_runtime_composition_digest": composition,
+        }
+        assert store.bind_producer_runtime_identity(
+            "campaign-1",
+            producer_runtime_kind=AgentRuntimeKind.DEEPSEEK_HARNESS,
+            producer_runtime_version=expected["producer_runtime_version"],
+            producer_runtime_composition_digest=composition,
+        ) == expected
+        assert store.load_producer_runtime_identity("campaign-1") == expected
+        with pytest.raises(V2CampaignStoreError, match="identity changed"):
+            store.bind_producer_runtime_identity(
+                "campaign-1",
+                producer_runtime_kind=AgentRuntimeKind.LANGGRAPH,
+                producer_runtime_version=expected["producer_runtime_version"],
+                producer_runtime_composition_digest=composition,
+            )
+
+    with V2CampaignStore(tmp_path / "campaign.db") as reopened:
+        assert reopened.load_producer_runtime_identity("campaign-1") == expected
 
 
 def test_nested_store_transaction_rolls_back_with_outer_failure(tmp_path: Path) -> None:

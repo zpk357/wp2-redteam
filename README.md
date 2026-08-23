@@ -2,8 +2,13 @@
 
 本仓库已实现隔离执行、确定性重放、双覆盖率、语义变异和持久灰盒 Fuzzing 的主体代码。当前
 `trace_react_v2` 已建立模型/工具、状态、recording/replay/fork 和 coverage 证据合同；正式被测 Agent
-的目标运行时现明确为 LangGraph，真实工具结果必须进入下一轮 Qwen 输入，只有显式 `submit`、限制、
+当前支持默认 LangGraph 与可选 DeepSeek Harness，两者共享同一 Office V2、TRACE、Replay、Coverage 和
+Campaign 合同。真实工具结果必须进入下一轮 Qwen 输入，只有显式 `submit`、限制、
 取消、超时或明确错误可以终止。
+
+当前候选版本为 `v0.2.0-rc.1`：以 Stage 6 修复提交 `34a2789` 为底座，合入 Harness H0-H6。
+Judge 实现和真实模型服务器验收不属于该候选版本。机器可读身份见
+`config/releases/v0.2.0-rc.1.json`。
 
 自研执行器已复用现有一次性 Docker 沙箱、TRACE-G 1.2 事件、recording、strict replay 和 Prompt
 fork。自有 workspace 场景提供无攻击与固定邮件注入两个变体，并以最终会议/文件分享状态判断正常

@@ -46,6 +46,11 @@ class ExecutionBackend(StrEnum):
     TRACE_REACT_V2 = "trace_react_v2"
 
 
+class AgentRuntimeKind(StrEnum):
+    LANGGRAPH = "langgraph"
+    DEEPSEEK_HARNESS = "deepseek_harness"
+
+
 class ToolReplayMode(StrEnum):
     EXECUTE_AND_VERIFY = "execute_and_verify"
     STUB_RESPONSE = "stub_response"

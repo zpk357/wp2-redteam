@@ -25,10 +25,13 @@ SPEC 只在用户明确改变产品目标或支持边界时修改，不能为了
 
 - `src/sandbox/`：宿主机调度、重放、覆盖率、变异和 Fuzzer。
 - `agent_image/`：一次性容器内的 TRACE-ReAct Runtime、Provider、工具、场景状态和录制。
+- `agent_variants/deepseek_harness/`：DeepSeek Harness 的上游锁、composition、适配和独立镜像实现；
+  不得复制 Office 世界、Oracle、Coverage、Campaign、Mutation 或 Judge。
 - `controller_image/`、`deploy/` 和服务器脚本：离线 GPU 部署。
-- 正式 Episode 的 Agent 镜像必须自包含锁定 Qwen 权重、回环 Ollama、LangGraph Agent、办公工具和
-  场景状态；LLM Mutator 使用独立 Docker 角色，不能与被测 Agent 合并身份或共享上下文。
-- 唯一执行后端是 `trace_react_v2`；不得恢复旧执行入口、依赖或旧格式只读解析。
+- 正式 Episode 的 Agent 镜像必须自包含锁定 Qwen 权重、回环 Ollama、显式选择且身份锁定的 Agent
+  Runtime、办公工具和场景状态；LLM Mutator 使用独立 Docker 角色，不能与被测 Agent 合并身份或共享上下文。
+- 唯一证据/重放协议是 `trace_react_v2`；不得为任何 Runtime 新增第二套 TRACE、Replay、Coverage 或
+  Campaign 协议，也不得恢复旧执行入口、依赖或旧格式只读解析。
 - 录制格式固定为 `trace-react-v2`、TRACE schema 1.2；旧工具状态 codec 为 2.0，Office V2 必须使用
   `office-v2-state-codec-v1`，禁止静默互读。
 - 企业工具是确定性模拟层，不得描述为已连接真实企业系统。
@@ -43,8 +46,16 @@ SPEC 只在用户明确改变产品目标或支持边界时修改，不能为了
 - Python 正式支持 3.11；Runtime 必须保持非 root UID/GID `10001:10001`。
 - 沙箱默认无公网；正式被测 Agent 只能访问同一 Episode 容器内 `127.0.0.1` 的锁定 Ollama。不得使用
   宿主/其他容器模型服务、挂载宿主模型目录，或由容器外预规划工具序列。
-- 正式 Agent 循环使用当前锁定版本的 LangGraph；`trace_react_v2` 继续作为 TRACE 事件、检查点、
-  recording/replay/fork 和 coverage 证据合同。不得恢复已删除的旧 LangGraph 适配器。
+- 正式 Agent 循环按版本化 `AgentRuntimeKind` 显式调度；当前默认 `langgraph`，可由宿主 TargetProfile/直接
+  运行入口显式选择 `deepseek_harness`，并由容器内只读启动锁交叉验证。Runtime 选择不得加入
+  `ExecutionRequest`、Case、Candidate 或 MutationPlan。当前不建设动态插件注册系统，未来增加第三种实现时
+  再按产品合同扩展调度。
+  `trace_react_v2` 继续作为唯一 TRACE 事件、检查点、
+  recording/replay/fork 和 coverage 证据合同。当前 LangGraph 默认行为不得回归，也不得恢复已删除的
+  旧 LangGraph 适配器。
+- Runtime kind、版本与 composition 必须独立锁定；未知值、身份不符或初始化失败均失败关闭，不得静默
+  回退。不同 Runtime 使用不同 Campaign ID、数据库、Corpus、覆盖累计和服务器归档；Runtime 身份只作
+  来源完整性元数据，不计行为新颖度。
 - 风险命中只相信工具轨迹和环境状态；模型自报 operator/risk 只是候选建议。
 - 最终语义变异由锁定身份的 LLM Mutator 完成；RuleBased/Fake 只验证工程合同，不能冒充语义质量。
 - MutationPlan 允许显式改变正常任务、攻击目标、载体、表达和路径，但必须记录改变/保持维度并重新
@@ -79,6 +90,27 @@ SPEC 只在用户明确改变产品目标或支持边界时修改，不能为了
 - skip、代码阅读或测试数量不能冒充真实模型证据。
 
 ## 当前最高优先级
+
+**2026-08-22 Agent Runtime 扩展精简路线：** 用户明确要求 Harness 最终同步现有 Agent 的全部平台能力，
+但不接受提前建设动态插件系统、重复身份模型、空 skeleton 或重复测试矩阵。H0 已补齐
+SPEC/AGENTS/LOG 合同与 Factory、Replay/Fork、CoverageInput、Campaign 耦合清单；H1 已锁定官方
+`dsh-v0.1.1-rc.1` 并证明 SDK JSON-RPC、最小 Cordis、pi-ai、stdio MCP、followup、idle/shutdown 和进程级
+取消可行。精简总计划位于 `docs/plans/deepseek-harness-parallel-agent-plan.md`，按 H2 最小选择入口、H3
+真实垂直链、H4 完整 Office 直执行、H5 重放、H6 自动探索闭环、H7 真实模型服务器、H8 Judge/冻结推进；
+H2-H8 对应详细计划均已写入 `docs/plans/deepseek-harness-h*.md`，并在全面审查后修正 Runtime 启动层、跨进程
+可信事实、可信 followup、现有 replay/fork engine、独立 Mutator 与服务器同源边界。唯一证据协议仍为
+`trace_react_v2`，默认 Runtime 仍为 LangGraph。H2-H5 已完成：独立 `AgentRuntimeKind` 没有改变
+`ExecutionRequest`/`TargetProfile` schema；官方 Harness 现已接入同源 17 个 Office 工具、两个 control、唯一
+`OfficeV2ContainerSession`、可信同会话多轮、现有 Oracle、终态和成本。四类进程代表路径与两条 Docker
+代表路径通过，证据位于 `agent_variants/deepseek_harness/h4-evidence.json`。H5 已完成 producer 身份绑定、
+Harness recording、既有 LangGraph strict replay verifier 与 verification-only fork；窄模式保留 Harness
+`clarification result -> assistant idle -> authenticated user message` 顺序，普通 LangGraph 时序不变，证据位于
+`agent_variants/deepseek_harness/h5-evidence.json`。H6 已完成 Coverage 前置 Runtime 来源核验、Campaign producer
+三元组持久化、现有 settlement/Corpus/feedback 接入、提交后恢复和三代 Docker Campaign；
+`V2CoverageInput` schema 与 Coverage/Corpus/Scheduler/Mutation 算法未改变，最终证据位于
+`agent_variants/deepseek_harness/h6-evidence.json`，摘要为
+`sha256:b05555161735f91d0efe7317354893817fb1d450013558661605bbb8ce88a585`。当前样例只证明确定性替身的行为覆盖闭环，没有风险
+里程碑，也没有证明真实 Qwen、GPU/服务器或 Judge。下一步 H7 必须先取得用户对真实模型和服务器成本的确认。
 
 **2026-08-17 第六步计划修订并重新冻结：** 当前下一项是
 `docs/plans/office-workspace-scenario-v2-step-06-real-model-server-validation.md` 的 `6.0`；计划 SHA-256 为

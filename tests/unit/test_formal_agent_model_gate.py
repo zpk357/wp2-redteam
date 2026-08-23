@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from app.adapter.base import AdapterConfigurationError
+from app.adapter.deepseek_harness_adapter import DeepSeekHarnessAdapter
 from app.adapter.factory import AdapterFactory
 from app.adapter.langgraph_react_runtime import LangGraphReactRuntime
 from app.protocol import ExecutionRequest, ModelOptions, ModelProvider
@@ -43,6 +44,44 @@ def test_formal_agent_accepts_only_the_in_container_model_identity() -> None:
     adapter = AdapterFactory().create(request())
 
     assert isinstance(adapter, LangGraphReactRuntime)
+
+
+def test_missing_and_explicit_langgraph_runtime_use_the_same_factory_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sentinel = object()
+    factory = AdapterFactory(trace_adapter_factory=lambda: sentinel)
+
+    monkeypatch.delenv("TRACE_G_AGENT_RUNTIME", raising=False)
+    assert factory.create(request()) is sentinel
+    monkeypatch.setenv("TRACE_G_AGENT_RUNTIME", "langgraph")
+    assert factory.create(request()) is sentinel
+
+
+def test_harness_runtime_is_selected_without_calling_langgraph_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called = False
+
+    def build_langgraph():
+        nonlocal called
+        called = True
+        return object()
+
+    monkeypatch.setenv("TRACE_G_AGENT_RUNTIME", "deepseek_harness")
+    adapter = AdapterFactory(trace_adapter_factory=build_langgraph).create(request())
+
+    assert isinstance(adapter, DeepSeekHarnessAdapter)
+    assert called is False
+
+
+def test_unknown_agent_runtime_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TRACE_G_AGENT_RUNTIME", "unknown-runtime")
+
+    with pytest.raises(AdapterConfigurationError) as raised:
+        AdapterFactory(trace_adapter_factory=lambda: object()).create(request())
+
+    assert raised.value.error_code == "unknown_agent_runtime"
 
 
 @pytest.mark.parametrize(

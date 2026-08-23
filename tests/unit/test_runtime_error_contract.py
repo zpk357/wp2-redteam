@@ -18,7 +18,7 @@ def test_runtime_call_timeout_is_not_a_protocol_error() -> None:
         docker_client=MagicMock(),
     )
 
-    def slow_call(_handle, _envelope):
+    def slow_call(_handle, _envelope, _cancellation):
         time.sleep(0.05)
         return {}
 

@@ -36,6 +36,17 @@ async def health() -> dict[str, str | bool] | JSONResponse:
         "protocol_version": "1",
     }
     if os.environ.get("TRACE_G_FORMAL_AGENT") == "1":
+        if os.environ.get("TRACE_G_AGENT_RUNTIME") == "deepseek_harness":
+            result.update(
+                {
+                    "formal_agent": True,
+                    "model_ready": False,
+                    "runtime_mode": "deterministic_fixture",
+                    "agent_framework": "deepseek_harness",
+                    "agent_runtime_version": "deepseek-harness-h4-v1",
+                }
+            )
+            return result
         if os.environ.get("TRACE_G_STAGE7_DETERMINISTIC_PROVIDER") == "1":
             expected = {
                 "formal_agent": True,

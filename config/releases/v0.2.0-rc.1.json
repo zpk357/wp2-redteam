@@ -1,0 +1,59 @@
+{
+  "schema_version": "trace-g-release-candidate-v1",
+  "release": {
+    "display_version": "v0.2.0-rc.1",
+    "python_distribution_version": "0.2.0rc1",
+    "source_ref": "refs/tags/v0.2.0-rc.1",
+    "required_clean_source": true,
+    "stage6_base_revision": "34a2789abe07bf534d26570196a7c4cf5bad5158"
+  },
+  "included_capabilities": [
+    "office-v2-frozen-scenario",
+    "stage6-server-validation-repairs",
+    "langgraph-agent-runtime",
+    "deepseek-harness-agent-runtime-h0-h6",
+    "recording-strict-replay-and-fork",
+    "coverage-corpus-and-campaign-loop"
+  ],
+  "excluded_capabilities": [
+    "judge-runtime-and-golden-dataset",
+    "offline-model-bundle-deployment",
+    "ghcr-model-layer-deployment",
+    "real-model-server-acceptance"
+  ],
+  "agent_runtimes": [
+    {
+      "runtime_kind": "langgraph",
+      "runtime_version": "trace-langgraph-office-g4",
+      "composition_identity": {
+        "graph_contract": "trace-react-v2-office-v2",
+        "interaction_order": "immediate-followup-v1"
+      }
+    },
+    {
+      "runtime_kind": "deepseek_harness",
+      "runtime_version": "deepseek-harness-h4-v1",
+      "upstream_repository": "https://github.com/deepseek-ai/deepseek-harness.git",
+      "upstream_tag": "dsh-v0.1.1-rc.1",
+      "upstream_commit": "528c682e061696f5a160f363f236ecbf53cbd006",
+      "composition_digest": "sha256:d330f6e8c3f173332e7f6267d8c2a2a0bb4d6c10cc7df9502ed91b224858bfad"
+    }
+  ],
+  "model": {
+    "name": "qwen3.5:27b-q4_K_M",
+    "registry": "registry.ollama.ai",
+    "acquisition": "official-registry-on-server",
+    "manifest_digest": "sha256:7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+    "config_digest": "sha256:ba0915cbf15878a68d300f640d3d575f5805cac42dd8f83746eb31a0e8afec22",
+    "ollama_image": "ollama/ollama:0.32.1",
+    "ollama_image_digest": "sha256:6345fbc18bd73a1e16404be681dbc6fd291a027cab43ed541abe78c4c81051b0"
+  },
+  "deployment_policy": {
+    "source_acquisition": "clone-and-checkout-source-ref",
+    "model_acquisition": "pull-from-official-ollama-registry",
+    "build_location": "target-server",
+    "require_full_digest_verification": true,
+    "publish_offline_bundle": false,
+    "publish_model_to_ghcr": false
+  }
+}

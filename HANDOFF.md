@@ -1,5 +1,15 @@
 # TRACE-G WP2 当前交接
 
+## 2026-08-23 v0.2.0-rc.1 候选版本
+
+- 候选分支以 Stage 6 最新修复 `34a2789` 为底座，合入 DeepSeek Harness H0-H6。
+- 默认 LangGraph 与可选 DeepSeek Harness 共享 Office V2、TRACE 1.2、recording、strict replay、
+  verification-only fork、CoverageInput、Corpus 和 Campaign；Runtime 身份不进入行为新颖度。
+- Judge 源码、黄金数据和 CLI 仍留在原混合工作树，不属于本候选版本。
+- 下一步服务器部署使用固定 Git tag 在线取得源码，从官方 Ollama registry 拉取锁定 Qwen 模型并在
+  服务器本地构建两个 Agent 镜像；不制作模型离线包，不推送 GHCR。
+- 发布身份见 `config/releases/v0.2.0-rc.1.json`；本地候选验证不等于真实模型服务器通过。
+
 ## 2026-08-18 项目清理与 Judge 计划
 
 - 已删除 Office V2 接管后不再使用的 V1/第 2-6 周旧计划、G3-G6 验收入口、宿主 Ollama Compose

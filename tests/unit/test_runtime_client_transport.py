@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import struct
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -29,6 +31,15 @@ class FakeSocket:
 
     def close(self) -> None:
         pass
+
+
+class BlockingSocket(FakeSocket):
+    def __init__(self) -> None:
+        super().__init__()
+        self.closed = threading.Event()
+
+    def close(self) -> None:
+        self.closed.set()
 
 
 class FakeApi:
@@ -108,3 +119,33 @@ def test_runtime_client_uses_configured_rpc_timeout() -> None:
     )
 
     assert client.request_timeout == 42.0
+
+
+def test_runtime_timeout_closes_the_active_exec_channel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    channel = BlockingSocket()
+    api = FakeApi(channel)
+    container = SimpleNamespace(id="container-1", client=SimpleNamespace(api=api))
+    docker_client = SimpleNamespace(containers=FakeContainers(container))
+
+    def blocking_frames(active, tty):
+        assert tty is False
+        active.closed.wait(timeout=2)
+        return iter(())
+
+    monkeypatch.setattr(runtime_client_module, "frames_iter", blocking_frames)
+    client = RuntimeClient(TraceConfig(), docker_client=docker_client)
+    handle = SandboxHandle(
+        execution_id="exec-1",
+        container_id="container-1",
+        runtime_url="http://127.0.0.1:8080",
+        transport="docker_exec",
+        capability_token="token",
+        image_digest="sha256:test",
+        scheduler_instance_id="scheduler-1",
+    )
+
+    with pytest.raises(runtime_client_module.RuntimeTimeoutError):
+        asyncio.run(client._call(handle, "execution.get", {}, timeout=0.01))
+    assert channel.closed.is_set()

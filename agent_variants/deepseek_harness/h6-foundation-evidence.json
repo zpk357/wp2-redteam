@@ -1,0 +1,47 @@
+{
+  "schema_version": "deepseek-harness-h6-foundation-evidence-v1",
+  "stage": "H6.0-H6.2",
+  "status": "passed",
+  "date": "2026-08-22",
+  "contracts": {
+    "coverage_input_schema_changed": false,
+    "manifest_determinism_host_expected_identity_cross_checked": true,
+    "runtime_identity_excluded_from_canonical_facts": true,
+    "producer_identity_persisted_as_complete_tuple": true,
+    "producer_identity_immutable_across_resume": true,
+    "legacy_runtime_identity_not_auto_upgraded": true,
+    "model_digest_runtime_fallback_removed": true,
+    "campaign_runner_identity_cross_checked": true,
+    "campaign_cli_runtime_selection_explicit": true,
+    "harness_image_label_uses_aggregate_composition": true
+  },
+  "validation": [
+    {
+      "kind": "pytest",
+      "result": "passed",
+      "scope": "one H6.0 Coverage acquisition identity case"
+    },
+    {
+      "kind": "pytest",
+      "result": "passed",
+      "scope": "three H6.1 Campaign identity and adjacent resume cases"
+    },
+    {
+      "kind": "ruff_and_compile",
+      "result": "passed",
+      "scope": "changed H6.0-H6.1 modules"
+    },
+    {
+      "kind": "pytest",
+      "result": "passed",
+      "scope": "H6.2 runner mismatch/match and CLI selection; three focused cases"
+    }
+  ],
+  "not_yet_proven": [
+    "Harness Coverage settlement",
+    "three-generation Harness Campaign",
+    "pause and resume within the Harness Campaign",
+    "rebuilt Harness image with the updated aggregate composition label",
+    "Docker or real model execution"
+  ]
+}

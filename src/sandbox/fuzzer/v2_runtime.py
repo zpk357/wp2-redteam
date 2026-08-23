@@ -7,6 +7,7 @@ from typing import Protocol
 
 from pydantic import Field
 
+from sandbox.protocol import AgentRuntimeKind
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.office_v2.models import OfficeV2Contract
 
@@ -66,6 +67,9 @@ def run_or_resume_campaign(
     driver: V2GenerationDriver,
     progress_callback: Callable[[V2CampaignRunResult], None] | None = None,
     runtime_identity_digest: str | None = None,
+    producer_runtime_kind: AgentRuntimeKind | str | None = None,
+    producer_runtime_version: str | None = None,
+    producer_runtime_composition_digest: str | None = None,
 ) -> V2CampaignRunResult:
     if not 1 <= generation_count <= V2_CAMPAIGN_MAX_GENERATIONS:
         raise ValueError("generation_count must be between 1 and 50")
@@ -75,7 +79,29 @@ def run_or_resume_campaign(
         identity=build_v2_campaign_identity_lock(),
         initial_state=initial_state,
     )
-    if runtime_identity_digest is not None:
+    producer_values = (
+        producer_runtime_kind,
+        producer_runtime_version,
+        producer_runtime_composition_digest,
+    )
+    if runtime_identity_digest is not None and any(
+        value is not None for value in producer_values
+    ):
+        raise ValueError("legacy and producer Runtime identities cannot be combined")
+    if any(value is not None for value in producer_values) and not all(
+        value is not None for value in producer_values
+    ):
+        raise ValueError("producer Runtime identity must be one complete tuple")
+    if all(value is not None for value in producer_values):
+        store.bind_producer_runtime_identity(
+            campaign_id,
+            producer_runtime_kind=producer_runtime_kind,
+            producer_runtime_version=producer_runtime_version,
+            producer_runtime_composition_digest=(
+                producer_runtime_composition_digest
+            ),
+        )
+    elif runtime_identity_digest is not None:
         store.bind_runtime_identity(
             campaign_id, identity_digest=runtime_identity_digest
         )

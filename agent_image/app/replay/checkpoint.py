@@ -36,11 +36,23 @@ class RecordingSession:
         system_prompt_version: str | None = None,
         system_prompt_digest: str | None = None,
         state_codec=None,
+        producer_runtime_kind: str | None = None,
+        producer_runtime_version: str | None = None,
+        producer_runtime_composition_digest: str | None = None,
     ) -> None:
         if (system_prompt_version is None) != (system_prompt_digest is None):
             raise ValueError(
                 "system prompt version and digest must be provided together"
             )
+        producer_identity = (
+            producer_runtime_kind,
+            producer_runtime_version,
+            producer_runtime_composition_digest,
+        )
+        if any(value is not None for value in producer_identity) and not all(
+            isinstance(value, str) and value for value in producer_identity
+        ):
+            raise ValueError("producer runtime identity must be provided as one complete tuple")
         options = request.recording or RecordingOptions(enabled=True)
         self.request = request
         self.output_dir = output_dir or Path(
@@ -58,6 +70,22 @@ class RecordingSession:
         self.runtime_id = runtime_id
         self.system_prompt_version = system_prompt_version
         self.system_prompt_digest = system_prompt_digest
+        self.producer_runtime_kind = producer_runtime_kind
+        self.producer_runtime_version = producer_runtime_version
+        self.producer_runtime_composition_digest = (
+            producer_runtime_composition_digest
+        )
+        if producer_runtime_kind is not None:
+            self.audit_events.append(
+                {
+                    "event_type": "producer_runtime_bound",
+                    "producer_runtime_kind": producer_runtime_kind,
+                    "producer_runtime_version": producer_runtime_version,
+                    "producer_runtime_composition_digest": (
+                        producer_runtime_composition_digest
+                    ),
+                }
+            )
 
     def start(self, state: dict[str, Any]) -> None:
         checkpoint = self._capture(
@@ -187,6 +215,11 @@ class RecordingSession:
                     "system_prompt_version": self.system_prompt_version,
                     "system_prompt_digest": self.system_prompt_digest,
                     "state_codec_version": self.codec.version,
+                    "producer_runtime_kind": self.producer_runtime_kind,
+                    "producer_runtime_version": self.producer_runtime_version,
+                    "producer_runtime_composition_digest": (
+                        self.producer_runtime_composition_digest
+                    ),
                     "metadata": self.request.metadata,
                     "recording_complete": complete,
                     "incomplete_reason": incomplete_reason,

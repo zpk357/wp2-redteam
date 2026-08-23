@@ -11,6 +11,7 @@ from typing import Any
 
 from sandbox.mutation.v2_preparation import MutationPreparation
 from sandbox.mutation.v2_provider import MutationProviderAttempt
+from sandbox.protocol import AgentRuntimeKind
 from sandbox.replay.digests import sha256_digest
 
 from .v2_campaign import evaluate_campaign_lifecycle
@@ -209,7 +210,10 @@ class V2CampaignStore:
             );
             CREATE TABLE IF NOT EXISTS campaign_runtime_identity (
               campaign_id TEXT PRIMARY KEY REFERENCES campaign(campaign_id),
-              runtime_identity_digest TEXT NOT NULL
+              runtime_identity_digest TEXT NOT NULL,
+              producer_runtime_kind TEXT,
+              producer_runtime_version TEXT,
+              producer_runtime_composition_digest TEXT
             );
             """
         )
@@ -218,6 +222,21 @@ class V2CampaignStore:
         }
         if "current_state_digest" not in columns:
             self._db.execute("ALTER TABLE campaign ADD COLUMN current_state_digest TEXT")
+        runtime_columns = {
+            row[1]
+            for row in self._db.execute(
+                "PRAGMA table_info(campaign_runtime_identity)"
+            ).fetchall()
+        }
+        for column in (
+            "producer_runtime_kind",
+            "producer_runtime_version",
+            "producer_runtime_composition_digest",
+        ):
+            if column not in runtime_columns:
+                self._db.execute(
+                    f"ALTER TABLE campaign_runtime_identity ADD COLUMN {column} TEXT"
+                )
         self._db.commit()
 
     @staticmethod
@@ -282,7 +301,8 @@ class V2CampaignStore:
                     raise V2CampaignStoreError("campaign runtime identity changed")
                 return
             self._db.execute(
-                "INSERT INTO campaign_runtime_identity VALUES (?, ?)",
+                "INSERT INTO campaign_runtime_identity "
+                "(campaign_id, runtime_identity_digest) VALUES (?, ?)",
                 (campaign_id, identity_digest),
             )
             self._audit(
@@ -290,6 +310,108 @@ class V2CampaignStore:
                 "runtime-identity-bound",
                 {"runtime_identity_digest": identity_digest},
             )
+
+    def bind_producer_runtime_identity(
+        self,
+        campaign_id: str,
+        *,
+        producer_runtime_kind: AgentRuntimeKind | str,
+        producer_runtime_version: str,
+        producer_runtime_composition_digest: str,
+    ) -> dict[str, str]:
+        self._require_campaign(campaign_id)
+        try:
+            runtime_kind = AgentRuntimeKind(producer_runtime_kind).value
+        except ValueError as exc:
+            raise V2CampaignStoreError("unknown producer runtime kind") from exc
+        if not producer_runtime_version:
+            raise V2CampaignStoreError("producer runtime version is empty")
+        if (
+            not producer_runtime_composition_digest.startswith("sha256:")
+            or len(producer_runtime_composition_digest) != 71
+        ):
+            raise V2CampaignStoreError(
+                "producer runtime composition must be a SHA-256 digest"
+            )
+        identity = {
+            "producer_runtime_kind": runtime_kind,
+            "producer_runtime_version": producer_runtime_version,
+            "producer_runtime_composition_digest": (
+                producer_runtime_composition_digest
+            ),
+        }
+        identity_digest = sha256_digest(identity)
+        with self._transaction():
+            existing = self._db.execute(
+                "SELECT runtime_identity_digest, producer_runtime_kind, "
+                "producer_runtime_version, producer_runtime_composition_digest "
+                "FROM campaign_runtime_identity WHERE campaign_id=?",
+                (campaign_id,),
+            ).fetchone()
+            if existing is not None:
+                existing_identity = {
+                    key: existing[key]
+                    for key in (
+                        "producer_runtime_kind",
+                        "producer_runtime_version",
+                        "producer_runtime_composition_digest",
+                    )
+                }
+                if any(value is None for value in existing_identity.values()):
+                    raise V2CampaignStoreError(
+                        "legacy campaign runtime identity cannot become producer-bound"
+                    )
+                if (
+                    existing_identity != identity
+                    or existing["runtime_identity_digest"] != identity_digest
+                ):
+                    raise V2CampaignStoreError("campaign runtime identity changed")
+                return identity
+            self._db.execute(
+                "INSERT INTO campaign_runtime_identity "
+                "(campaign_id, runtime_identity_digest, producer_runtime_kind, "
+                "producer_runtime_version, producer_runtime_composition_digest) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    campaign_id,
+                    identity_digest,
+                    runtime_kind,
+                    producer_runtime_version,
+                    producer_runtime_composition_digest,
+                ),
+            )
+            self._audit(
+                campaign_id,
+                "producer-runtime-identity-bound",
+                {**identity, "runtime_identity_digest": identity_digest},
+            )
+        return identity
+
+    def load_producer_runtime_identity(self, campaign_id: str) -> dict[str, str]:
+        self._require_campaign(campaign_id)
+        row = self._db.execute(
+            "SELECT runtime_identity_digest, producer_runtime_kind, "
+            "producer_runtime_version, producer_runtime_composition_digest "
+            "FROM campaign_runtime_identity WHERE campaign_id=?",
+            (campaign_id,),
+        ).fetchone()
+        if row is None:
+            raise V2CampaignStoreError("campaign producer runtime identity is missing")
+        identity = {
+            key: row[key]
+            for key in (
+                "producer_runtime_kind",
+                "producer_runtime_version",
+                "producer_runtime_composition_digest",
+            )
+        }
+        if any(value is None for value in identity.values()):
+            raise V2CampaignStoreError(
+                "campaign has only a legacy unbound runtime identity"
+            )
+        if row["runtime_identity_digest"] != sha256_digest(identity):
+            raise V2CampaignStoreError("stored producer runtime identity digest differs")
+        return identity
 
     def commit_generation(
         self,

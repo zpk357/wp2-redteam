@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import struct
+import threading
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import uuid4
@@ -27,6 +28,33 @@ from sandbox.replay.models import (
 from sandbox.scheduler.models import SandboxHandle
 
 MAX_RPC_TRANSPORT_BYTES = 1024 * 1024
+RPC_CANCEL_GRACE_SECONDS = 1.0
+
+
+class _RpcCancellation:
+    def __init__(self) -> None:
+        self._cancelled = threading.Event()
+        self._lock = threading.Lock()
+        self._channel: Any | None = None
+
+    def register(self, channel: Any) -> None:
+        with self._lock:
+            if self._cancelled.is_set():
+                channel.close()
+                raise RuntimeTransportError("Runtime RPC was cancelled before transport")
+            self._channel = channel
+
+    def release(self, channel: Any) -> None:
+        with self._lock:
+            if self._channel is channel:
+                self._channel = None
+
+    def cancel(self) -> None:
+        self._cancelled.set()
+        with self._lock:
+            channel = self._channel
+        if channel is not None:
+            channel.close()
 
 
 class RuntimeClient:
@@ -192,16 +220,37 @@ class RuntimeClient:
     ) -> Any:
         request_id = uuid4().hex
         envelope = request_envelope(request_id, method, params)
+        cancellation = _RpcCancellation()
+        worker = asyncio.create_task(
+            asyncio.to_thread(self._exec_rpc, handle, envelope, cancellation)
+        )
         try:
             payload = await asyncio.wait_for(
-                asyncio.to_thread(self._exec_rpc, handle, envelope),
+                asyncio.shield(worker),
                 timeout=timeout,
             )
         except TimeoutError as exc:
+            cancellation.cancel()
+            try:
+                await asyncio.wait_for(
+                    asyncio.shield(worker), timeout=RPC_CANCEL_GRACE_SECONDS
+                )
+            except Exception:
+                if not worker.done():
+                    worker.add_done_callback(
+                        lambda future: None
+                        if future.cancelled()
+                        else future.exception()
+                    )
             raise RuntimeTimeoutError(f"Runtime request timed out for {method}") from exc
         return parse_response(payload, request_id)
 
-    def _exec_rpc(self, handle: SandboxHandle, envelope: dict[str, Any]) -> Any:
+    def _exec_rpc(
+        self,
+        handle: SandboxHandle,
+        envelope: dict[str, Any],
+        cancellation: _RpcCancellation | None = None,
+    ) -> Any:
         if handle.transport != "docker_exec":
             raise ProtocolError(f"unsupported Runtime transport: {handle.transport}")
         encoded = json.dumps(
@@ -222,6 +271,8 @@ class RuntimeClient:
                 environment={"SANDBOX_TOKEN": handle.capability_token},
             )
             channel = api.exec_start(created["Id"], tty=False, socket=True)
+            if cancellation is not None:
+                cancellation.register(channel)
             try:
                 writable = getattr(channel, "_sock", channel)
                 writable.sendall(struct.pack(">Q", len(encoded)) + encoded)
@@ -231,6 +282,8 @@ class RuntimeClient:
                 )
                 stdout, stderr = consume_socket_output(demuxed, demux=True)
             finally:
+                if cancellation is not None:
+                    cancellation.release(channel)
                 channel.close()
             exit_code = api.exec_inspect(created["Id"])["ExitCode"]
         except (DockerException, NotFound) as exc:

@@ -84,16 +84,23 @@ class ReplayAdapter:
         self._v2_initial_recording_state: OfficeV2RecordingState | None = None
         self._v2_expected_recording_state: OfficeV2RecordingState | None = None
         self._v2_expected_oracle: OfficeV2LiveOracleArtifact | None = None
+        self._producer_runtime_kind: str | None = None
+        self._producer_runtime_version: str | None = None
+        self._producer_runtime_composition_digest: str | None = None
 
     def load(self, replay_request: ReplayRequest):
         self._v2_initial_recording_state = None
         self._v2_expected_recording_state = None
         self._v2_expected_oracle = None
+        self._producer_runtime_kind = None
+        self._producer_runtime_version = None
+        self._producer_runtime_composition_digest = None
         manifest_path = self._safe_input_path(replay_request.manifest_relative_path)
         manifest = ReplayManifest.model_validate_json(manifest_path.read_bytes())
         verify_manifest(manifest)
         prompt_payload = self._read_json(manifest.prompt)
         determinism = self._read_json(manifest.determinism_config)
+        self._load_producer_identity(manifest, determinism)
         initial_envelope = CheckpointStateEnvelope.model_validate(
             self._read_json(manifest.initial_state)
         )
@@ -190,7 +197,16 @@ class ReplayAdapter:
                 )
             from app.adapter.langgraph_react_runtime import LangGraphReactRuntime
 
-            adapter = LangGraphReactRuntime()
+            adapter = LangGraphReactRuntime(
+                producer_runtime_kind=self._producer_runtime_kind or "langgraph",
+                producer_runtime_version=self._producer_runtime_version,
+                producer_runtime_composition_digest=(
+                    self._producer_runtime_composition_digest
+                ),
+                defer_trusted_followup_until_idle=(
+                    self._producer_runtime_kind == "deepseek_harness"
+                ),
+            )
             events = adapter.execute_strict_replay(
                 request,
                 initial=initial,
@@ -273,6 +289,10 @@ class ReplayAdapter:
         manifest = ReplayManifest.model_validate_json(manifest_path.read_bytes())
         verify_manifest(manifest)
         determinism = self._read_json(manifest.determinism_config)
+        self._producer_runtime_kind = None
+        self._producer_runtime_version = None
+        self._producer_runtime_composition_digest = None
+        self._load_producer_identity(manifest, determinism)
         checkpoints = self._read_jsonl(manifest.checkpoints, StateCheckpoint)
         checkpoint = next(
             (
@@ -433,14 +453,28 @@ class ReplayAdapter:
                     -32108,
                     "Office V2 fork lost its scenario checkpoint state",
                 )
-            adapter = self.adapter_factory.create(request)
             from app.adapter.langgraph_react_runtime import LangGraphReactRuntime
+            provider_factory = None
+            if (
+                self._producer_runtime_kind == "deepseek_harness"
+                and request.model is not None
+                and request.model.provider is ModelProvider.FAKE
+            ):
+                if (
+                    request.office_v2_execution is not None
+                    and request.office_v2_execution.scenario_case_kind
+                    is V2ScenarioCaseKind.ATTACK
+                ):
+                    from app.agent.office_v2_stage7_control_provider import (
+                        OfficeV2Stage7ControlProvider,
+                    )
 
-            if not isinstance(adapter, LangGraphReactRuntime):
-                raise ReplayDivergenceError(
-                    -32112,
-                    "Office V2 fork requires the LangGraph Agent runtime",
-                )
+                    provider_factory = OfficeV2Stage7ControlProvider.from_request
+                else:
+                    from app.agent.office_v2_stage7_provider import OfficeV2Stage7Provider
+
+                    provider_factory = OfficeV2Stage7Provider.from_request
+            adapter = LangGraphReactRuntime(provider_factory=provider_factory)
             events = adapter.execute_v2_fork(
                 request,
                 initial=initial,
@@ -532,6 +566,22 @@ class ReplayAdapter:
                     -32112,
                     "Office V2 fork cannot change the top-level task",
                 )
+            metadata = {
+                **determinism.get("metadata", {}),
+                "verification_only": True,
+                "parent_replay_id": manifest.replay_id,
+            }
+            harness_fixture_flow = metadata.get("harness_fixture_flow")
+            if (
+                self._producer_runtime_kind == "deepseek_harness"
+                and v2_execution.scenario_case_kind is V2ScenarioCaseKind.ATTACK
+                and harness_fixture_flow in {"compound_partial", "compound_full"}
+            ):
+                metadata["office_v2_stage7_control_mode"] = (
+                    "partial"
+                    if harness_fixture_flow == "compound_partial"
+                    else "full"
+                )
             request = ExecutionRequest(
                 execution_id=fork_request.execution_id,
                 case_id=v2_execution.scenario_case_id,
@@ -540,11 +590,7 @@ class ReplayAdapter:
                 timeout_seconds=int(determinism["timeout_seconds"]),
                 seed=v2_case.seed,
                 scenario_id=v2_execution.scenario_id,
-                metadata={
-                    **determinism.get("metadata", {}),
-                    "verification_only": True,
-                    "parent_replay_id": manifest.replay_id,
-                },
+                metadata=metadata,
                 agent_version=manifest.agent_version,
                 image_digest=manifest.image_digest,
                 execution_backend=ExecutionBackend.TRACE_REACT_V2,
@@ -700,6 +746,46 @@ class ReplayAdapter:
                 "recording was not created by the supported trace_react_v2 backend"
             )
         return ExecutionBackend.TRACE_REACT_V2
+
+    def _load_producer_identity(
+        self,
+        manifest: ReplayManifest,
+        determinism: dict,
+    ) -> None:
+        names = (
+            "producer_runtime_kind",
+            "producer_runtime_version",
+            "producer_runtime_composition_digest",
+        )
+        recorded = tuple(determinism.get(name) for name in names)
+        manifested = tuple(manifest.metadata.get(name) for name in names)
+        if not any(recorded):
+            if any(manifested):
+                raise ArtifactIntegrityError(
+                    "Manifest producer identity is absent from determinism config"
+                )
+            status = manifest.metadata.get("producer_identity_status")
+            if status not in {None, "legacy_unbound_producer_identity"}:
+                raise ArtifactIntegrityError(
+                    "legacy recording producer identity status is invalid"
+                )
+            return
+        if not all(isinstance(value, str) and value for value in recorded):
+            raise ArtifactIntegrityError("recorded producer identity is incomplete")
+        if recorded != manifested:
+            raise ArtifactIntegrityError(
+                "Manifest and determinism producer identities differ"
+            )
+        kind, version, composition_digest = recorded
+        if kind not in {"langgraph", "deepseek_harness"}:
+            raise ArtifactIntegrityError("recorded producer runtime is unsupported")
+        if not composition_digest.startswith("sha256:") or len(composition_digest) != 71:
+            raise ArtifactIntegrityError(
+                "recorded producer composition digest is invalid"
+            )
+        self._producer_runtime_kind = kind
+        self._producer_runtime_version = version
+        self._producer_runtime_composition_digest = composition_digest
 
     def checkpoints(self, request: ReplayCheckpointsRequest):
         manifest_path = self._safe_input_path(request.manifest_relative_path)

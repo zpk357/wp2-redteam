@@ -264,7 +264,28 @@ class ReplayEngine:
         )
         audit.append(
             "manifest_validated",
-            {"manifest_digest": manifest.manifest_digest},
+            {
+                "manifest_digest": manifest.manifest_digest,
+                "producer_runtime_kind": manifest.metadata.get(
+                    "producer_runtime_kind"
+                ),
+                "producer_runtime_version": manifest.metadata.get(
+                    "producer_runtime_version"
+                ),
+                "producer_runtime_composition_digest": manifest.metadata.get(
+                    "producer_runtime_composition_digest"
+                ),
+                "producer_identity_status": manifest.metadata.get(
+                    "producer_identity_status",
+                    (
+                        "bound"
+                        if manifest.metadata.get("producer_runtime_kind") is not None
+                        else "legacy_unbound_producer_identity"
+                    ),
+                ),
+                "replay_engine_kind": "langgraph_replay_verifier",
+                "replay_engine_version": GRAPH_VERSION,
+            },
         )
         execution_id = f"exec-replay-{uuid4().hex}"
         request = ReplayRequest(
@@ -691,6 +712,46 @@ class ReplayEngine:
                 "recorded system prompt version and digest must appear together",
             )
         state_codec_version = str(determinism.get("state_codec_version", "2.0"))
+        producer_identity = {
+            "producer_runtime_kind": determinism.get("producer_runtime_kind"),
+            "producer_runtime_version": determinism.get("producer_runtime_version"),
+            "producer_runtime_composition_digest": determinism.get(
+                "producer_runtime_composition_digest"
+            ),
+        }
+        producer_values = tuple(producer_identity.values())
+        if any(value is not None for value in producer_values) and not all(
+            isinstance(value, str) and value for value in producer_values
+        ):
+            raise ReplayPreparationError(
+                -32103,
+                "recorded producer runtime identity must appear as one complete tuple",
+            )
+        producer_kind = producer_identity["producer_runtime_kind"]
+        event_runtime_kinds = {
+            event.data.get("agent_runtime")
+            for event in events
+            if event.event_type == "execution_started"
+            and isinstance(event.data, dict)
+            and event.data.get("agent_runtime") is not None
+        }
+        if "deepseek_harness" in event_runtime_kinds and not all(producer_values):
+            raise ReplayPreparationError(
+                -32103,
+                "Harness recording is missing its producer runtime identity",
+            )
+        if producer_kind is not None and event_runtime_kinds != {producer_kind}:
+            raise ReplayPreparationError(
+                -32103,
+                "recorded producer runtime differs from the execution trace",
+            )
+        if producer_identity["producer_runtime_composition_digest"] is not None:
+            digest = str(producer_identity["producer_runtime_composition_digest"])
+            if not digest.startswith("sha256:") or len(digest) != 71:
+                raise ReplayPreparationError(
+                    -32103,
+                    "recorded producer runtime composition digest is invalid",
+                )
         office_v2_files = {
             "office-v2-recording-state.json",
             "office-v2-oracle.json",
@@ -792,6 +853,34 @@ class ReplayEngine:
                     else {}
                 ),
                 **(additional_metadata or {}),
+                **(
+                    producer_identity
+                    if all(producer_values)
+                    else {"producer_identity_status": "legacy_unbound_producer_identity"}
+                ),
+                **(
+                    {
+                        "parent_prefix_producer_runtime_kind": (
+                            parent_manifest.metadata.get("producer_runtime_kind")
+                        ),
+                        "parent_prefix_producer_runtime_version": (
+                            parent_manifest.metadata.get("producer_runtime_version")
+                        ),
+                        "parent_prefix_producer_runtime_composition_digest": (
+                            parent_manifest.metadata.get(
+                                "producer_runtime_composition_digest"
+                            )
+                        ),
+                        "fork_engine_kind": "langgraph_live_and_record",
+                        "fork_engine_version": GRAPH_VERSION,
+                        "mixed_runtime_lineage": (
+                            parent_manifest.metadata.get("producer_runtime_kind")
+                            != producer_kind
+                        ),
+                    }
+                    if parent_manifest is not None
+                    else {}
+                ),
             },
             **references,
         )

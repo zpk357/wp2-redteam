@@ -1,0 +1,76 @@
+{
+  "schema_version": "deepseek-harness-h1-evidence-v1",
+  "status": "feasible",
+  "generated_at": "2026-08-21",
+  "upstream": {
+    "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
+    "tag": "dsh-v0.1.1-rc.1",
+    "commit": "528c682e061696f5a160f363f236ecbf53cbd006",
+    "license": "MIT",
+    "release_stage": "pre-release"
+  },
+  "selected_driver": {
+    "kind": "official_sdk_jsonrpc_with_custom_cordis_composition",
+    "transport": "newline_delimited_jsonrpc_over_stdio",
+    "normal_disposal": "jsonrpc_shutdown_then_process_reap",
+    "cancellation": "close_disposable_runtime_process",
+    "reason": "preserves durable events and receipt-to-idle collection while keeping the Office runtime behind one process boundary"
+  },
+  "probes": {
+    "programmatic_runtime": {
+      "status": "passed",
+      "model_requests": 3,
+      "same_session_followup": true,
+      "model_visible_tools": [
+        "mcp__office_probe__lookup_status"
+      ],
+      "tool_calls": 1,
+      "tool_results": 1,
+      "assistant_messages_in_tool_turn": 2,
+      "final_response": "REQ-1001 is approved."
+    },
+    "cancellation": {
+      "status": "passed",
+      "model_requests_before_cancel": 1,
+      "boundary": "runtime_process_close",
+      "in_flight_run_rejected": true
+    },
+    "headless": {
+      "package_load": "passed",
+      "full_product_one_shot": "not_run",
+      "selected_driver": false,
+      "reason": "the official one-shot bundle requires the full dsh launcher and loads a broader Code Mode product composition; it does not validate the selected minimal runtime"
+    }
+  },
+  "model_adapter": {
+    "package": "@deepseek-ai/dsh-llm-pi-ai@0.1.1-rc.1",
+    "route": "office-local",
+    "protocol": "openai-completions",
+    "formal_endpoint_shape": "http://127.0.0.1:11434/v1",
+    "h1_endpoint": "deterministic loopback fixture",
+    "tool_call_and_usage_mapping": "passed",
+    "real_qwen_ollama": "not_run"
+  },
+  "mcp": {
+    "package": "@deepseek-ai/dsh-mcp-client@0.1.1-rc.1",
+    "transport": "stdio",
+    "fail_on_startup_error": true,
+    "reconnect_enabled": false,
+    "fixture_side_effects": "none",
+    "registration_and_call": "passed"
+  },
+  "known_constraints": [
+    "The SDK wire has no per-prompt cancel or per-session close method.",
+    "A message id proves durable inbox admission, not a prompt-scoped result.",
+    "Protocol handshake version 0.0.1 is pre-release and not negotiated.",
+    "Runtime identity must lock the upstream commit, package lock, composition digest, image, model and tool catalog.",
+    "H2 must translate producer events to trace_react_v2 without exposing Harness session types as platform contracts."
+  ],
+  "digests": {
+    "package_lock_sha256": "bd0b8b7e60938fe31bba471c771ac9574e61a5c62c9539230c8556fc72457a6d",
+    "upstream_lock_sha256": "f1cfc833a7ac878b32baf671fcef15b89721b16378d8aa5beff61817367dbe20",
+    "composition_sha256": "c19181cd7536afd74c053bff4c65521fb1f4f050e66dd3b5e1c4aded14155a91",
+    "runtime_probe_sha256": "c56e40e26ebcd31b64f872b2e21d032b6fd598be19a54b3e2d207f5087a55e15",
+    "cancel_probe_sha256": "03a5e139d27bdae94631dafd41ef64eb52445007307f570c29f41d2d09462220"
+  }
+}

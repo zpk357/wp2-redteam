@@ -1,0 +1,66 @@
+{
+  "schema_version": "deepseek-harness-h5-evidence-v1",
+  "stage": "H5",
+  "status": "passed",
+  "date": "2026-08-22",
+  "scope": {
+    "environment": "local_process_and_in_process_replay",
+    "docker": false,
+    "real_model": false
+  },
+  "contracts": {
+    "producer_identity_bound": true,
+    "trusted_followup_idle_boundary_preserved": true,
+    "strict_replay_engine": "langgraph_replay_verifier",
+    "strict_replay_model_provider": "recorded",
+    "fork_parent_producer": "deepseek_harness",
+    "fork_suffix_producer": "langgraph",
+    "fork_suffix_mode": "live_and_record",
+    "parent_recording_immutable": true,
+    "runtime_identity_tamper_rejected": true,
+    "incomplete_recording_preserves_progress_and_cost": true,
+    "historical_langgraph_recording_status": "legacy_unbound_producer_identity"
+  },
+  "runtime_source": {
+    "driver_sha256": "711cf2382b782a4f083d1f393dce848f6ef47e96f23aba91bc96c60528de1a57"
+  },
+  "validation": [
+    {
+      "kind": "python_compile",
+      "result": "passed",
+      "scope": "six changed Python modules"
+    },
+    {
+      "kind": "node_syntax",
+      "result": "passed",
+      "scope": "driver.mjs"
+    },
+    {
+      "kind": "pytest",
+      "result": "passed",
+      "scope": "Harness incomplete recording, strict replay, and fork; three focused tests"
+    },
+    {
+      "kind": "pytest",
+      "result": "passed",
+      "scope": "adjacent LangGraph trusted interaction and replay contracts; five selected cases"
+    },
+    {
+      "kind": "ruff",
+      "result": "passed",
+      "scope": "changed H5 Python files"
+    },
+    {
+      "kind": "git_diff_check",
+      "result": "passed"
+    }
+  ],
+  "not_run": [
+    "full test suite",
+    "Docker",
+    "Ollama",
+    "real Qwen",
+    "Coverage or Campaign loop",
+    "server validation"
+  ]
+}

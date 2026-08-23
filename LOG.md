@@ -1,5 +1,19 @@
 # 项目变更日志
 
+## 2026-08-23 / 20260823-v020rc1-stage6-harness-integration / Stage 6 与 Harness H0-H6 候选整合
+
+记录标识：`20260823-v020rc1-stage6-harness-integration`
+
+以 `34a2789` 为唯一 Stage 6 修复底座，将 DeepSeek Harness H0-H6 及其必要的 Runtime、Replay、
+CoverageInput 和 Campaign 共享合同进行三方合并。冲突以 Stage 6 已冻结的 Manifest 绑定 Oracle、
+Recording State 和行为身份强校验为准，再叠加 producer Runtime kind/version/composition 的同源校验，
+没有用旧工作树文件覆盖新修复。
+
+候选版本为 `v0.2.0-rc.1`（Python 版本 `0.2.0rc1`）。机器身份清单明确包含两个 Agent Runtime，并明确
+排除 Judge 实现、模型离线包、GHCR 模型层和尚未完成的真实模型服务器验收。Judge 工作继续保留在原
+混合工作树，没有迁入候选分支。后续服务器从固定 Git tag 在线取得源码，从官方 Ollama registry 获取
+锁定模型并在服务器本地构建镜像。
+
 ## 2026-08-17 / 20260817-office-v2-step6-continuous-campaign-plan-revision / Office V2 第六步连续 Campaign 计划修订
 
 记录标识：`20260817-office-v2-step6-continuous-campaign-plan-revision`

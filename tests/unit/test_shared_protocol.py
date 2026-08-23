@@ -12,6 +12,7 @@ from sandbox.protocol import (
     RUNTIME_CHILD_CLEANUP_TIMEOUT_SECONDS,
     RUNTIME_TERMINAL_GRACE_SECONDS,
     RUNTIME_TERMINAL_TRANSPORT_MARGIN_SECONDS,
+    AgentRuntimeKind,
     ExecutionBackend,
     ExecutionRequest,
     ModelOptions,
@@ -54,6 +55,21 @@ def test_execution_backend_defaults_to_trace_react() -> None:
     )
 
     assert request.execution_backend == ExecutionBackend.TRACE_REACT_V2
+
+
+def test_agent_runtime_kind_is_separate_from_execution_request() -> None:
+    request = ExecutionRequest(
+        execution_id="exec-runtime-kind",
+        case_id="case-runtime-kind",
+        prompt="hello",
+    )
+
+    assert set(AgentRuntimeKind) == {
+        AgentRuntimeKind.LANGGRAPH,
+        AgentRuntimeKind.DEEPSEEK_HARNESS,
+    }
+    assert "agent_runtime_kind" not in ExecutionRequest.model_fields
+    assert "agent_runtime_kind" not in request.model_dump(mode="json")
 
 
 @pytest.mark.parametrize("retired_backend", ["langgraph_v1", "inspect_react_v2"])

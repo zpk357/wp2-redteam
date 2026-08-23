@@ -76,12 +76,14 @@ def build_office_v2_public_request(
     max_steps: int,
     timeout_seconds: int,
     use_frozen_response: bool = False,
+    model_provider: ModelProvider = ModelProvider.OLLAMA,
+    model_endpoint: str | None = IN_CONTAINER_OLLAMA_ENDPOINT,
 ) -> ExecutionRequest:
     model = ModelOptions(
-        provider=ModelProvider.OLLAMA,
+        provider=model_provider,
         model_name=model_name,
         model_digest=model_digest,
-        endpoint=IN_CONTAINER_OLLAMA_ENDPOINT,
+        endpoint=model_endpoint,
         timeout_seconds=timeout_seconds,
     )
     directives = (

@@ -1,0 +1,81 @@
+{
+  "schema_version": "deepseek-harness-h6-evidence-v1",
+  "status": "completed",
+  "generated_at": "2026-08-22",
+  "scope": "local deterministic Coverage and Campaign integration",
+  "runtime": {
+    "producer_runtime_kind": "deepseek_harness",
+    "producer_runtime_version": "deepseek-harness-h4-v1",
+    "producer_runtime_composition_digest": "sha256:d330f6e8c3f173332e7f6267d8c2a2a0bb4d6c10cc7df9502ed91b224858bfad",
+    "image_ref": "trace-g-deepseek-harness:h6-local",
+    "image_id": "sha256:8c442191f908643ae60ec46287efaf3345a853825decb0aedb0c4c8eb781a504",
+    "contains_model": false
+  },
+  "coverage_contract": {
+    "coverage_input_schema_changed": false,
+    "runtime_identity_enters_novelty_key": false,
+    "recording_runtime_identity_verified_before_coverage": true,
+    "campaign_runtime_identity_immutable": true,
+    "model_digest_runtime_fallback_removed": true
+  },
+  "deterministic_recovery": {
+    "target_generation_count": 3,
+    "completed_generation_count": 3,
+    "episode_runner_calls": 3,
+    "valid_committed_episodes": 3,
+    "settlement_count": 3,
+    "attempt_receipt_count": 3,
+    "agent_token_delta": 51,
+    "interruption_point": "after first settlement commit and before caller acknowledgement",
+    "resumed": true,
+    "duplicate_settlement": false,
+    "feedback_lineage_verified": true
+  },
+  "docker_campaign": {
+    "campaign_id": "campaign.deepseek-harness.h6-docker",
+    "target_generation_count": 3,
+    "generation_index": 3,
+    "valid_committed_episodes": 3,
+    "phase": "baseline",
+    "completion_status": null,
+    "coverage_counts": {
+      "canonical_facts": 4,
+      "primary_behavior_features": 8,
+      "risk_contexts": 0,
+      "risk_milestone_outcomes": 0
+    },
+    "corpus": {
+      "seeds": 4,
+      "executions": 4,
+      "entries": 1
+    },
+    "feedback_gap_kinds": [
+      "observed_not_used",
+      "consecutive_no_gain",
+      "consecutive_no_gain"
+    ],
+    "decision_recomputed_each_generation": true,
+    "feedback_lineage_verified": true,
+    "finding_count": 0,
+    "recovery_queues_empty": true,
+    "residual_container_count": 0,
+    "report_digest": "sha256:09342ef64577a772c87fe2091744bc8eaed7f13857eeea2b17c297248bf16629",
+    "model_backend": "deterministic fake provider",
+    "real_model_used": false
+  },
+  "focused_validation": {
+    "three_generation_recovery_test": "1 passed",
+    "three_generation_docker_test": "1 passed",
+    "ruff": "passed",
+    "python_compile": "passed",
+    "node_syntax": "passed",
+    "git_diff_check": "passed"
+  },
+  "not_proven": [
+    "real Ollama or Qwen execution through DeepSeek Harness",
+    "GPU residency or server deployment",
+    "risk milestone progress in the deterministic H6 Docker sample",
+    "Campaign lifecycle completion beyond the requested three-generation budget",
+    "Judge integration or final H8 freeze"
+  ]
+}

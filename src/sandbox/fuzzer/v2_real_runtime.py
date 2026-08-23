@@ -24,6 +24,7 @@ from sandbox.mutation.v2_preparation import (
     prepare_candidate,
 )
 from sandbox.mutation.v2_provider import V2MutationProvider
+from sandbox.protocol import AgentRuntimeKind
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
 from sandbox.scenarios.office_v2.fork import (
@@ -106,6 +107,9 @@ class RealCampaignBootstrap(OfficeV2Contract):
 
 
 class OfficeV2EpisodeRunner(Protocol):
+    @property
+    def producer_runtime_identity(self) -> dict[str, str]: ...
+
     async def execute(
         self,
         *,
@@ -125,11 +129,24 @@ class _RealGenerationDriver:
         bootstrap: RealCampaignBootstrap,
         mutation_provider: V2MutationProvider,
         episode_runner: OfficeV2EpisodeRunner,
+        expected_producer_runtime_identity: dict[str, str] | None = None,
     ) -> None:
         self.store = store
         self.bootstrap = bootstrap
         self.mutation_provider = mutation_provider
         self.episode_runner = episode_runner
+        self.expected_producer_runtime_identity = expected_producer_runtime_identity
+
+    def _require_runner_runtime_identity(self, campaign_id: str) -> None:
+        expected = self.expected_producer_runtime_identity
+        if expected is None:
+            return
+        persisted = self.store.load_producer_runtime_identity(campaign_id)
+        actual = getattr(self.episode_runner, "producer_runtime_identity", None)
+        if persisted != expected or actual != expected:
+            raise RuntimeError(
+                "Episode runner producer Runtime identity differs from Campaign"
+            )
 
     def advance(self, *, campaign_id, decision, state, previous_feedback):
         recovering = state.state_digest != decision.input_state_digest
@@ -340,6 +357,13 @@ class _RealGenerationDriver:
                 campaign_id, reason=f"unsupported-incomplete-work-{work.state.value}"
             )
             return None
+        try:
+            self._require_runner_runtime_identity(campaign_id)
+        except RuntimeError:
+            self.store.pause_campaign(
+                campaign_id, reason="producer-runtime-identity-mismatch"
+            )
+            raise
         self.store.transition_work(work.work_id, state=CandidateWorkState.EXECUTING)
         execution_id = f"v2-generation-{decision.generation_index}-{work.work_id[-12:]}"
         started = time.monotonic()
@@ -763,8 +787,29 @@ def run_or_resume_real_campaign(
     mutation_provider: V2MutationProvider,
     episode_runner: OfficeV2EpisodeRunner,
     runtime_identity_digest: str | None = None,
+    producer_runtime_kind: AgentRuntimeKind | str | None = None,
+    producer_runtime_version: str | None = None,
+    producer_runtime_composition_digest: str | None = None,
     progress_callback: Callable[[V2CampaignRunResult], None] | None = None,
 ) -> V2CampaignRunResult:
+    producer_values = (
+        producer_runtime_kind,
+        producer_runtime_version,
+        producer_runtime_composition_digest,
+    )
+    if runtime_identity_digest is None and not all(
+        value is not None for value in producer_values
+    ):
+        raise ValueError("real Campaign requires an explicit Runtime identity")
+    expected_producer_identity = None
+    if all(value is not None for value in producer_values):
+        expected_producer_identity = {
+            "producer_runtime_kind": AgentRuntimeKind(producer_runtime_kind).value,
+            "producer_runtime_version": producer_runtime_version,
+            "producer_runtime_composition_digest": (
+                producer_runtime_composition_digest
+            ),
+        }
     return run_or_resume_campaign(
         store=store,
         campaign_id=campaign_id,
@@ -775,10 +820,12 @@ def run_or_resume_real_campaign(
             bootstrap=bootstrap,
             mutation_provider=mutation_provider,
             episode_runner=episode_runner,
+            expected_producer_runtime_identity=expected_producer_identity,
         ),
-        runtime_identity_digest=(
-            runtime_identity_digest or bootstrap.model_identity_digest
-        ),
+        runtime_identity_digest=runtime_identity_digest,
+        producer_runtime_kind=producer_runtime_kind,
+        producer_runtime_version=producer_runtime_version,
+        producer_runtime_composition_digest=producer_runtime_composition_digest,
         progress_callback=progress_callback,
     )
 

@@ -9,6 +9,7 @@ from typing import Protocol
 
 from pydantic import Field, TypeAdapter, field_validator, model_validator
 
+from sandbox.protocol import AgentRuntimeKind
 from sandbox.replay.canonical import canonical_json_bytes
 from sandbox.replay.digests import sha256_bytes, sha256_digest
 from sandbox.replay.manifest import verify_manifest
@@ -40,6 +41,13 @@ from sandbox.scenarios.office_v2.world import EpisodeWorld, StateTransitionRecor
 
 class V2CoverageInputError(ValueError):
     """The frozen execution closure cannot safely produce coverage facts."""
+
+
+_PRODUCER_RUNTIME_FIELDS = (
+    "producer_runtime_kind",
+    "producer_runtime_version",
+    "producer_runtime_composition_digest",
+)
 
 
 class V2AcquisitionKind(StrEnum):
@@ -403,6 +411,72 @@ def _verified_v2_manifest(manifest: ReplayManifest) -> ReplayManifest:
     return trusted
 
 
+def verify_v2_recording_runtime_identity(
+    manifest: ReplayManifest,
+    *,
+    determinism_config_payload: bytes,
+    expected_runtime_kind: AgentRuntimeKind | str,
+    expected_runtime_version: str,
+    expected_runtime_composition_digest: str,
+) -> dict[str, str]:
+    """Bind recording producer facts to the Campaign-selected Runtime."""
+
+    trusted = _verified_v2_manifest(manifest)
+    reference = trusted.determinism_config
+    if (
+        len(determinism_config_payload) != reference.size_bytes
+        or sha256_bytes(determinism_config_payload) != reference.sha256
+    ):
+        raise V2CoverageInputError(
+            "recording determinism config does not match manifest"
+        )
+    try:
+        raw = json.loads(determinism_config_payload)
+        if (
+            not isinstance(raw, dict)
+            or canonical_json_bytes(raw) != determinism_config_payload
+        ):
+            raise ValueError("determinism config is not canonical JSON")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise V2CoverageInputError("invalid recording determinism config") from exc
+    if trusted.determinism_config_digest != sha256_digest(raw):
+        raise V2CoverageInputError(
+            "recording determinism config digest does not match"
+        )
+
+    try:
+        runtime_kind = AgentRuntimeKind(expected_runtime_kind).value
+    except ValueError as exc:
+        raise V2CoverageInputError(
+            "Campaign selected an unknown producer Runtime"
+        ) from exc
+    expected = {
+        "producer_runtime_kind": runtime_kind,
+        "producer_runtime_version": expected_runtime_version,
+        "producer_runtime_composition_digest": (
+            expected_runtime_composition_digest
+        ),
+    }
+    if not expected_runtime_version:
+        raise V2CoverageInputError("Campaign producer Runtime version is empty")
+    if (
+        not expected_runtime_composition_digest.startswith("sha256:")
+        or len(expected_runtime_composition_digest) != 71
+    ):
+        raise V2CoverageInputError(
+            "Campaign producer Runtime composition digest is invalid"
+        )
+    recorded = {field: raw.get(field) for field in _PRODUCER_RUNTIME_FIELDS}
+    manifested = {
+        field: trusted.metadata.get(field) for field in _PRODUCER_RUNTIME_FIELDS
+    }
+    if recorded != expected or manifested != expected:
+        raise V2CoverageInputError(
+            "recording producer Runtime identity differs from Campaign"
+        )
+    return expected
+
+
 def _verified_oracle_artifact(
     manifest: ReplayManifest,
     payload: bytes,
@@ -729,6 +803,7 @@ __all__ = [
     "V2CoverageInput",
     "V2CoverageInputError",
     "V2OracleFacts",
+    "verify_v2_recording_runtime_identity",
     "v2_coverage_input_from_direct",
     "v2_coverage_input_from_recording",
     "v2_coverage_input_from_strict_replay",

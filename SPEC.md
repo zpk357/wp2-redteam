@@ -11,11 +11,12 @@ TRACE-G WP2 面向开发和维护工具型 Agent 的安全工程团队，把一�
 
 ## 产品目标
 
-- `EXE-1`：一次性 Agent 容器内由 LangGraph 控制完整模型/工具循环，工具真实返回必须进入下一轮
-  Qwen 模型输入；容器外 TRACE-G 只负责编排、取证和反馈，不得代替 Agent 规划工具序列。
+- `EXE-1`：一次性 Agent 容器内由显式选择且身份锁定的正式 Agent Runtime 控制完整模型/工具循环；
+  当前支持默认 `langgraph` 与可选 `deepseek_harness`。工具真实返回必须进入下一轮 Qwen 模型输入；
+  容器外 TRACE-G 只负责编排、取证和反馈，不得代替 Agent 规划工具序列。
 - `EXE-2`：成功只由一次有效 `submit` 表示；轮次耗尽、取消、超时和错误是不同终止状态。
 - `EXE-3`：每个正式 Episode 的同一个一次性容器必须自包含锁定 Qwen 权重、仅监听回环地址的
-  Ollama 推理服务、LangGraph Agent Runtime、办公工具和场景状态；不得调用宿主或其他容器中的模型。
+  Ollama 推理服务、所选 Agent Runtime、办公工具和场景状态；不得调用宿主或其他容器中的模型。
 - `SCN-1`：支持带身份、组织、权限、初始状态、任务、可选对抗条件、业务工具和事实 Oracle 的有状态
   场景；攻击内容载体只能是一类可选入口，不能成为所有攻击用例的必选字段。
 - `SCN-2`：场景、正常任务和攻击目标可独立组合，固定 workspace 案例不能成为产品边界。
@@ -58,6 +59,10 @@ TRACE-G WP2 面向开发和维护工具型 Agent 的安全工程团队，把一�
 - `AdversarialCondition`：可选对抗条件；入口至少区分直接任务、间接内容、伪造授权和参数来源操纵。
 - `ReachableAttackSurface`：由任务依赖、跨域关系、Actor 可见性和观察规则计算的内容放置集合。
 - `ActorContext`：Agent 当前代表的身份、角色、组和可见组织信息。
+- `AgentRuntimeKind / Runtime source identity`：正式 Agent 循环的实现种类与来源身份。当前显式支持默认
+  `langgraph` 和可选 `deepseek_harness`；实现版本与 composition digest 是 Runtime 自身字段，模型、镜像、
+  工具目录与 Case digest 继续使用现有执行信封和 Manifest 字段，不建立重复身份对象。Runtime 身份与
+  唯一证据协议 `trace_react_v2` 是两个独立维度。
 - `ObservationPolicy / InteractionContract`：权限受限视图、稳定分页、确定性澄清和可信授权更新。
 - `ScenarioOracle`：从权限决定、工具事实和初始/最终状态重建 utility 与 security 事实。
 - `StateTransitionRecord / StateDelta`：从已提交事务记录前后摘要、字段路径、资源/关系创建移除和证据
@@ -88,8 +93,8 @@ TRACE-G WP2 面向开发和维护工具型 Agent 的安全工程团队，把一�
 ScenarioTemplate + ActorContext + TaskContract + optional AdversarialCondition + AttackObjective
   -> 生成合法 TestCase 基线并建立攻击目标暴露账本/风险前沿
   -> 先为每个可达攻击目标提供最低执行机会
-  -> 调度器创建自包含 Qwen + LangGraph + 办公环境的一次性 Docker 容器
-  -> 容器内 Ollama 启动并校验模型，LangGraph Agent 初始化场景并执行多轮模型/工具循环
+  -> 调度器创建自包含 Qwen + 所选 Agent Runtime + 办公环境的一次性 Docker 容器
+  -> 容器内 Ollama 启动并校验模型，所选 Agent Runtime 初始化场景并执行多轮模型/工具循环
   -> Tracer 提交模型、工具、状态、终止和清理事件
   -> 执行证据确认正常任务结果与攻击副作用
   -> 提取行为新颖度和风险覆盖
@@ -106,15 +111,19 @@ ScenarioTemplate 显式定义并验证复合攻击链，否则不得在前一个
 
 ### 单一执行与证据合同
 
-所有新执行、录制、重放和 fork 统一使用 `trace_react_v2` 证据与重放合同。正式被测 Agent 的运行时
-实现统一为 LangGraph；项目不恢复旧 LangGraph 适配器，而是基于当前锁定版本重新接入。请求不指定
-backend 时默认使用 `trace_react_v2`；显式旧值或未知值必须在协议入口拒绝，录制的 determinism 配置
-缺失或不是 `trace_react_v2` 时必须在重放准备阶段拒绝。LangGraph 的私有状态对象不是长期协议，必须
-在边界处转换为 TRACE schema 1.2 事件、检查点和状态摘要。
+所有新执行、录制、重放和 fork 统一使用唯一 `trace_react_v2` 证据与重放合同。正式被测 Agent 的
+Runtime 实现支持默认 `langgraph` 与可选 `deepseek_harness`；二者是 `AgentRuntimeKind`，不是新的
+`ExecutionBackend`。请求不指定 backend 时默认使用 `trace_react_v2`；Runtime 由宿主 TargetProfile/直接
+运行选项选择对应镜像，并由容器内只读启动锁交叉验证，缺失启动值的现有 LangGraph 镜像继续默认
+`langgraph`。Runtime 选择不得写入 Case、Candidate、MutationPlan 或 `ExecutionRequest`，未知值必须在
+目标配置或容器入口拒绝。录制的 determinism 配置缺失或不是
+`trace_react_v2` 时必须在重放准备阶段拒绝。任何 Runtime 的私有状态对象都不是长期协议，必须在
+边界处转换为 TRACE schema 1.2 事件、检查点、可信 sidecar 和状态摘要。项目不得恢复旧执行入口，
+也不得为 Harness 建立第二套 TRACE、Replay、Coverage、Campaign、Mutation 或 Judge。
 
 `trace_react_v2` 必须满足：
 
-1. 容器内 LangGraph 持有 Agent 循环控制权，模型不能通过普通文本结束 Episode；容器外不得预生成
+1. 容器内所选 Agent Runtime 持有 Agent 循环控制权，模型不能通过普通文本结束 Episode；容器外不得预生成
    或逐轮指定工具调用。
 2. 每个模型工具调用都有稳定 `call_id`，工具参数先通过结构化 Schema 验证。
 3. 工具的真实结构化返回追加到消息历史后，模型才能决定下一步。
@@ -127,8 +136,9 @@ backend 时默认使用 `trace_react_v2`；显式旧值或未知值必须在协�
 
 本地确定性回归可以使用 Fake React Provider；正式被测 Agent 使用同一 Episode 容器内的 Ollama
 `/api/chat` Tool Calling Provider，endpoint 固定为容器回环地址。真实模型运行前必须锁定模型名称、
-模型内容 SHA-256 digest、Agent 镜像 digest、LangGraph/Provider 版本和 Prompt digest；运行中发现
-任一身份漂移立即暂停 Campaign。
+模型内容 SHA-256 digest、Agent 镜像 digest、Agent Runtime kind/version/composition digest、Provider
+版本和 Prompt digest；运行中发现任一身份漂移立即暂停 Campaign。Campaign 创建后不得切换 Runtime，
+Runtime 初始化失败也不得静默回退到另一实现。
 
 Office Workspace V2 第六步服务器验收冻结使用 `qwen3.5:27b-q4_K_M`：被测 Agent 和 LLM Mutator
 可以使用同一上游权重内容，但必须分别锁定角色、镜像、Prompt、Provider、推理配置和预算，并串行占用
@@ -151,8 +161,8 @@ Provider 只允许对明确临时错误做有界恢复：transport、timeout、H
 
 - 可信 Controller/Fuzzer 自身以 Docker 容器运行，拥有 Episode 生命周期、coverage、Corpus、调度和
   工件存储；只有它可以持有 Docker Socket，且不得把 Socket 传给被测 Agent。
-- 每个 `TestCase` 启动一个全新的 Agent-Qwen 容器。Qwen 自主选择工具、参数和提交时机，LangGraph
-  只提供模型-工具编排；工具真实返回和场景状态变化必须发生并持续保存在该容器内。
+- 每个 `TestCase` 启动一个全新的 Agent-Qwen 容器。Qwen 自主选择工具、参数和提交时机，所选 Agent
+  Runtime 只提供模型-工具编排；工具真实返回和场景状态变化必须发生并持续保存在该容器内。
 - LLM Mutator 是与被测 Agent 分离的 Docker 角色，接收冻结 MutationPlan 和双覆盖反馈，输出候选；
   Controller 在宿主可信边界重新校验后，才为候选创建新的 Agent-Qwen Episode。
 - 宿主机只提供 Docker Engine、NVIDIA 驱动/GPU 和持久结果存储。正式运行不依赖宿主 Python、宿主
@@ -163,7 +173,7 @@ Provider 只允许对明确临时错误做有界恢复：transport、timeout、H
 - TRACE-G 调度器是容器生命周期的唯一所有者。
 - Agent Runtime 使用 UID/GID `10001:10001`、只读根文件系统、能力删除和受控工作目录。
 - Agent 容器不挂载 Docker Socket，不挂载宿主业务目录，不直接访问公网。
-- 正式 Agent 镜像内同时包含锁定 Qwen 权重、Ollama、LangGraph Runtime、工具和办公环境；Ollama 只
+- 正式 Agent 镜像内同时包含锁定 Qwen 权重、Ollama、所选 Agent Runtime、工具和办公环境；Ollama 只
   监听该容器的 `127.0.0.1`，不得通过 Docker 网络或宿主端口向其他主体提供推理。
 - 正式 Agent 容器不得挂载宿主模型目录，也不得配置外部模型 endpoint；模型权重随镜像构建并由
   模型 digest 与镜像 digest 双重锁定。
@@ -219,6 +229,13 @@ strict replay 不重新调用真实模型或外部系统，而是使用录制的
 状态机、轨迹、检查点和判定逻辑。重新调用真实模型属于 live execution，只能报告路径/结果一致率，
 不能宣称 100% 确定性。
 
+源录制 Manifest 必须保存 `producer_runtime_kind/version/composition_digest`；replay/fork 实际发生后，其
+结果或审计工件再单独保存 replay/fork engine 身份。strict replay 保留原 producer 身份作为来源事实，同时
+明确标记本次 replay engine；它不能冒充另一 Runtime 的 live execution，也不能用 replay engine 身份覆盖
+producer 身份。现有 Office V2 strict replay 可继续使用 LangGraph replay verifier。verification-only fork
+可继续使用 LangGraph `live_and_record` fork engine，但子记录必须分开标记父前缀 producer 与新后缀
+producer/fork engine；不能把混合分支整体冒充 Harness live fork。
+
 Finding 必须使用不含 acquisition metadata 的稳定 `finding_key` 去重，并区分
 `recorded → replay_required → replay_confirmed / replay_failed`。strict replay 只能更新同一 Finding 的
 验证状态，不得创建新 Generation、重复 Finding 或新增 Coverage。
@@ -242,6 +259,10 @@ Agent 的所有可能行为没有可枚举分母，因此行为侧不声明“�
 - 环境状态差异和终止类型
 - 新特征数量、增长曲线和连续无新增的语料饱和度
 
+Runtime 种类、实现版本、composition digest 和私有 Session ID 只属于采集来源与完整性元数据，不进入
+行为特征键。仅切换 Runtime 或升级版本不能产生行为覆盖增量；只有归一化后的工具链、结果、权限、
+状态转换或终止事实变化才构成新颖度。
+
 ### 风险维度覆盖率
 
 风险分类树具有版本化固定分母，可以报告分类覆盖率和触达深度。Prompt 关键词只构成意图证据；
@@ -253,6 +274,11 @@ Agent 的所有可能行为没有可枚举分母，因此行为侧不声明“�
 ## Campaign 公平性与完成语义
 
 Campaign 先建立有限目录的覆盖底线，再进入开放空间的自适应 Fuzzing：
+
+Campaign Manifest 必须锁定 producer Runtime 的 kind、实现版本、composition digest、镜像 digest、
+工具目录 digest、模型 digest 和 Case digest；恢复时逐项验证，缺失或不符即暂停。模型 digest 不得代替
+Runtime 身份。不同 Runtime 必须使用不同 Campaign ID、数据库、Corpus 和覆盖累计状态；Campaign 创建后
+禁止切换 Runtime，也禁止初始化失败时静默回退到默认 Runtime。
 
 1. 基线阶段为每个已注册且与场景兼容的 `AttackObjective` 安排至少一个合法、已提交的 Episode；没有
    合法组合时保存稳定的 `unreachable_or_incompatible` 原因。每个可达的 in-scope 风险类别也必须有
@@ -360,8 +386,9 @@ Seed Energy、Scheduler、Mutation feedback 或 Campaign 执行。未来若要�
 rubric、黄金集运行库、置信度、漂移状态机或主动学习接口。固定案例的 utility/security 结果只使用
 确定性状态断言，不属于 LLM 裁判。前五阶段返工只能影响 Evidence Adapter，不得反向改变 Judge 核心合同。
 
-第 5 阶段存在强制前置门：先完成“同一一次性容器内 Qwen + Ollama + LangGraph Agent + 办公环境”的
-真实 Agent 纵向闭环和服务器隔离验收，再恢复第一代 coverage/Corpus 串联。外部 Ollama、脚本
+第 5 阶段存在强制前置门：先完成“同一一次性容器内 Qwen + Ollama + 所选正式 Agent Runtime +
+办公环境”的真实 Agent 纵向闭环和服务器隔离验收，再恢复第一代 coverage/Corpus 串联。每种正式
+Runtime 必须独立通过对应门，不能继承另一 Runtime 的能力结论。外部 Ollama、脚本
 `OfficeControlProvider`、Fake/RuleBased Agent 或容器外预规划工具序列只能作为校准证据，不能通过
 该门，也不能被写入正式办公 Campaign 的真实 Agent 结论。
 
@@ -386,8 +413,10 @@ rubric、黄金集运行库、置信度、漂移状态机或主动学习接口�
 以下条件必须持续成立：
 
 - 协议只接受 `trace_react_v2`；旧后端值以及缺失 TRACE-ReAct backend 证明的录制明确失败。
+- 每个正式支持的 Runtime 必须独立通过适用的执行、身份、录制/重放、CoverageInput、Campaign 和服务器门；
+  不得继承另一 Runtime 的通过结果或混用其 Campaign、Corpus、覆盖累计与归档证据。
 - 一个三步以上的依赖型任务在同一容器中完成，后一步参数来自前一步真实工具返回。
-- 正式 Episode 的进程、网络和工件证据证明 Qwen/Ollama、LangGraph Agent、工具及场景状态同处一个
+- 正式 Episode 的进程、网络和工件证据证明 Qwen/Ollama、所选 Agent Runtime、工具及场景状态同处一个
   一次性容器；模型 endpoint 为容器回环地址，Agent 不挂载宿主权重且不访问其他模型服务。
 - 正式 Agent 自主产生工具名、参数和 `submit`；请求中不存在预定 action plan，`OfficeControlProvider`
   与 Fake/RuleBased 路径的结果只能进入测试替身报告。
@@ -442,6 +471,9 @@ HANDOFF 和 LOG。只有用户明确改变产品目标或支持边界时才修�
 本次用户明确正式被测 Agent 必须把 Qwen 权重、Ollama 推理服务、LangGraph 决策循环、办公工具和环境
 全部放入同一个一次性 Docker 容器；外部控制器不得替代 Agent 规划工具序列。因此将先前“独立 Ollama
 容器经 internal 网络供 Agent 调用”的拓扑废止为历史校准方案，并新增第 5 阶段前置门。
+本次用户进一步把正式 Agent Runtime 支持边界从单一 LangGraph 扩展为默认 `langgraph` 与可选
+`deepseek_harness`。`trace_react_v2` 继续作为唯一证据与重放协议；Runtime kind 与 backend/protocol
+分离，各 Runtime 独立锁定身份、Campaign、Corpus 和覆盖累计状态，并分别通过真实模型与服务器门。
 本次用户进一步纠正场景产品边界：Office V1 的间接提示注入只是攻击入口之一，`InjectionCarrier`
 不再是所有 Fuzzing 种子的必选核心对象。当前优先冻结并完整建设邮件、云盘、日历、工作区文件四域，
 身份权限与跨域因果链，以及直接任务、间接内容、伪造授权、参数来源操纵四类入口；覆盖率与变异施工

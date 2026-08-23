@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sandbox.cli import build_parser
+from sandbox.cli import _validate_agent_runtime_image, build_parser
 
 
 def test_public_cli_exposes_only_v2_scenario_and_replay_commands() -> None:
@@ -46,3 +46,50 @@ def test_scenario_run_requires_locked_model_identity_and_image() -> None:
     )
     assert args.case_id == "clean.t2.delta"
     assert args.model_name == "qwen3:8b"
+    assert args.agent_runtime == "langgraph"
+
+    harness = parser.parse_args(
+        [
+            "scenario",
+            "run",
+            "--case",
+            "clean.t2.delta",
+            "--image",
+            "trace-g-deepseek-harness:h4",
+            "--agent-runtime",
+            "deepseek_harness",
+            "--model-name",
+            "fixture",
+            "--model-digest",
+            "sha256:" + "b" * 64,
+        ]
+    )
+    assert harness.agent_runtime == "deepseek_harness"
+
+
+def test_harness_image_identity_is_rejected_before_scheduling() -> None:
+    class Images:
+        @staticmethod
+        def get(_image):
+            return type(
+                "Image",
+                (),
+                {
+                    "attrs": {
+                        "Config": {
+                            "Labels": {
+                                "org.trace-g.agent-runtime": "deepseek_harness",
+                                "org.trace-g.runtime": "deepseek-harness-h3-v1",
+                            }
+                        }
+                    }
+                },
+            )()
+
+    client = type("Client", (), {"images": Images()})()
+    with pytest.raises(SystemExit, match="does not match"):
+        _validate_agent_runtime_image(
+            client,
+            "trace-g-deepseek-harness:stale",
+            "deepseek_harness",
+        )

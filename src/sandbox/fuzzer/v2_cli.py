@@ -13,6 +13,7 @@ from sandbox.client.artifact_transfer import ArtifactTransfer
 from sandbox.client.runtime_client import RuntimeClient
 from sandbox.config import SandboxConfig, SandboxLimits, TraceConfig, WeekOneConfig
 from sandbox.mutation.v2_docker import DockerOllamaV2MutationProvider
+from sandbox.protocol import AgentRuntimeKind
 from sandbox.replay.artifact_store import ArtifactStore
 from sandbox.replay.manifest import ManifestStore
 from sandbox.replay.replay_engine import ReplayEngine
@@ -55,6 +56,11 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("--bootstrap", type=Path, required=True)
         command.add_argument("--model-lock", type=Path, required=True)
         command.add_argument("--agent-image", required=True)
+        command.add_argument(
+            "--agent-runtime",
+            choices=[kind.value for kind in AgentRuntimeKind],
+            default=AgentRuntimeKind.LANGGRAPH.value,
+        )
         command.add_argument("--mutator-image", required=True)
         command.add_argument("--data-root", type=Path, required=True)
         command.add_argument("--generations", type=int, required=True)
@@ -125,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object]:
+    from agent_image.app.adapter.langgraph_react_runtime import LangGraphReactRuntime
+
     roles = {item.role: item for item in lock.roles}
     agent_role = roles[Stage6Role.AGENT]
     mutator_role = roles[Stage6Role.MUTATOR]
@@ -147,6 +155,34 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
         != mutator_role.image_id.lower()
     ):
         raise SystemExit("Mutator image ID differs from Stage6ModelLock")
+    runtime_kind = AgentRuntimeKind(args.agent_runtime)
+    if runtime_kind is AgentRuntimeKind.DEEPSEEK_HARNESS:
+        from agent_image.app.adapter.deepseek_harness_adapter import (
+            DeepSeekHarnessAdapter,
+        )
+
+        producer_identity = DeepSeekHarnessAdapter().producer_runtime_identity
+        labels = (
+            client.images.get(args.agent_image).attrs.get("Config", {}).get("Labels")
+            or {}
+        )
+        expected_labels = {
+            "org.trace-g.agent-runtime": producer_identity["producer_runtime_kind"],
+            "org.trace-g.runtime": producer_identity["producer_runtime_version"],
+            "org.trace-g.composition-sha256": producer_identity[
+                "producer_runtime_composition_digest"
+            ].removeprefix("sha256:"),
+        }
+        if any(labels.get(key) != value for key, value in expected_labels.items()):
+            raise SystemExit("Harness Agent image Runtime identity differs from source lock")
+    else:
+        producer_identity = {
+            "producer_runtime_kind": AgentRuntimeKind.LANGGRAPH.value,
+            "producer_runtime_version": LangGraphReactRuntime.version,
+            "producer_runtime_composition_digest": (
+                LangGraphReactRuntime.composition_digest
+            ),
+        }
     artifacts = ArtifactStore(args.data_root / "artifacts")
     config = WeekOneConfig(
         sandbox=SandboxConfig(
@@ -189,6 +225,11 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
         artifact_store=artifacts,
         model_name=lock.model_name,
         model_digest=lock.manifest_digest,
+        producer_runtime_kind=runtime_kind,
+        producer_runtime_version=producer_identity["producer_runtime_version"],
+        producer_runtime_composition_digest=producer_identity[
+            "producer_runtime_composition_digest"
+        ],
     )
     progress_callback = None
     if args.progress_dir is not None:
@@ -208,6 +249,17 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
             os.replace(temporary, destination)
 
         progress_callback = write_progress
+    runtime_identity = (
+        {"runtime_identity_digest": lock.lock_digest}
+        if runtime_kind is AgentRuntimeKind.LANGGRAPH
+        else {
+            "producer_runtime_kind": runtime_kind,
+            "producer_runtime_version": producer_identity["producer_runtime_version"],
+            "producer_runtime_composition_digest": producer_identity[
+                "producer_runtime_composition_digest"
+            ],
+        }
+    )
     return run_or_resume_real_campaign(
         store=store,
         campaign_id=args.campaign_id,
@@ -215,7 +267,7 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
         generation_count=args.generations,
         mutation_provider=provider,
         episode_runner=episode_runner,
-        runtime_identity_digest=lock.lock_digest,
+        **runtime_identity,
         progress_callback=progress_callback,
     ).model_dump(mode="json", exclude_none=False)
 
