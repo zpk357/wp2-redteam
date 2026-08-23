@@ -345,7 +345,10 @@ class _RealGenerationDriver:
                 handoff=handoff, work=work, next_state=episode_reserved_state
             )
         else:
-            work = self.store.load_work(handoff.work_id)
+            recovered_work = build_candidate_work_from_handoff(
+                handoff=handoff, reservation=agent_reservation
+            )
+            work = self.store.load_work(recovered_work.work_id)
             episode_reserved_state = state
         if work.state is CandidateWorkState.EXECUTING:
             self.store.pause_campaign(
