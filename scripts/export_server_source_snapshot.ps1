@@ -30,7 +30,7 @@ $identity = [ordered]@{
     archive_name = [IO.Path]::GetFileName($archive)
     archive_sha256 = "sha256:$digest"
 }
-$identity | ConvertTo-Json | Set-Content -LiteralPath $identityFile -Encoding utf8
+$identity | ConvertTo-Json | Set-Content -LiteralPath $identityFile -Encoding ascii
 Write-Host "Source commit: $resolvedCommit"
 Write-Host "Source snapshot: $archive"
 Write-Host "SHA-256: sha256:$digest"
