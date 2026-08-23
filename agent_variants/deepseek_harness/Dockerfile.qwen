@@ -1,12 +1,13 @@
 # syntax=docker/dockerfile:1.7
 
+ARG AGENT_BASE_IMAGE
+
 FROM node:24.14.0-bookworm-slim AS harness-dependencies
 WORKDIR /opt/harness
 COPY agent_variants/deepseek_harness/package.json ./package.json
 COPY agent_variants/deepseek_harness/package-lock.json ./package-lock.json
 RUN npm ci --omit=dev
 
-ARG AGENT_BASE_IMAGE
 FROM ${AGENT_BASE_IMAGE}
 
 ARG HARNESS_COMPOSITION_SHA256
