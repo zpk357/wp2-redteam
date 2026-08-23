@@ -105,8 +105,9 @@ class Stage6ModelLock(OfficeV2Contract):
     config_digest: Sha256Digest
     chat_protocol_digest: Sha256Digest
     layer_digests: tuple[Sha256Digest, ...] = Field(min_length=1)
-    archive_sha256: Sha256Digest
-    archive_bytes: int = Field(gt=0)
+    archive_sha256: Sha256Digest | None = None
+    archive_bytes: int | None = Field(default=None, gt=0)
+    model_build_receipt_digest: Sha256Digest | None = None
     ollama_image_reference: str = Field(
         pattern=r"^[a-z0-9][a-z0-9./_-]{0,200}:[a-z0-9][a-z0-9._-]{0,127}$"
     )
@@ -116,7 +117,8 @@ class Stage6ModelLock(OfficeV2Contract):
         pattern=r"^[a-z0-9][a-z0-9./_-]{0,200}:[a-z0-9][a-z0-9._-]{0,127}$"
     )
     controller_image_id: Sha256Digest
-    controller_archive_sha256: Sha256Digest
+    controller_archive_sha256: Sha256Digest | None = None
+    controller_build_receipt_digest: Sha256Digest | None = None
     campaign_identity_digest: Sha256Digest
     roles: tuple[Stage6RoleIdentity, Stage6RoleIdentity]
     lock_digest: Sha256Digest
@@ -133,6 +135,26 @@ class Stage6ModelLock(OfficeV2Contract):
 
     @model_validator(mode="after")
     def complete_identity_matches(self) -> Self:
+        archive_delivery = (
+            self.archive_sha256 is not None
+            and self.archive_bytes is not None
+            and self.model_build_receipt_digest is None
+        )
+        online_delivery = (
+            self.archive_sha256 is None
+            and self.archive_bytes is None
+            and self.model_build_receipt_digest is not None
+        )
+        if not (archive_delivery or online_delivery):
+            raise ValueError(
+                "Stage 6 model requires exactly one archive or online receipt identity"
+            )
+        if (self.controller_archive_sha256 is None) == (
+            self.controller_build_receipt_digest is None
+        ):
+            raise ValueError(
+                "Stage 6 controller requires exactly one archive or online receipt identity"
+            )
         by_role = {item.role: item for item in self.roles}
         if len(by_role) != 2 or set(by_role) != set(Stage6Role):
             raise ValueError("Stage 6 lock requires Agent and Mutator roles exactly once")
