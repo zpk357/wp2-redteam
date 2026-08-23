@@ -33,6 +33,11 @@ def main() -> int:
     parser.add_argument("--base-lock", type=Path, required=True)
     parser.add_argument("--build-receipt", type=Path, required=True)
     parser.add_argument("--agent-image", required=True)
+    parser.add_argument(
+        "--agent-image-key",
+        choices=("langgraph_agent", "deepseek_harness_agent"),
+        default="langgraph_agent",
+    )
     parser.add_argument("--mutator-image", required=True)
     parser.add_argument("--controller-image", required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -60,7 +65,7 @@ def main() -> int:
     base_roles = {item.role: item for item in base.roles}
     roles = []
     for role, reference, image_key in (
-        (Stage6Role.AGENT, args.agent_image, "langgraph_agent"),
+        (Stage6Role.AGENT, args.agent_image, args.agent_image_key),
         (Stage6Role.MUTATOR, args.mutator_image, "mutator"),
     ):
         template = base_roles[role]
