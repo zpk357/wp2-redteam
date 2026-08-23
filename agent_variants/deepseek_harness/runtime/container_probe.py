@@ -7,6 +7,7 @@ import asyncio
 import contextlib
 import json
 import os
+import tempfile
 from pathlib import Path
 
 from app.adapter.deepseek_harness_adapter import (
@@ -66,31 +67,42 @@ async def success() -> dict[str, object]:
 
 
 async def cancel() -> dict[str, object]:
-    root = Path("/tmp/h3-cancel")
-    root.mkdir(parents=True, exist_ok=True)
-    os.environ["TRACE_G_HARNESS_EPISODE_ROOT"] = str(root)
-    adapter = DeepSeekHarnessAdapter()
+    with tempfile.TemporaryDirectory(prefix="trace-g-h4-cancel-root-") as temporary:
+        root = Path(temporary)
+        os.environ["TRACE_G_HARNESS_EPISODE_ROOT"] = str(root)
+        adapter = DeepSeekHarnessAdapter()
 
-    async def consume() -> None:
-        async for _ in adapter.execute(request()):
-            pass
+        async def consume() -> None:
+            async for _ in adapter.execute(request()):
+                pass
 
-    task = asyncio.create_task(consume())
-    for _ in range(200):
-        if list(root.glob("trace-g-h3-*/bridge-records.ndjson")):
-            break
-        await asyncio.sleep(0.05)
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
-    summary = adapter.last_bridge_summary
-    return {
-        "schema_version": "deepseek-harness-h3-container-probe-v1",
-        "mode": "cancel",
-        "status": "passed" if summary and summary["complete"] is False else "failed",
-        "incomplete": bool(summary and summary["complete"] is False),
-        "episode_residue_count": len(tuple(root.iterdir())),
-    }
+        task = asyncio.create_task(consume())
+        boundary_observed = False
+        for _ in range(200):
+            if list(root.glob("trace-g-h4-*/bridge-records.ndjson")):
+                boundary_observed = True
+                break
+            if task.done():
+                break
+            await asyncio.sleep(0.05)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        summary = adapter.last_bridge_summary
+        incomplete = bool(summary and summary["complete"] is False)
+        residue_count = len(tuple(root.iterdir()))
+        return {
+            "schema_version": "deepseek-harness-h3-container-probe-v1",
+            "mode": "cancel",
+            "status": (
+                "passed"
+                if boundary_observed and incomplete and residue_count == 0
+                else "failed"
+            ),
+            "cancel_boundary_observed": boundary_observed,
+            "incomplete": incomplete,
+            "episode_residue_count": residue_count,
+        }
 
 
 def main() -> int:

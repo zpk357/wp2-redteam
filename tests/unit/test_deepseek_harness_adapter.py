@@ -11,6 +11,7 @@ from app.agent.react_contract import (
     REQUEST_CLARIFICATION_TOOL_SPEC,
     SUBMIT_TOOL_SPEC,
 )
+from app.protocol import ModelProvider
 
 from sandbox.scenarios.office_v2.agent_api import office_v2_model_tool_specs
 from tests.harness_support import harness_request
@@ -35,6 +36,42 @@ def test_adapter_rejects_a_model_outside_the_h4_lock() -> None:
     with pytest.raises(AdapterConfigurationError) as raised:
         asyncio.run(consume())
     assert raised.value.error_code == "harness_model_identity_mismatch"
+
+
+def test_adapter_accepts_only_the_formal_loopback_ollama_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = harness_request()
+    assert request.model is not None
+    assert request.office_v2_execution is not None
+    digest = "sha256:" + "b" * 64
+    model = request.model.model_copy(
+        update={
+            "provider": ModelProvider.OLLAMA,
+            "model_name": "qwen3.5:27b-q4_K_M",
+            "model_digest": digest,
+            "endpoint": "http://127.0.0.1:11434",
+        }
+    )
+    envelope = request.office_v2_execution.model_copy(
+        update={"model_identity": model}
+    )
+    real_request = request.model_copy(
+        update={"model": model, "office_v2_execution": envelope}
+    )
+    monkeypatch.setenv("TRACE_G_FORMAL_AGENT", "1")
+    monkeypatch.setenv("TRACE_G_MODEL_NAME", model.model_name)
+    monkeypatch.setenv("TRACE_G_MODEL_DIGEST", digest)
+    monkeypatch.setenv("TRACE_G_OLLAMA_ENDPOINT", model.endpoint)
+    adapter = DeepSeekHarnessAdapter()
+
+    adapter._validate_request(real_request)
+
+    external = real_request.model_copy(
+        update={"model": model.model_copy(update={"endpoint": "http://ollama:11434"})}
+    )
+    with pytest.raises(AdapterConfigurationError):
+        adapter._validate_request(external)
 
 
 def test_h4_mapping_is_mechanically_derived_from_the_frozen_catalog() -> None:

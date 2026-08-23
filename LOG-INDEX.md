@@ -2,6 +2,7 @@
 
 | 日期 | 主题 | 记录标识或提交 | 搜索标题 |
 |---|---|---|---|
+| 2026-08-23 | Harness H7 回环 Qwen 入口、源码快照与服务器在线构建 | `20260823-v020rc2-harness-online-entry` | `Harness H7 在线服务器前入口` |
 | 2026-08-23 | Stage 6 最新修复与 DeepSeek Harness H0-H6 整合为 v0.2.0-rc.1，Judge 保持分离 | `20260823-v020rc1-stage6-harness-integration` | `Stage 6 与 Harness H0-H6 候选整合` |
 | 2026-08-22 | DeepSeek Harness H6 三代 Coverage/Campaign、恢复与 Docker 聚焦验收 | `20260822-deepseek-harness-h6-complete` | `DeepSeek Harness H6 本地闭环完成` |
 | 2026-08-22 | DeepSeek Harness H5 producer 身份、Recording、Strict Replay 与 Verification-only Fork | `20260822-deepseek-harness-h5-replay-parity` | `DeepSeek Harness H5 录制重放同步` |

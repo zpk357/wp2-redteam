@@ -199,6 +199,22 @@ def test_ready_status_is_atomic_and_identity_bound(tmp_path: Path) -> None:
     assert not path.with_suffix(".json.tmp").exists()
 
 
+def test_ready_status_reports_the_selected_harness_runtime(tmp_path: Path) -> None:
+    path = tmp_path / "status.json"
+    config = BootstrapConfig.from_environment(
+        environment(
+            TRACE_G_STATUS_PATH=str(path),
+            TRACE_G_AGENT_RUNTIME="deepseek_harness",
+        )
+    )
+
+    write_ready_status(config)
+
+    assert json.loads(path.read_text(encoding="utf-8"))["agent_framework"] == (
+        "deepseek_harness"
+    )
+
+
 def test_strict_replay_status_does_not_claim_model_readiness(tmp_path: Path) -> None:
     path = tmp_path / "status.json"
     config = BootstrapConfig.from_environment(

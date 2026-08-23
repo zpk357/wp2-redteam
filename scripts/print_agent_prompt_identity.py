@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import ast
 import hashlib
 import json
@@ -39,21 +40,23 @@ def canonical_string_digest(value: str) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--format", choices=("json", "lines"), default="json")
+    args = parser.parse_args()
     prompt = string_constant("OFFICE_AGENT_SYSTEM_PROMPT")
     version = string_constant("OFFICE_AGENT_SYSTEM_PROMPT_VERSION")
     mutator_prompt = string_constant("OFFICE_MUTATOR_SYSTEM_PROMPT")
     mutator_version = string_constant("OFFICE_MUTATOR_SYSTEM_PROMPT_VERSION")
-    print(
-        json.dumps(
-            {
-                "version": version,
-                "digest": canonical_string_digest(prompt),
-                "mutator_version": mutator_version,
-                "mutator_digest": canonical_string_digest(mutator_prompt),
-            },
-            sort_keys=True,
-        )
-    )
+    payload = {
+        "version": version,
+        "digest": canonical_string_digest(prompt),
+        "mutator_version": mutator_version,
+        "mutator_digest": canonical_string_digest(mutator_prompt),
+    }
+    if args.format == "lines":
+        print("\n".join(str(payload[key]) for key in payload))
+    else:
+        print(json.dumps(payload, sort_keys=True))
 
 
 if __name__ == "__main__":

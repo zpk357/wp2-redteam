@@ -1,0 +1,89 @@
+{
+  "schema_version": "trace-g-release-candidate-v2",
+  "release": {
+    "display_version": "v0.2.0-rc.2",
+    "python_distribution_version": "0.2.0rc2",
+    "status": "draft",
+    "source_ref": "refs/tags/v0.2.0-rc.2",
+    "required_clean_source": true,
+    "based_on": "v0.2.0-rc.1",
+    "stage6_base_revision": "34a2789abe07bf534d26570196a7c4cf5bad5158"
+  },
+  "included_capabilities": [
+    "office-v2-frozen-scenario",
+    "stage6-server-validation-repairs",
+    "langgraph-agent-runtime",
+    "deepseek-harness-agent-runtime-h0-h6",
+    "deepseek-harness-real-qwen-entry",
+    "recording-strict-replay-and-fork",
+    "coverage-corpus-and-campaign-loop"
+  ],
+  "excluded_capabilities": [
+    "judge-runtime-and-golden-dataset",
+    "offline-model-bundle-deployment",
+    "ghcr-model-layer-deployment",
+    "real-model-server-acceptance"
+  ],
+  "agent_runtimes": [
+    {
+      "runtime_kind": "langgraph",
+      "runtime_version": "trace-langgraph-office-g4",
+      "composition_digest": "sha256:3cd6b58a4c7379e6fbce727a4a4b0d3102c163e4fccbe999a7bd12074c412da4"
+    },
+    {
+      "runtime_kind": "deepseek_harness",
+      "runtime_version": "deepseek-harness-h4-v1",
+      "upstream_repository": "https://github.com/deepseek-ai/deepseek-harness.git",
+      "upstream_tag": "dsh-v0.1.1-rc.1",
+      "upstream_commit": "528c682e061696f5a160f363f236ecbf53cbd006",
+      "dependency_install_contract": "npm-ci-package-lock-v1",
+      "composition_digest": "sha256:cc2de463739e5e987e188a199ba35653a21844c3015135a6033a293c144f92dd"
+    }
+  ],
+  "model": {
+    "name": "qwen3.5:27b-q4_K_M",
+    "registry": "registry.ollama.ai",
+    "acquisition": "official-registry-on-server",
+    "manifest_digest": "sha256:7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+    "config_digest": "sha256:ba0915cbf15878a68d300f640d3d575f5805cac42dd8f83746eb31a0e8afec22",
+    "layer_digests": [
+      "sha256:d4b8b4f4c350f5d322dc8235175eeae02d32c6f3fd70bdb9ea481e3abb7d7fc4",
+      "sha256:7339fa418c9ad3e8e12e74ad0fd26a9cc4be8703f9c110728a992b193be85cb2",
+      "sha256:9371364b27a52acac9d87f88bd93c9db1174d8d6ec57f6888925cdc1788871ff"
+    ],
+    "ollama_image": "ollama/ollama:0.32.1",
+    "ollama_local_image_id": "sha256:6345fbc18bd73a1e16404be681dbc6fd291a027cab43ed541abe78c4c81051b0",
+    "ollama_repository_digest": null
+  },
+  "build_inputs": {
+    "node_image": "node:24.14.0-bookworm-slim",
+    "node_repository_digest": null,
+    "python_image": "python:3.11.9-slim-bookworm",
+    "python_repository_digest": "sha256:8fb099199b9f2d70342674bd9dbccd3ed03a258f26bbd1d556822c6dfc60c317",
+    "harness_dependency_install": "npm-ci-package-lock-v1"
+  },
+  "agent_images": {
+    "langgraph_image_id": null,
+    "deepseek_harness_image_id": null,
+    "controller_image_id": null,
+    "mutator_image_id": null
+  },
+  "deployment_policy": {
+    "source_acquisition": "verified-source-snapshot",
+    "model_acquisition": "pull-from-official-ollama-registry",
+    "build_location": "target-server",
+    "require_full_digest_verification": true,
+    "publish_offline_bundle": false,
+    "publish_model_to_ghcr": false,
+    "deployment_ready": false,
+    "missing_identity_fields": [
+      "model.ollama_repository_digest",
+      "build_inputs.node_repository_digest",
+      "agent_images.langgraph_image_id",
+      "agent_images.deepseek_harness_image_id",
+      "agent_images.controller_image_id",
+      "agent_images.mutator_image_id"
+    ]
+  },
+  "release_manifest_digest": "sha256:b1a3cc01df026afacbabc47a2f864e382e1c766d3f68c4f6f3ebe8d3939e1be4"
+}

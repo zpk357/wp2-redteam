@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { DeepSeekHarness } from '@deepseek-ai/dsh-sdk-client'
 
-import { startDeterministicModel } from './deterministic_model.mjs'
+import { startModelRuntime } from './model_runtime.mjs'
 
 const DRIVER_SCHEMA = 'deepseek-harness-h4-driver-v1'
 const REQUEST_SCHEMA = 'deepseek-harness-h4-request-v1'
@@ -110,7 +110,7 @@ try {
     if (existsSync(cancelPath)) void stopForSignal()
   }, 50)
 
-  model = await startDeterministicModel(input.execution_request)
+  model = await startModelRuntime(input.execution_request)
   await writeProgress('running')
   harness = new DeepSeekHarness({
     launch: {
@@ -146,7 +146,7 @@ try {
     },
     cwd: variantRoot,
     provider: 'office-local',
-    model: 'qwen3.5:27b-q4_K_M',
+    model: model.modelName,
     maxTokens: 512,
   })
 
@@ -160,6 +160,7 @@ try {
 
   while (activityCount <= input.execution_request.max_steps) {
     const result = await harness.run(prompt, { sessionId })
+    model.ingest(result.events)
     finalResponse = result.finalResponse
     for (; decisionCursor < model.decisions.length; decisionCursor += 1) {
       emit(executionId, 'model_decision', {

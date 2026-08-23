@@ -173,12 +173,17 @@ def _validate_agent_runtime_image(docker_client, image: str, runtime_kind: str) 
     image_kind = labels.get("org.trace-g.agent-runtime")
     image_version = labels.get("org.trace-g.runtime")
     if selected is AgentRuntimeKind.DEEPSEEK_HARNESS:
+        from agent_image.app.adapter.deepseek_harness_adapter import (
+            DeepSeekHarnessAdapter,
+        )
+
+        producer = DeepSeekHarnessAdapter().producer_runtime_identity
         expected = {
-            "org.trace-g.agent-runtime": AgentRuntimeKind.DEEPSEEK_HARNESS.value,
-            "org.trace-g.runtime": "deepseek-harness-h4-v1",
-            "org.trace-g.composition-sha256": (
-                "d330f6e8c3f173332e7f6267d8c2a2a0bb4d6c10cc7df9502ed91b224858bfad"
-            ),
+            "org.trace-g.agent-runtime": producer["producer_runtime_kind"],
+            "org.trace-g.runtime": producer["producer_runtime_version"],
+            "org.trace-g.composition-sha256": producer[
+                "producer_runtime_composition_digest"
+            ].removeprefix("sha256:"),
         }
         if any(labels.get(key) != value for key, value in expected.items()):
             raise SystemExit(
@@ -189,6 +194,34 @@ def _validate_agent_runtime_image(docker_client, image: str, runtime_kind: str) 
         image_version is not None and image_version.startswith("deepseek-harness-")
     ):
         raise SystemExit("selected LangGraph runtime does not match the image identity labels")
+
+
+def _scenario_model_options(args) -> ModelOptions:
+    if AgentRuntimeKind(args.agent_runtime) is AgentRuntimeKind.DEEPSEEK_HARNESS:
+        from agent_image.app.adapter.deepseek_harness_adapter import (
+            DeepSeekHarnessAdapter,
+        )
+
+        fixture = DeepSeekHarnessAdapter.fixture_model_options(
+            timeout_seconds=args.timeout_seconds
+        )
+        if (
+            args.model_name == fixture.model_name
+            and args.model_digest == fixture.model_digest
+        ):
+            return fixture
+        return DeepSeekHarnessAdapter.ollama_model_options(
+            model_name=args.model_name,
+            model_digest=args.model_digest,
+            timeout_seconds=args.timeout_seconds,
+        )
+    return ModelOptions(
+        provider=ModelProvider.OLLAMA,
+        model_name=args.model_name,
+        model_digest=args.model_digest,
+        endpoint="http://127.0.0.1:11434",
+        timeout_seconds=args.timeout_seconds,
+    )
 
 
 def _fork_injection_content(args):
@@ -217,15 +250,18 @@ def main() -> int:
         _validate_agent_runtime_image(docker_client, args.image, args.agent_runtime)
         selected = office_v2_public_case(args.case_id)
         execution_id = f"scenario-{uuid4().hex}"
+        model = _scenario_model_options(args)
         request = build_office_v2_public_request(
             selected,
             execution_id=execution_id,
-            model_name=args.model_name,
-            model_digest=args.model_digest,
+            model_name=model.model_name,
+            model_digest=model.model_digest,
             seed=args.seed,
             max_steps=args.max_steps,
             timeout_seconds=args.timeout_seconds,
             use_frozen_response=args.use_frozen_response,
+            model_provider=model.provider,
+            model_endpoint=model.endpoint,
         )
         manifest = asyncio.run(
             _replay_engine(config, docker_client=docker_client).record_request(request)

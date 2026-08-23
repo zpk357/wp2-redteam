@@ -91,6 +91,14 @@ SPEC 只在用户明确改变产品目标或支持边界时修改，不能为了
 
 ## 当前最高优先级
 
+**2026-08-23 v0.2.0-rc.2 服务器前共同候选：** `v0.2.0-rc.1` 保持不可变历史身份；当前候选包含
+Stage 6 修复、Harness H0-H6 和 H7 真实模型入口。H6 继续使用 adapter 声明的 Fake Provider；H7 只接受
+同一容器内回环 Ollama/Qwen 锁。Harness 依赖由 `package-lock.json + npm ci` 构建，官方 Harness 事件
+转换为既有决策/Token/工具结果反馈事实，不新增第二套 TRACE。服务器部署采用固定 commit 的小型源码
+快照上传，模型和依赖在服务器在线取得并逐摘要校验，不依赖 GitHub、GHCR 或模型离线包。发布清单
+`config/releases/v0.2.0-rc.2.json` 在服务器生成最终镜像 ID 前保持 `deployment_ready=false`；本轮没有
+加入 Judge Runtime、黄金集、CLI 或评分实现。
+
 **2026-08-22 Agent Runtime 扩展精简路线：** 用户明确要求 Harness 最终同步现有 Agent 的全部平台能力，
 但不接受提前建设动态插件系统、重复身份模型、空 skeleton 或重复测试矩阵。H0 已补齐
 SPEC/AGENTS/LOG 合同与 Factory、Replay/Fork、CoverageInput、Campaign 耦合清单；H1 已锁定官方

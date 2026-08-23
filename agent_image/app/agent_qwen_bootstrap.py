@@ -48,6 +48,7 @@ class BootstrapConfig:
     startup_timeout_seconds: float
     shutdown_timeout_seconds: float
     runtime_mode: Literal["live", "strict_replay"]
+    agent_runtime: Literal["langgraph", "deepseek_harness"]
 
     @classmethod
     def from_environment(cls, environ: Mapping[str, str] | None = None) -> BootstrapConfig:
@@ -57,8 +58,11 @@ class BootstrapConfig:
         endpoint = values.get("TRACE_G_OLLAMA_ENDPOINT", LOOPBACK_ENDPOINT).rstrip("/")
         model_dir = values.get("OLLAMA_MODELS", LOCKED_MODEL_DIR)
         runtime_mode = values.get("TRACE_G_RUNTIME_MODE", "live")
+        agent_runtime = values.get("TRACE_G_AGENT_RUNTIME", "langgraph")
         if runtime_mode not in {"live", "strict_replay"}:
             raise BootstrapError("TRACE_G_RUNTIME_MODE must be live or strict_replay")
+        if agent_runtime not in {"langgraph", "deepseek_harness"}:
+            raise BootstrapError("TRACE_G_AGENT_RUNTIME is not supported")
         if not model_name or any(char.isspace() for char in model_name):
             raise BootstrapError("TRACE_G_MODEL_NAME must be a non-empty model identifier")
         if DIGEST_PATTERN.fullmatch(model_digest) is None:
@@ -90,6 +94,7 @@ class BootstrapConfig:
                 "TRACE_G_SHUTDOWN_TIMEOUT_SECONDS",
             ),
             runtime_mode=runtime_mode,
+            agent_runtime=agent_runtime,
         )
 
 
@@ -246,7 +251,7 @@ def write_ready_status(config: BootstrapConfig) -> None:
         ),
         "model_ready": config.runtime_mode == "live",
         "runtime_mode": config.runtime_mode,
-        "agent_framework": "langgraph",
+        "agent_framework": config.agent_runtime,
     }
     config.status_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = config.status_path.with_suffix(config.status_path.suffix + ".tmp")

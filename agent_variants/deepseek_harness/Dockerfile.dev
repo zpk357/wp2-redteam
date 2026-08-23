@@ -4,11 +4,15 @@ ARG PYTHON_DEPS_IMAGE=trace-redteam-agent-qwen:g6-local
 FROM ${PYTHON_DEPS_IMAGE} AS python-deps
 FROM node:24.14.0-bookworm-slim AS node-runtime
 
+WORKDIR /opt/harness-deps
+COPY agent_variants/deepseek_harness/package.json agent_variants/deepseek_harness/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
 FROM python:3.11.9-slim-bookworm@sha256:8fb099199b9f2d70342674bd9dbccd3ed03a258f26bbd1d556822c6dfc60c317
 
 LABEL org.trace-g.runtime="deepseek-harness-h4-v1" \
       org.trace-g.agent-runtime="deepseek_harness" \
-      org.trace-g.composition-sha256="d330f6e8c3f173332e7f6267d8c2a2a0bb4d6c10cc7df9502ed91b224858bfad" \
+      org.trace-g.composition-sha256="cc2de463739e5e987e188a199ba35653a21844c3015135a6033a293c144f92dd" \
       org.trace-g.provider="office-v2-h4-deterministic" \
       org.trace-g.contains-model="false"
 
@@ -36,7 +40,7 @@ RUN groupadd --gid 10001 sandbox \
 COPY src/sandbox ./src/sandbox
 COPY agent_image/app ./app
 COPY agent_variants/deepseek_harness/package.json agent_variants/deepseek_harness/package-lock.json ./agent_variants/deepseek_harness/
-COPY agent_variants/deepseek_harness/node_modules ./agent_variants/deepseek_harness/node_modules
+COPY --from=node-runtime /opt/harness-deps/node_modules ./agent_variants/deepseek_harness/node_modules
 COPY agent_variants/deepseek_harness/office_v2.cordis.yml ./agent_variants/deepseek_harness/office_v2.cordis.yml
 COPY agent_variants/deepseek_harness/runtime ./agent_variants/deepseek_harness/runtime
 COPY agent_variants/deepseek_harness/locks ./agent_variants/deepseek_harness/locks

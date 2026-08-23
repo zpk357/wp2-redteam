@@ -1,6 +1,7 @@
 # DeepSeek Harness H7: real-model server validation
 
-Status: waiting for `v0.2.0-rc.1` local checkpoint and explicit server-cost approval.
+Status: local real-model entry and online build path are implemented and focused-verified;
+waiting for the common source checkpoint and explicit server-cost approval.
 
 Upstream plan: `docs/plans/deepseek-harness-parallel-agent-plan.md`.
 
@@ -17,8 +18,9 @@ two Agents, expand the Office V2 matrix, redesign Campaign/Mutation, or integrat
 
 H7 is registry-first and server-built:
 
-1. Clone the project on the server and check out the exact release tag recorded by
-   `config/releases/v0.2.0-rc.1.json`.
+1. Export a source-only archive from one full Git commit, transfer it directly to the
+   server and verify its SHA-256 before extraction. GitHub and a release tag are not
+   deployment prerequisites.
 2. Fetch `qwen3.5:27b-q4_K_M` directly from the official Ollama registry.
 3. Verify the complete Ollama manifest, config and layer digests against the release
    identity before any Agent execution.
@@ -26,8 +28,9 @@ H7 is registry-first and server-built:
    upstream commit and every runtime-source digest.
 5. Build the LangGraph and Harness Agent images locally on the server from the same clean
    source checkout and locked model content.
-6. Generate a deployment lock containing source commit, image IDs, runtime identities,
-   model digests, tool catalog, prompt and Office V2 contract digests.
+6. Generate a build receipt containing source commit/snapshot digest, image IDs, Runtime
+   identities and complete model verification; derive the two Runtime-specific Campaign
+   locks only after this receipt closes.
 
 H7 must not upload a model archive, create a mandatory offline bundle, publish model
 layers to GHCR, build from a dirty worktree, or silently change model identity.
@@ -50,14 +53,15 @@ with its own image, prompt, provider, budget and identity.
 
 ## 4. Expected implementation area
 
-H7.0 must replace this provisional list with an exact allowlist before code changes:
+The local H7.0 allowlist is:
 
 ```text
 agent_variants/deepseek_harness/Dockerfile.qwen
 agent_variants/deepseek_harness/locks/**
-scripts/server_fetch_office_v2_source.sh
-scripts/server_fetch_office_v2_model.sh
-scripts/server_build_office_v2_agents.sh
+scripts/export_server_source_snapshot.ps1
+scripts/server_prepare_online_office_v2.sh
+scripts/verify_online_ollama_store.py
+scripts/write_online_build_receipt.py
 scripts/server_preflight_office_v2_step6.sh
 scripts/server_run_office_v2_step6.sh
 scripts/monitor_office_v2_stage6_gpu.py
@@ -73,15 +77,19 @@ copy the Stage 6 script suite or modify historical repair-package scripts.
 
 ### H7.0 Local static contract
 
-Freeze the exact release tag, model manifest/config/layer digests, Ollama image digest,
+Freeze the exact source commit/snapshot, model manifest/config/layer digests, Ollama image digest,
 Harness upstream lock, expected image roles and server build inputs. Statically review
 shell syntax and fail-closed paths. Do not contact the server or download the model.
+The draft release manifest must remain `deployment_ready=false` until the official
+Ollama and Node repository digests plus all four final image IDs are populated. Run
+`scripts/validate_release_candidate.py --require-deployment-ready` only after server image
+identities are returned; a local Docker image ID must never be recorded as a repository digest.
 
 ### H7.1 Online server bootstrap
 
-Clone and check out the fixed tag. Refuse a dirty checkout. Pull the pinned Ollama image,
-fetch the official model, verify every digest, then build both Agent images once. A
-partial download or identity mismatch must stop before image build.
+Verify and extract the fixed source snapshot. Pull the pinned Ollama image, fetch the
+official model, verify every digest, then build both Agent images once. A partial download
+or identity mismatch must stop before image build.
 
 ### H7.2 Preflight
 

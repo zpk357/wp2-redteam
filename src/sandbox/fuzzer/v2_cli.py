@@ -13,10 +13,11 @@ from sandbox.client.artifact_transfer import ArtifactTransfer
 from sandbox.client.runtime_client import RuntimeClient
 from sandbox.config import SandboxConfig, SandboxLimits, TraceConfig, WeekOneConfig
 from sandbox.mutation.v2_docker import DockerOllamaV2MutationProvider
-from sandbox.protocol import AgentRuntimeKind
+from sandbox.protocol import AgentRuntimeKind, ModelOptions, ModelProvider
 from sandbox.replay.artifact_store import ArtifactStore
 from sandbox.replay.manifest import ManifestStore
 from sandbox.replay.replay_engine import ReplayEngine
+from sandbox.scenarios.office_v2.cli_entry import IN_CONTAINER_OLLAMA_ENDPOINT
 from sandbox.scheduler.docker_scheduler import DockerSandboxScheduler
 from sandbox.scoring.rule_scorer import RuleBasedScorer
 
@@ -67,6 +68,31 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("--gpu-device", default="0")
         command.add_argument("--progress-dir", type=Path)
     return parser
+
+
+def _agent_model_options(
+    runtime_kind: AgentRuntimeKind,
+    lock: Stage6ModelLock,
+    *,
+    timeout_seconds: int = 600,
+) -> ModelOptions:
+    if runtime_kind is AgentRuntimeKind.DEEPSEEK_HARNESS:
+        from agent_image.app.adapter.deepseek_harness_adapter import (
+            DeepSeekHarnessAdapter,
+        )
+
+        return DeepSeekHarnessAdapter.ollama_model_options(
+            model_name=lock.model_name,
+            model_digest=lock.manifest_digest,
+            timeout_seconds=timeout_seconds
+        )
+    return ModelOptions(
+        provider=ModelProvider.OLLAMA,
+        model_name=lock.model_name,
+        model_digest=lock.manifest_digest,
+        endpoint=IN_CONTAINER_OLLAMA_ENDPOINT,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -183,6 +209,7 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
                 LangGraphReactRuntime.composition_digest
             ),
         }
+    agent_model = _agent_model_options(runtime_kind, lock)
     artifacts = ArtifactStore(args.data_root / "artifacts")
     config = WeekOneConfig(
         sandbox=SandboxConfig(
@@ -223,13 +250,15 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
     episode_runner = DockerOfficeV2EpisodeRunner(
         replay_engine=engine,
         artifact_store=artifacts,
-        model_name=lock.model_name,
-        model_digest=lock.manifest_digest,
+        model_name=agent_model.model_name,
+        model_digest=agent_model.model_digest,
         producer_runtime_kind=runtime_kind,
         producer_runtime_version=producer_identity["producer_runtime_version"],
         producer_runtime_composition_digest=producer_identity[
             "producer_runtime_composition_digest"
         ],
+        model_provider=agent_model.provider,
+        model_endpoint=agent_model.endpoint,
     )
     progress_callback = None
     if args.progress_dir is not None:

@@ -150,6 +150,12 @@ Fake React Provider、RuleBased Mutation Provider 和未来的 Fake Judge Provid
 LLM Mutator 和 LLM-as-Judge 是三种独立角色；各自的模型、Prompt、配置和 digest 必须分开锁定与审计，
 不得用一个角色的测试结果冒充另一个角色的能力。
 
+DeepSeek Harness 保留适配器声明的 Fake Provider 作为本地确定性替身；正式服务器入口从同一适配器
+构造锁定 Qwen/Ollama 请求，只允许同一 Agent 容器内的 `127.0.0.1:11434`，并交叉验证模型名称、
+manifest digest 和启动环境身份。直接场景与 Campaign 不得各自拼装不同模型合同。Harness Node 依赖
+必须由锁定的 `package-lock.json` 通过 `npm ci` 构建，禁止把开发工作树中的 `node_modules` 复制进
+正式镜像。
+
 确定性执行事实 oracle 不是 Fake Judge：它从工具轨迹、授权结果和环境状态重建攻击尝试、拦截与
 副作用，是正式事实系统。它可以约束和校验 LLM Judge，但不承担最终复杂语义评分。
 

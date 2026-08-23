@@ -1,14 +1,23 @@
 # TRACE-G WP2 当前交接
 
-## 2026-08-23 v0.2.0-rc.1 候选版本
+## 2026-08-23 v0.2.0-rc.2 本地修复候选
 
 - 候选分支以 Stage 6 最新修复 `34a2789` 为底座，合入 DeepSeek Harness H0-H6。
 - 默认 LangGraph 与可选 DeepSeek Harness 共享 Office V2、TRACE 1.2、recording、strict replay、
   verification-only fork、CoverageInput、Corpus 和 Campaign；Runtime 身份不进入行为新颖度。
+- Harness 的 H6 本地路径继续消费 adapter 声明的 Fake Provider；直接场景和 Campaign 的 H7 路径现可
+  消费同一容器内锁定 Qwen/Ollama 身份，并通过官方 Harness 事件重建工具决策、结果反馈和 Token 事实。
+- Harness 镜像依赖由锁定 `package-lock.json` 执行 `npm ci`，不再复制工作树 `node_modules`；取消探针
+  等待实际 `trace-g-h4-*` 边界，并使用独立临时 trace 根。
 - Judge 源码、黄金数据和 CLI 仍留在原混合工作树，不属于本候选版本。
-- 下一步服务器部署使用固定 Git tag 在线取得源码，从官方 Ollama registry 拉取锁定 Qwen 模型并在
-  服务器本地构建两个 Agent 镜像；不制作模型离线包，不推送 GHCR。
-- 发布身份见 `config/releases/v0.2.0-rc.1.json`；本地候选验证不等于真实模型服务器通过。
+- 下一步从共同 commit 导出小型源码快照并上传服务器；服务器从官方 Ollama registry 拉取锁定 Qwen、
+  在线安装哈希锁依赖并构建两个 Agent 镜像。不要求 GitHub，不制作模型离线包，不推送 GHCR。
+- 发布身份见 `config/releases/v0.2.0-rc.2.json`。该清单已经锁定模型 manifest/config/layer 和两个
+  Runtime composition，但在 H7.0 取得 Ollama/Node repository digest 及四个最终镜像 ID 前保持
+  `deployment_ready=false`；本地候选验证不等于真实模型服务器通过，也不得先打 `rc.2` tag。
+- 在线准备入口为 `scripts/server_prepare_online_office_v2.sh`，操作说明为
+  `docs/runbooks/office-v2-online-server-preparation.md`。本地聚焦结果为 `25 passed`，Ruff、Python/Node/Bash
+  语法、发布清单摘要和 diff 检查通过；未运行 Docker、真实 Qwen、全仓或服务器测试。
 
 ## 2026-08-18 项目清理与 Judge 计划
 

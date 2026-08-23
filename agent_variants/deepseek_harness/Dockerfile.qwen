@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:24.14.0-bookworm-slim AS harness-dependencies
+WORKDIR /opt/harness
+COPY agent_variants/deepseek_harness/package.json ./package.json
+COPY agent_variants/deepseek_harness/package-lock.json ./package-lock.json
+RUN npm ci --omit=dev
+
+ARG AGENT_BASE_IMAGE
+FROM ${AGENT_BASE_IMAGE}
+
+ARG HARNESS_COMPOSITION_SHA256
+
+LABEL org.trace-g.runtime="deepseek-harness-h4-v1" \
+      org.trace-g.role="agent" \
+      org.trace-g.agent-runtime="deepseek_harness" \
+      org.trace-g.agent-framework="deepseek-harness" \
+      org.trace-g.composition-sha256="${HARNESS_COMPOSITION_SHA256}"
+
+ENV TRACE_G_AGENT_RUNTIME=deepseek_harness \
+    TRACE_G_HARNESS_NODE=/usr/local/bin/node \
+    TRACE_G_HARNESS_VARIANT_ROOT=/opt/runtime/agent_variants/deepseek_harness \
+    TRACE_G_PYTHON_RUNTIME_ROOT=/opt/runtime
+
+USER root
+COPY --from=harness-dependencies /usr/local/bin/node /usr/local/bin/node
+COPY --from=harness-dependencies /opt/harness/node_modules \
+    /opt/runtime/agent_variants/deepseek_harness/node_modules
+COPY agent_variants/deepseek_harness/office_v2.cordis.yml \
+    /opt/runtime/agent_variants/deepseek_harness/office_v2.cordis.yml
+COPY agent_variants/deepseek_harness/package.json \
+    /opt/runtime/agent_variants/deepseek_harness/package.json
+COPY agent_variants/deepseek_harness/package-lock.json \
+    /opt/runtime/agent_variants/deepseek_harness/package-lock.json
+COPY agent_variants/deepseek_harness/locks \
+    /opt/runtime/agent_variants/deepseek_harness/locks
+COPY agent_variants/deepseek_harness/runtime \
+    /opt/runtime/agent_variants/deepseek_harness/runtime
+RUN node --version \
+    && chown -R 10001:10001 /opt/runtime/agent_variants/deepseek_harness
+
+USER 10001:10001

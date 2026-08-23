@@ -29,7 +29,7 @@ from app.office_v2_session import (
     OfficeV2LiveOracleArtifact,
     OfficeV2RecordingState,
 )
-from app.protocol import ExecutionRequest, ModelProvider, TraceEvent
+from app.protocol import ExecutionRequest, ModelOptions, ModelProvider, TraceEvent
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.office_v2.agent_api import office_v2_model_tool_specs
 
@@ -38,6 +38,7 @@ HARNESS_MODEL_NAME = "office-v2-h4-deterministic"
 HARNESS_MODEL_DIGEST = (
     "sha256:739ea53b14ef47e4bd82b50d3e53cb68f41e70d0519b8f81886529636b5d7ab1"
 )
+HARNESS_OLLAMA_ENDPOINT = "http://127.0.0.1:11434"
 _DRIVER_SCHEMA = "deepseek-harness-h4-driver-v1"
 _RECORD_SCHEMA = "deepseek-harness-h4-bridge-record-v1"
 _SUMMARY_SCHEMA = "deepseek-harness-h4-bridge-summary-v1"
@@ -282,6 +283,35 @@ class DeepSeekHarnessAdapter(AgentAdapter):
     """Run Harness and publish only correlated Office V2 trusted facts."""
 
     version = HARNESS_RUNTIME_VERSION
+
+    @staticmethod
+    def fixture_model_options(*, timeout_seconds: int) -> ModelOptions:
+        """Return the only model identity supported by the H0-H6 runtime."""
+
+        return ModelOptions(
+            provider=ModelProvider.FAKE,
+            model_name=HARNESS_MODEL_NAME,
+            model_digest=HARNESS_MODEL_DIGEST,
+            endpoint=None,
+            timeout_seconds=timeout_seconds,
+        )
+
+    @staticmethod
+    def ollama_model_options(
+        *,
+        model_name: str,
+        model_digest: str,
+        timeout_seconds: int,
+    ) -> ModelOptions:
+        """Return the locked in-container Ollama identity used by server runs."""
+
+        return ModelOptions(
+            provider=ModelProvider.OLLAMA,
+            model_name=model_name,
+            model_digest=model_digest,
+            endpoint=HARNESS_OLLAMA_ENDPOINT,
+            timeout_seconds=timeout_seconds,
+        )
 
     def __init__(self, *, variant_root: Path | None = None) -> None:
         self.variant_root = variant_root or self._default_variant_root()
@@ -902,16 +932,28 @@ class DeepSeekHarnessAdapter(AgentAdapter):
                 "harness_requires_office_v2",
                 "the DeepSeek Harness H4 runtime requires an Office V2 envelope",
             )
-        if (
-            model is None
-            or model.provider is not ModelProvider.FAKE
-            or model.model_name != HARNESS_MODEL_NAME
-            or model.model_digest != HARNESS_MODEL_DIGEST
-            or model.endpoint is not None
-        ):
+        fixture_identity = (
+            model is not None
+            and model.provider is ModelProvider.FAKE
+            and model.model_name == HARNESS_MODEL_NAME
+            and model.model_digest == HARNESS_MODEL_DIGEST
+            and model.endpoint is None
+        )
+        ollama_identity = (
+            model is not None
+            and model.provider is ModelProvider.OLLAMA
+            and model.endpoint == HARNESS_OLLAMA_ENDPOINT
+            and os.environ.get("TRACE_G_FORMAL_AGENT") == "1"
+            and os.environ.get("TRACE_G_MODEL_NAME") == model.model_name
+            and os.environ.get("TRACE_G_MODEL_DIGEST", "").lower()
+            == model.model_digest.lower()
+            and os.environ.get("TRACE_G_OLLAMA_ENDPOINT", HARNESS_OLLAMA_ENDPOINT)
+            == HARNESS_OLLAMA_ENDPOINT
+        )
+        if not fixture_identity and not ollama_identity:
             raise AdapterConfigurationError(
                 "harness_model_identity_mismatch",
-                "the request does not match the locked Harness H4 model identity",
+                "the request does not match a locked Harness model identity",
             )
 
     @staticmethod
@@ -957,6 +999,7 @@ class DeepSeekHarnessAdapter(AgentAdapter):
             "runtime_kind": "deepseek_harness",
             "runtime_version": self.version,
             "upstream_commit": "528c682e061696f5a160f363f236ecbf53cbd006",
+            "dependency_install_contract": "npm-ci-package-lock-v1",
         }
         if any(lock.get(key) != value for key, value in expected.items()):
             raise AdapterConfigurationError(
@@ -967,6 +1010,9 @@ class DeepSeekHarnessAdapter(AgentAdapter):
             "package_lock_sha256": self.variant_root / "package-lock.json",
             "composition_sha256": self.variant_root / "office_v2.cordis.yml",
             "driver_sha256": self.variant_root / "runtime" / "driver.mjs",
+            "model_runtime_sha256": (
+                self.variant_root / "runtime" / "model_runtime.mjs"
+            ),
             "deterministic_model_sha256": (
                 self.variant_root / "runtime" / "deterministic_model.mjs"
             ),
@@ -1029,6 +1075,7 @@ class DeepSeekHarnessAdapter(AgentAdapter):
 __all__ = [
     "HARNESS_MODEL_DIGEST",
     "HARNESS_MODEL_NAME",
+    "HARNESS_OLLAMA_ENDPOINT",
     "HARNESS_RUNTIME_VERSION",
     "DeepSeekHarnessAdapter",
 ]

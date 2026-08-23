@@ -5,11 +5,13 @@
   "upstream_repository": "https://github.com/deepseek-ai/deepseek-harness.git",
   "upstream_tag": "dsh-v0.1.1-rc.1",
   "upstream_commit": "528c682e061696f5a160f363f236ecbf53cbd006",
+  "dependency_install_contract": "npm-ci-package-lock-v1",
   "package_lock_sha256": "bd0b8b7e60938fe31bba471c771ac9574e61a5c62c9539230c8556fc72457a6d",
   "composition_sha256": "b9e791502651fdbfd95d88ad093dda099d4da69822d24bd50508423ac5a4e05d",
-  "driver_sha256": "711cf2382b782a4f083d1f393dce848f6ef47e96f23aba91bc96c60528de1a57",
+  "driver_sha256": "4a0938da9e0d5c2cb64ebdffdf57e1fcf0069bd2d5fc8fe29b33802fc7e4c897",
+  "model_runtime_sha256": "b234d9adfa996fe1c7d566b53ca3a2d8ec881bf56c9f524bd88811a75b0ca5e4",
   "deterministic_model_sha256": "439c8ba6df7c2eacfae45b1e9f1cd09e340cdf0d470fb3271ae80489e1fe82c5",
   "mcp_launcher_sha256": "c397e07b5c92fd0c8e0cdeed2ac0b7395a638e0de69a2d54d684cd8d88799b19",
   "bridge_sha256": "7b5d55084a208791f534b4ddedd8e0e5a31c58b96b2f8f27c29e8593adb66c5d",
-  "container_probe_sha256": "dc36c136cf7dbdd5f684b3329dc087081f69eb9f2a2a740f6898e8b0328745e1"
+  "container_probe_sha256": "e78c2ac8f1d2acb12719103e5d1166d4a258bd7e068696cee886f51ae27a9680"
 }

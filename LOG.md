@@ -5064,3 +5064,17 @@ Generation 并经过 Allocation → Preparation → Handoff → Work → Settlem
 
 范围与验证：同步修改第五步详细计划、SPEC、路线图和项目记忆；没有修改运行时代码，没有运行产品
 测试、Docker、Ollama 或 Qwen，仅执行文档完整性检查。当前仍等待用户确认后才允许开始 5.0。
+## 2026-08-23 / 20260823-v020rc2-harness-online-entry / Harness H7 在线服务器前入口
+
+记录标识：`20260823-v020rc2-harness-online-entry`
+
+在 `v0.2.0-rc.1` 历史候选之上建立 `v0.2.0-rc.2` 服务器前共同候选，不改写旧 tag。修复 H6 模型入口、
+Node 锁定安装、取消探针和发布身份问题，并完成 Harness H7 真实模型入口：官方 Harness 事件被转换为
+原有决策、Token 和工具结果反馈事实；正式请求只接受同一容器内的回环 Ollama/Qwen 身份，H6 Fake
+替身保留。新增继承共享 Qwen 模型层的 Harness 镜像，未复制 Office 世界、TRACE 或 Campaign。
+
+部署改为固定 commit 源码快照直传：服务器在线下载官方模型、逐 manifest/config/layer 校验、按哈希锁
+下载 wheels、执行 `npm ci` 并构建 LangGraph、Harness、Mutator、Controller 四镜像，最后生成同源 build
+receipt；不要求 GitHub、GHCR 或模型离线包。`config/releases/v0.2.0-rc.2.json` 在服务器产生镜像 ID 前
+保持 `deployment_ready=false`。聚焦 `25 passed`，Ruff、Python/Node/Bash 语法、发布清单摘要和 diff
+检查通过；未运行 Docker、真实 Qwen、服务器或全仓测试，本轮未加入 Judge Runtime、黄金集或 CLI。
