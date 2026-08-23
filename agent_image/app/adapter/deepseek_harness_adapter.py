@@ -558,11 +558,26 @@ class DeepSeekHarnessAdapter(AgentAdapter):
         events = self._parse_driver_events(request.execution_id, stdout)
         self.last_driver_diagnostic = stderr.decode("utf-8", errors="replace")[-4096:]
         if process.returncode != 0 or not events or events[-1].event_type != "driver_finished":
+            diagnostic = self._driver_diagnostic_summary(self.last_driver_diagnostic)
+            last_event = events[-1].event_type if events else "none"
             raise AdapterExecutionError(
                 "harness_driver_failed",
-                "the DeepSeek Harness driver did not complete successfully",
+                "the DeepSeek Harness driver did not complete successfully "
+                f"(return_code={process.returncode}, last_event={last_event}, "
+                f"diagnostic={diagnostic})",
             )
         return events
+
+    @staticmethod
+    def _driver_diagnostic_summary(diagnostic: str | None) -> str:
+        if not diagnostic:
+            return "unavailable"
+        first_line = next(
+            (line.strip() for line in diagnostic.splitlines() if line.strip()),
+            "unavailable",
+        )
+        printable = "".join(character for character in first_line if character.isprintable())
+        return printable[:512] or "unavailable"
 
     @staticmethod
     async def _terminate_process_tree(

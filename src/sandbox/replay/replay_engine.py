@@ -207,8 +207,14 @@ class ReplayEngine:
                 final_sequence=result.final_sequence,
                 trace_count=result.trace_count,
             )
-            if result.status == ExecutionStatus.SUCCEEDED:
-                self.scorer.score(trajectory)
+            if result.status != ExecutionStatus.SUCCEEDED:
+                error_code = result.error_code or result.status.value
+                error_message = result.error_message or "recorded execution did not succeed"
+                raise ReplayPreparationError(
+                    -32108,
+                    f"recorded execution failed ({error_code}): {error_message}",
+                )
+            self.scorer.score(trajectory)
             downloaded = await self.artifact_transfer.download(handle)
             missing = REQUIRED_RECORDING_FILES - set(downloaded)
             if missing:

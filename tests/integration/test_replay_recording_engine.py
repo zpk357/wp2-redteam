@@ -140,6 +140,44 @@ class RecordingRuntime:
         )
 
 
+class FailedRecordingRuntime:
+    def __init__(self) -> None:
+        self.events = [
+            TraceEvent(
+                execution_id="failed-record-request",
+                sequence=0,
+                timestamp="2026-08-23T00:00:00Z",
+                event_type="execution_error",
+                source="runtime",
+                data={
+                    "error_code": "harness_driver_failed",
+                    "message": "bounded driver diagnostic",
+                },
+            )
+        ]
+
+    async def submit(self, handle, request) -> None:
+        return None
+
+    async def poll_and_stream_events(self, handle, request):
+        yield TracePage(
+            events=self.events,
+            next_after_sequence=0,
+            terminal=True,
+            final_sequence=0,
+        )
+
+    async def get_result(self, handle, execution_id):
+        return ExecutionResult(
+            execution_id=execution_id,
+            status=ExecutionStatus.FAILED,
+            error_code="harness_driver_failed",
+            error_message="bounded driver diagnostic",
+            trace_count=1,
+            final_sequence=0,
+        )
+
+
 class LocalTransfer:
     def __init__(self, output_dir: Path, replay_input: Path, artifact_store: ArtifactStore) -> None:
         self.output_dir = output_dir
@@ -460,6 +498,38 @@ async def test_record_request_rejects_missing_manifest_identity(
 
     with pytest.raises(ReplayPreparationError, match=message):
         await engine.record_request(request)
+
+
+async def test_record_request_preserves_the_primary_execution_failure(
+    tmp_path: Path,
+) -> None:
+    scheduler = FakeScheduler()
+    artifacts = ArtifactStore(tmp_path / "artifacts")
+    engine = ReplayEngine(
+        WeekOneConfig(tracing=TraceConfig(output_dir=tmp_path / "trajectories")),
+        scheduler,
+        FailedRecordingRuntime(),
+        RuleBasedScorer(),
+        ManifestStore(tmp_path / "replays"),
+        artifacts,
+        LocalTransfer(tmp_path / "out", tmp_path / "in", artifacts),
+        TemplateCaseSource(),
+    )
+    request = ExecutionRequest(
+        execution_id="failed-record-request",
+        case_id="case",
+        prompt="prompt",
+        scenario_id="scenario",
+        seed=1,
+    )
+
+    with pytest.raises(
+        ReplayPreparationError,
+        match="recorded execution failed.*bounded driver diagnostic",
+    ):
+        await engine.record_request(request)
+
+    assert scheduler.destroyed is True
 
 
 @pytest.mark.parametrize("control", ["safe", "vulnerable"])

@@ -127,3 +127,12 @@ def test_bootstrap_mapping_round_trips_as_canonical_json() -> None:
         specs,
     )
     assert json.loads(json.dumps(manifest)) == manifest
+
+
+def test_driver_diagnostic_summary_is_bounded_to_the_first_printable_line() -> None:
+    diagnostic = "\nError: bridge startup failed\x00\ninternal stack details\n"
+
+    summary = DeepSeekHarnessAdapter._driver_diagnostic_summary(diagnostic)
+
+    assert summary == "Error: bridge startup failed"
+    assert DeepSeekHarnessAdapter._driver_diagnostic_summary(None) == "unavailable"
