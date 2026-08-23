@@ -219,7 +219,7 @@ try {
   await harness.close()
   harness = null
   const summary = JSON.parse(await readFile(summaryPath, 'utf8'))
-  if (!summary.complete || summary.final_answer !== finalResponse) {
+  if (!summary.complete) {
     const recordLines = (await readFile(resolve(episodeDir, 'bridge-records.ndjson'), 'utf8'))
       .trimEnd().split('\n').filter(Boolean)
     const lastRecord = recordLines.length ? JSON.parse(recordLines.at(-1)) : null
@@ -236,7 +236,9 @@ try {
     )
   }
   emit(executionId, 'driver_finished', {
-    final_response: finalResponse,
+    // The SDK activity response is not causally bound to submit. The bridge
+    // value is the validated Office execution fact used by TRACE and Oracle.
+    final_response: summary.final_answer,
     decision_count: model.decisions.length,
     activity_count: activityCount + 1,
     token_usage: model.tokenUsage,
