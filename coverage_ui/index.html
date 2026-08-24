@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>TRACE-G 覆盖率变异展示</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="brand" href="#overview" aria-label="返回 Campaign 总览">
+        <span class="brand-mark" aria-hidden="true">TG</span>
+        <span><strong>TRACE-G</strong><small>覆盖率变异展示</small></span>
+      </a>
+      <div class="campaign-picker">
+        <label for="campaign-select">Campaign</label>
+        <select id="campaign-select" aria-label="选择 Campaign"></select>
+      </div>
+      <div class="header-actions">
+        <span id="source-badge" class="status-badge pending">读取中</span>
+        <label class="sync-control" title="自动读取原子发布的新快照">
+          <span>自动更新</span>
+          <input id="auto-sync" type="checkbox" checked />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+        <button id="refresh-button" class="icon-button" type="button" title="立即刷新" aria-label="立即刷新">↻</button>
+        <label class="import-button">导入 JSON<input id="file-input" type="file" accept="application/json,.json" /></label>
+      </div>
+    </header>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <div class="app-shell">
+      <aside class="navigation-rail">
+        <div class="campaign-rail-identity">
+          <span id="rail-runtime">--</span>
+          <strong id="rail-campaign-id">--</strong>
+          <code id="rail-identity">--</code>
+        </div>
+        <nav id="page-navigation" class="page-navigation" aria-label="Campaign 页面">
+          <button type="button" data-view="overview">
+            <span class="nav-icon" aria-hidden="true">▦</span>
+            <span><strong>Campaign 总览</strong><small id="overview-nav-detail">--</small></span>
+          </button>
+          <button type="button" data-view="baseline">
+            <span class="nav-icon" aria-hidden="true">◉</span>
+            <span><strong>初始基线</strong><small>不计入 Campaign 代数</small></span>
+          </button>
+        </nav>
+        <div class="generation-heading"><span>正式代际</span><strong id="generation-count">0</strong></div>
+        <nav id="generation-list" class="generation-list" aria-label="正式代际"></nav>
+        <div class="rail-foot"><span>快照摘要</span><code id="snapshot-digest">--</code></div>
+      </aside>
+
+      <main id="main-content">
+        <section id="overview-view" class="view" aria-labelledby="overview-title">
+          <div class="view-heading">
+            <div><p class="section-index">CAMPAIGN</p><h1 id="overview-title">Campaign 总览</h1><p id="overview-subtitle" class="view-subtitle">--</p></div>
+            <span id="campaign-status" class="status-badge">--</span>
+          </div>
+          <div id="metric-grid" class="metric-grid"></div>
+          <section class="section-block" aria-labelledby="growth-title">
+            <div class="section-heading">
+              <div><p class="section-index">COVERAGE GROWTH</p><h2 id="growth-title">累计覆盖增长</h2></div>
+              <div class="chart-legend" aria-label="图例"><span><i class="legend-behavior"></i>行为特征</span><span><i class="legend-risk"></i>风险上下文</span></div>
+            </div>
+            <canvas id="coverage-chart" height="260" aria-label="累计覆盖增长折线图"></canvas>
+          </section>
+          <section class="section-block" aria-labelledby="map-title">
+            <div class="section-heading">
+              <div><p class="section-index">GENERATION MAP</p><h2 id="map-title">代际覆盖地图</h2></div>
+              <p class="section-note">工具路径、当代新增特征与风险上下文</p>
+            </div>
+            <div class="coverage-table-scroll">
+              <table class="coverage-table">
+                <thead><tr><th>代际</th><th>Agent 工具路径</th><th>新增行为特征</th><th>风险上下文</th><th>累计增长</th></tr></thead>
+                <tbody id="coverage-map-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section id="baseline-view" class="view" aria-labelledby="baseline-title" hidden>
+          <div class="view-heading">
+            <div><p class="section-index">INITIAL BASELINE</p><h1 id="baseline-title">正式循环前的冻结起点</h1><p class="view-subtitle">这里不是 Generation 1，不包含上一代 Feedback。</p></div>
+            <span class="status-badge neutral">Generation 0 之前</span>
+          </div>
+          <section class="section-block" aria-labelledby="task-title">
+            <div class="section-heading compact"><div><p class="section-index">AGENT TASK</p><h2 id="task-title">冻结任务文本</h2></div><code id="baseline-case-id">--</code></div>
+            <pre id="baseline-task" class="evidence-text"></pre>
+          </section>
+          <section class="section-block" aria-labelledby="selection-title">
+            <div class="section-heading"><div><p class="section-index">G1 SELECTION</p><h2 id="selection-title">第一代父种子如何选出</h2></div><code id="baseline-state-digest">--</code></div>
+            <div id="selection-facts" class="fact-grid"></div>
+          </section>
+          <section class="section-block" aria-labelledby="pool-title">
+            <div class="section-heading compact"><div><p class="section-index">SEED POOL</p><h2 id="pool-title">冻结初始种子池</h2></div><span id="seed-count" class="count-label">0 条</span></div>
+            <div id="seed-pool" class="seed-pool"></div>
+          </section>
+        </section>
+
+        <section id="generation-view" class="view" aria-labelledby="generation-title" hidden>
+          <div class="view-heading">
+            <div><p id="generation-eyebrow" class="section-index">GENERATION --</p><h1 id="generation-title">代际详情</h1><p id="generation-subtitle" class="view-subtitle">--</p></div>
+            <span id="generation-status" class="status-badge">--</span>
+          </div>
+          <section class="section-block" aria-labelledby="input-title">
+            <div class="section-heading"><div><p class="section-index">01 · EXPLORATION DIRECTION</p><h2 id="input-title">本代探索方向</h2><p class="section-note">根据风险覆盖空白或行为路径空白选择目标，并记录 Scheduler 的选择理由。</p></div><code id="decision-digest">--</code></div>
+            <div id="decision-flow" class="decision-flow"></div>
+          </section>
+          <section class="section-block" aria-labelledby="parent-selection-title">
+            <div class="section-heading"><div><p class="section-index">02 · PARENT SEED</p><h2 id="parent-selection-title">父种子选择</h2><p class="section-note">展示本代使用的种子、来源、代际深度和历史算子；归档未提供的字段明确标记。</p></div></div>
+            <div id="parent-selection" class="parent-selection"></div>
+          </section>
+          <section class="section-block" aria-labelledby="mutation-title">
+            <div class="section-heading"><div><p class="section-index">03 · MUTATION</p><h2 id="mutation-title">变异过程</h2><p class="section-note">展示实际算子链、父种子与候选的变化，以及宿主验证结果。</p></div><span id="validation-badge" class="status-badge">--</span></div>
+            <div id="mutation-meta" class="mutation-meta"></div>
+            <div id="operator-chain" class="operator-chain" aria-label="本代实际使用的变异算子"></div>
+            <div class="diff-grid">
+              <article class="text-surface"><div class="surface-title"><span>父种子</span><code id="parent-seed-id">--</code></div><pre id="parent-content"></pre></article>
+              <article class="text-surface changed"><div class="surface-title"><span>Mutator 候选</span><code id="candidate-id">--</code></div><pre id="candidate-content"></pre></article>
+            </div>
+            <div id="provider-attempts" class="provider-attempts"></div>
+          </section>
+          <section id="agent-input-section" class="section-block" aria-labelledby="agent-input-title">
+            <div class="section-heading"><div><p class="section-index">04 · AGENT INPUT</p><h2 id="agent-input-title">Agent 实际输入</h2><p class="section-note">把正常任务文本与写入模拟办公对象的候选内容分开显示。</p></div><code id="execution-id">--</code></div>
+            <div class="agent-input-grid">
+              <article class="input-surface"><h3>直接任务文本</h3><pre id="agent-task"></pre></article>
+              <article class="input-surface"><h3 id="delivery-heading">模拟环境内候选内容</h3><pre id="delivered-content"></pre></article>
+            </div>
+          </section>
+          <section id="episode-section" class="section-block" aria-labelledby="timeline-title">
+            <div class="section-heading timeline-heading">
+              <div><p class="section-index">05 · TRACE EVENT 1.2</p><h2 id="timeline-title">Agent 行为时间线</h2></div>
+              <div class="timeline-controls"><span id="event-progress">0 / 0</span><button id="timeline-prev" class="icon-button" type="button" title="上一个事件" aria-label="上一个事件">‹</button><button id="timeline-play" class="icon-button primary" type="button" title="播放时间线" aria-label="播放时间线">▶</button><button id="timeline-next" class="icon-button" type="button" title="下一个事件" aria-label="下一个事件">›</button><select id="timeline-speed" aria-label="播放速度" title="播放速度"><option value="1600">0.5×</option><option value="900" selected>1×</option><option value="450">2×</option></select></div>
+            </div>
+            <div class="timeline-layout"><ol id="timeline-list" class="timeline-list"></ol><article id="event-detail" class="event-detail"></article></div>
+          </section>
+          <section id="non-episode-section" class="section-block non-episode" hidden>
+            <div class="non-episode-mark" aria-hidden="true">×</div><div><p class="section-index">NON-EPISODE SETTLEMENT</p><h2>候选在启动 Agent 前被拒绝</h2><p id="non-episode-reason"></p></div>
+          </section>
+          <section class="section-block" aria-labelledby="contribution-title">
+            <div class="section-heading"><div><p class="section-index">06 · COVERAGE SETTLEMENT</p><h2 id="contribution-title">Coverage 结算</h2><p class="section-note">同时展示风险覆盖和行为覆盖的前值、当代增量、结算后累计值。</p></div><div id="coverage-totals" class="coverage-totals"></div></div>
+            <div class="coverage-detail-grid">
+              <section aria-labelledby="tool-path-title"><h3 id="tool-path-title">有序工具路径</h3><ol id="tool-path" class="tool-path"></ol></section>
+              <section aria-labelledby="behavior-title"><h3 id="behavior-title">行为特征</h3><div id="behavior-features" class="feature-groups"></div></section>
+              <section aria-labelledby="risk-title"><h3 id="risk-title">风险上下文</h3><div id="risk-contexts" class="risk-contexts"></div></section>
+            </div>
+          </section>
+          <section class="section-block" aria-labelledby="seed-settlement-title">
+            <div class="section-heading"><div><p class="section-index">07 · SEED POOL SETTLEMENT</p><h2 id="seed-settlement-title">种子池结算</h2><p class="section-note">只有通过晋升门的候选才会成为后续可选择的 Corpus 种子；Finding-only 不等于可复用种子。</p></div><span id="seed-settlement-status" class="status-badge">--</span></div>
+            <div id="seed-settlement" class="seed-settlement"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
