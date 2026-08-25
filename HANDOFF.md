@@ -1,5 +1,19 @@
 # TRACE-G WP2 当前交接
 
+## 2026-08-25 覆盖率变异展示前端接入真实三代归档
+
+- `coverage_ui/data/latest.json` 已替换为服务器 Campaign
+  `office-v2-real-g3-98478fd` 的只读展示快照，不再是 Harness/LangGraph Fixture。
+- 数据绑定源码 `98478fd629d3004b84f5f5af83b20470efafb57c`、Qwen3.5 27B 模型锁、
+  三个真实 Mutator 候选、三个完整 Agent Episode、逐代 Feedback、Coverage 和种子晋升。
+- 当前结果为 3 个有效 Episode、71 个主要行为特征、1 个风险上下文；每代 CoverageDelta
+  已从 Recording/Oracle 重新恢复并与 Campaign SQLite 结算摘要一致。
+- 新增通用只读转换器 `scripts/build_office_v2_coverage_ui_snapshot.py`，后续 5/10/20 代归档
+  可复用同一合同更新，不得硬编码代数，也不得写回 Campaign。
+- 前端聚焦测试 `10 passed`，修改文件 Ruff、`git diff --check` 通过；Playwright 在桌面和
+  手机视口确认第三代 49 个 TraceEvent 可展示、无横向溢出或控制台错误。
+- 本地真实数据服务使用 `http://127.0.0.1:8766/`；`8765` 仍有旧会话返回 Fixture，未强杀。
+
 ## 2026-08-23 v0.2.0-rc.2 本地修复候选
 
 - 候选分支以 Stage 6 最新修复 `34a2789` 为底座，合入 DeepSeek Harness H0-H6。

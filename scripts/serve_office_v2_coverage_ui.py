@@ -160,6 +160,13 @@ def _validate_snapshot(parsed: object) -> dict[str, Any]:
     _non_empty_text(source.get("kind"), "source.kind")
     if source.get("kind") == "deterministic_fixture" and source.get("is_server_data") is not False:
         raise ValueError("deterministic fixture must explicitly declare is_server_data=false")
+    if source.get("kind") == "server_campaign_archive":
+        if source.get("is_server_data") is not True:
+            raise ValueError("server Campaign archive must declare is_server_data=true")
+        if source.get("integrity_status") != "verified_archive":
+            raise ValueError("server Campaign archive must be verified")
+        _non_empty_text(source.get("archive_sha256"), "source.archive_sha256")
+        _non_empty_text(source.get("source_revision"), "source.source_revision")
 
     campaigns = _items(snapshot.get("campaigns"), "campaigns")
     if not campaigns:

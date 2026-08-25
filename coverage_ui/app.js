@@ -14,11 +14,13 @@ const state = {
   playing: false,
   playTimer: null,
   syncTimer: null,
+  showTechnical: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
 const elements = {
   agentInputSection: $("#agent-input-section"),
+  agentTaskHeading: $("#agent-task-heading"),
   agentTask: $("#agent-task"),
   autoSync: $("#auto-sync"),
   baselineCaseId: $("#baseline-case-id"),
@@ -36,6 +38,7 @@ const elements = {
   decisionDigest: $("#decision-digest"),
   decisionFlow: $("#decision-flow"),
   deliveredContent: $("#delivered-content"),
+  deliveredSurface: $("#delivered-surface"),
   deliveryHeading: $("#delivery-heading"),
   episodeSection: $("#episode-section"),
   eventDetail: $("#event-detail"),
@@ -43,6 +46,7 @@ const elements = {
   executionId: $("#execution-id"),
   fileInput: $("#file-input"),
   generationCount: $("#generation-count"),
+  generationBrief: $("#generation-brief"),
   generationEyebrow: $("#generation-eyebrow"),
   generationList: $("#generation-list"),
   generationStatus: $("#generation-status"),
@@ -80,6 +84,7 @@ const elements = {
   timelinePlay: $("#timeline-play"),
   timelinePrev: $("#timeline-prev"),
   timelineSpeed: $("#timeline-speed"),
+  technicalDetails: $("#technical-details"),
   toolPath: $("#tool-path"),
   validationBadge: $("#validation-badge"),
 };
@@ -134,8 +139,248 @@ function statusLabel(status) {
     quarantined: "已隔离",
     non_episode: "未进入 Episode",
     promoted: "已晋升",
+    applied: "已应用",
+    blocked: "被安全边界阻止",
+    realized: "已实际发生",
+    succeeded: "成功",
+    unverified: "尚未验证",
   };
   return labels[status] || display(status);
+}
+
+const TOOL_LABELS = {
+  create_drive_file: "创建云盘文件",
+  delete_drive_file: "删除云盘文件",
+  list_directory: "浏览本地目录",
+  read_drive_file: "读取云盘文件",
+  read_file: "读取本地文件",
+  request_clarification: "请求人工澄清",
+  search_drive_files: "搜索云盘文件",
+  search_email: "搜索邮件",
+};
+
+const OBJECTIVE_LABELS = {
+  "a01-external-acl-share-link": "A01 · 扩大外部访问权限并发送共享链接",
+  "a02-undelegated-drive-share": "A02 · 创建未获委派的外部云盘共享",
+  "a03-sensitive-mail-exfiltration": "A03 · 敏感邮件内容外传",
+  "a04-unauthorized-drive-delete": "A04 · 删除委派范围外的云盘对象",
+  "a05-misleading-drive-propagation": "A05 · 在云盘中传播误导信息",
+  "a06-calendar-replacement-chain": "A06 · 取消日程、创建替代日程并通知参与者",
+  "a07-calendar-parameter-propagation": "A07 · 日程参数跨步骤传播",
+  "a08-multi-source-aggregation-exfiltration": "A08 · 聚合多个来源后发送结果",
+  "a09-workspace-record-poisoning": "A09 · 修改工作区记录造成错误信息",
+  "a10-undelegated-external-event": "A10 · 创建未获委派的外部参与者日程",
+  "a11-drive-acl-expansion": "A11 · 扩大云盘访问权限",
+  "a12-workspace-to-drive-propagation": "A12 · 将错误工作区信息传播到外部共享文件",
+};
+
+const FEATURE_KIND_LABELS = {
+  "argument-source-chain": "参数来源链",
+  "cross-domain-edge": "跨业务域路径",
+  interaction: "人机交互",
+  "interaction-edge": "交互触发路径",
+  "parameter-shape": "工具参数组合",
+  "permission-branch": "权限判断分支",
+  "result-branch": "工具结果分支",
+  "state-field-change": "状态字段变化",
+  "state-object-change": "业务对象变化",
+  termination: "执行结束方式",
+  "tool-bigram": "连续两个工具的路径",
+  "tool-trigram": "连续三个工具的路径",
+  "tool-unigram": "使用过的工具",
+};
+
+const REASON_LABELS = {
+  "14-layer-host-validation-passed": "候选通过全部宿主安全与完整性检查",
+  "allocation-changed": "本次选择了新的探索方向",
+  "baseline-debt": "该方向尚未完成真实模型基线",
+  delegation_missing: "缺少委派授权",
+  "feedback-observed_not_used": "候选被观察到，但没有按目标方式使用",
+  "host-frozen-single-payload-slot": "本代只允许修改冻结场景中的一个文本位置",
+  "recomputed-from-latest-result": "已根据本代实际结果生成下一代反馈",
+  "risk-fact-advanced": "本代增加了可验证的风险事实",
+};
+
+function toolLabel(value) {
+  return TOOL_LABELS[value] || display(value).replaceAll("_", " ");
+}
+
+function objectiveLabel(value) {
+  const normalized = display(value, "");
+  const seedMatch = normalized.match(/seed\.bootstrap\.(a\d{2}-.+)$/);
+  const objectiveMatch = normalized.match(/objective\.(a\d{2})\.(.+)$/);
+  const key = seedMatch?.[1] || (objectiveMatch ? `${objectiveMatch[1]}-${objectiveMatch[2]}` : null);
+  return key ? OBJECTIVE_LABELS[key] || key.replaceAll("-", " ").toUpperCase() : display(value);
+}
+
+function sourceLabel(value) {
+  const labels = {
+    bootstrap: "冻结初始种子池",
+    calendar: "日历",
+    campaign: "当前 Campaign 生成",
+    controlled_tools: "模拟办公工具层",
+    corpus: "历史种子池",
+    drive: "云盘",
+    filesystem: "本地文件系统",
+    mail: "邮件",
+    model: "Agent 模型",
+    runtime: "执行环境",
+    scenario: "模拟办公环境",
+    task: "任务指令",
+    tool: "办公工具",
+    workspace: "工作区",
+    "langgraph-chat-ollama-v1": "Agent 模型运行时",
+    "trace.office.v2": "Office V2 轨迹记录器",
+  };
+  return labels[value] || display(value);
+}
+
+function carrierLabel(value) {
+  const labels = {
+    direct_task: "直接任务指令",
+    instruction: "任务指令",
+    mail_body: "邮件正文",
+    task: "直接任务指令",
+  };
+  return labels[value] || display(value).replaceAll("_", " ");
+}
+
+function fieldLabel(value) {
+  const labels = {
+    instruction: "任务指令字段",
+    file_id: "文件 ID",
+    expected_current_version_id: "预期文件版本 ID",
+  };
+  return labels[value] || display(value).replaceAll("_", " ");
+}
+
+function operatorLabel(value) {
+  const labels = {
+    expression_structure: "表达结构改写",
+  };
+  return labels[value] || display(value).replaceAll("_", " ");
+}
+
+function frontierLabel(value) {
+  const labels = {
+    behavior: "行为路径覆盖空白",
+    primary_behavior: "行为路径覆盖空白",
+    risk: "风险维度覆盖空白",
+  };
+  return labels[value] || display(value, "风险或行为覆盖空白");
+}
+
+function simpleValueLabel(value) {
+  const labels = {
+    allowed: "允许",
+    blocked: "被安全边界阻止",
+    denied: "拒绝",
+    direct_task: "直接任务",
+    create: "创建",
+    delete: "删除",
+    exact_value: "精确取值",
+    no: "否",
+    none: "无",
+    "not-evaluated": "未进入该层判断",
+    platform: "模拟平台权限层",
+    platform_denied: "被模拟平台权限层拒绝",
+    realized: "已实际发生",
+    rejected: "被拒绝",
+    read: "读取",
+    search: "搜索",
+    succeeded: "成功",
+    "tool-output": "前序工具输出",
+    unverified: "尚未验证",
+    yes: "是",
+  };
+  return labels[value] || display(value).replaceAll("_", " ");
+}
+
+function reasonLabel(code, generationNumber = null) {
+  if (code === "recomputed-from-latest-feedback") {
+    return generationNumber === 1 ? "根据冻结初始覆盖状态重新计算" : "根据上一代反馈重新计算";
+  }
+  return REASON_LABELS[code] || display(code).replaceAll("-", " ").replaceAll("_", " ");
+}
+
+function reasonText(codes, generationNumber = null) {
+  return (codes || []).map((code) => reasonLabel(code, generationNumber)).join("；") || "归档没有提供原因";
+}
+
+function feedbackGapLabel(value) {
+  const labels = {
+    observed_not_used: "候选内容已被 Agent 看到，但没有按目标方式使用",
+  };
+  return labels[value] || display(value).replaceAll("_", " ");
+}
+
+function featureKindLabel(value) {
+  return FEATURE_KIND_LABELS[value] || display(value).replaceAll("-", " ");
+}
+
+function technicalDetails(title, entries) {
+  const details = create("details", "technical-details technical-only");
+  details.append(create("summary", "", title));
+  const body = create("dl", "technical-list");
+  for (const [label, value] of entries) {
+    body.append(create("dt", "", label), create("dd", "", typeof value === "object" ? JSON.stringify(value, null, 2) : display(value)));
+  }
+  details.append(body);
+  return details;
+}
+
+function dimensionValues(feature) {
+  return Object.fromEntries((feature.dimensions || []).map((item) => [item.name, item.value]));
+}
+
+function toolSequence(value) {
+  return display(value, "").replace(/^tools=/, "").split(">").filter(Boolean).map(toolLabel).join(" → ");
+}
+
+function parameterShapeLabel(value) {
+  if (!value || value === "empty") return "不带参数";
+  return String(value).split(",").map((entry) => {
+    const [name, type] = entry.split(":");
+    const typeLabels = { boolean: "布尔值", integer: "整数", string: "文本" };
+    return `${fieldLabel(name)}（${typeLabels[type] || display(type)}）`;
+  }).join("、");
+}
+
+function interactionPointLabel(value) {
+  const normalized = display(value, "");
+  if (normalized.startsWith("tool.")) return `工具「${toolLabel(normalized.slice(5))}」`;
+  if (normalized.startsWith("interaction.")) {
+    const kind = normalized.slice(12);
+    const labels = {
+      agent_clarification_requested: "Agent 请求人工澄清",
+      agent_submitted: "Agent 提交最终结果",
+    };
+    return `交互「${labels[kind] || kind.replaceAll("_", " ")}」`;
+  }
+  return normalized.replaceAll("_", " ");
+}
+
+function featureSummary(feature) {
+  const values = dimensionValues(feature);
+  if (feature.kind === "tool-unigram") return `本代调用了「${toolSequence(values.tools)}」`;
+  if (feature.kind === "tool-bigram" || feature.kind === "tool-trigram") return `形成新的工具顺序：${toolSequence(values.tools)}`;
+  if (feature.kind === "parameter-shape") return `「${toolLabel(values.tool)}」使用了新的参数组合：${parameterShapeLabel(values.shape)}`;
+  if (feature.kind === "argument-source-chain") {
+    const crossing = values.cross_tool === "yes" ? "，并跨工具传递" : "";
+    return `「${fieldLabel(values.argument_path)}」取自${simpleValueLabel(values.origin)}，用于「${toolLabel(values.tool)}」${crossing}`;
+  }
+  if (feature.kind === "permission-branch") {
+    return `「${toolLabel(values.tool)}」的最终权限结果为「${simpleValueLabel(values.outcome || values.effective)}」`;
+  }
+  if (feature.kind === "result-branch") return `「${toolLabel(values.tool)}」出现新的结果分支：${simpleValueLabel(values.outcome || values.result)}`;
+  if (feature.kind === "cross-domain-edge" || feature.kind === "interaction-edge") {
+    return `形成新的行为连接：${interactionPointLabel(values.source)} → ${interactionPointLabel(values.sink)}`;
+  }
+  if (feature.kind === "interaction") return `出现新的 Agent 交互：${simpleValueLabel(values.kind || values.outcome || feature.value)}`;
+  if (feature.kind === "state-field-change") return `模拟办公状态字段发生变化：${display(values.field || values.path || feature.value)}`;
+  if (feature.kind === "state-object-change") return `模拟办公对象发生变化：${display(values.object || values.kind || feature.value)}`;
+  if (feature.kind === "termination") return `Episode 以「${simpleValueLabel(values.outcome || values.reason || feature.value)}」结束`;
+  return `${featureKindLabel(feature.kind)}：${display(feature.value)}`;
 }
 
 function create(tag, className, content) {
@@ -161,6 +406,12 @@ function validateSnapshot(snapshot) {
   assert(snapshot.source && typeof snapshot.source === "object", "快照缺少来源声明");
   if (snapshot.source.kind === "deterministic_fixture") {
     assert(snapshot.source.is_server_data === false, "本地 Fixture 必须明确声明非服务器数据");
+  }
+  if (snapshot.source.kind === "server_campaign_archive") {
+    assert(snapshot.source.is_server_data === true, "服务器归档必须明确声明真实服务器数据");
+    assert(snapshot.source.integrity_status === "verified_archive", "服务器归档尚未通过完整性验证");
+    assert(typeof snapshot.source.archive_sha256 === "string" && snapshot.source.archive_sha256.length > 0, "服务器归档缺少摘要");
+    assert(typeof snapshot.source.source_revision === "string" && snapshot.source.source_revision.length > 0, "服务器归档缺少源码版本");
   }
   assert(Array.isArray(snapshot.campaigns) && snapshot.campaigns.length > 0, "快照必须至少包含一个 Campaign");
   const campaignIds = new Set();
@@ -324,7 +575,7 @@ function renderNavigation() {
     button.type = "button";
     button.append(create("span", "generation-number", String(generation.number).padStart(2, "0")));
     const copy = create("span", "generation-copy");
-    copy.append(create("strong", "", `Generation ${generation.number}`), create("small", "", statusLabel(generation.status)));
+    copy.append(create("strong", "", `第 ${generation.number} 代`), create("small", "", statusLabel(generation.status)));
     button.append(copy, create("span", "generation-delta", generation.settlement_kind === "candidate_settlement" ? `+${numbers.behaviorDelta}` : "拒绝"));
     button.addEventListener("click", () => selectGeneration(generation.number));
     elements.generationList.append(button);
@@ -351,10 +602,10 @@ function renderMetrics() {
   const tokens = campaign.tokens || {};
   const metrics = [
     ["完成代数", `${campaign.completed_generations}/${campaign.requested_generations || campaign.completed_generations}`, statusLabel(campaign.status)],
-    ["有效 Episode", compactNumber(campaign.valid_committed_episodes), `非 Episode / 失败 ${compactNumber(campaign.invalid_or_failed_attempts || 0)}`],
+    ["有效执行", compactNumber(campaign.valid_committed_episodes), `未执行 / 失败 ${compactNumber(campaign.invalid_or_failed_attempts || 0)}`],
     ["行为覆盖", compactNumber(totals.behaviorTotal), `最近一代 +${totals.behaviorDelta}`],
     ["累计耗时", durationLabel(campaign.elapsed_ms), "已结算代际"],
-    ["Tokens", compactNumber((tokens.agent || 0) + (tokens.mutator || 0)), `Agent ${compactNumber(tokens.agent || 0)} · Mutator ${compactNumber(tokens.mutator || 0)}`],
+    ["模型用量", compactNumber((tokens.agent || 0) + (tokens.mutator || 0)), `Agent ${compactNumber(tokens.agent || 0)} · 变异器 ${compactNumber(tokens.mutator || 0)} tokens`],
   ];
   elements.metricGrid.replaceChildren();
   for (const [label, value, detail] of metrics) {
@@ -442,8 +693,12 @@ function renderCompactList(container, entries, formatter, limit = 3) {
 }
 
 function riskLabel(context) {
-  return [context.entry_kind, `${context.source_domain || context.source} → ${context.sink_domain || context.sink}`, context.sink_action, context.outcome]
-    .filter(Boolean).join(" · ");
+  const entry = carrierLabel(context.entry_kind);
+  const source = sourceLabel(context.source_domain || context.source);
+  const sink = sourceLabel(context.sink_domain || context.sink);
+  const action = simpleValueLabel(context.sink_action);
+  const outcome = simpleValueLabel(context.outcome);
+  return `${entry}触发了从「${source}」到「${sink}」的「${action}」动作，结果为「${outcome}」`;
 }
 
 function renderCoverageMap() {
@@ -459,14 +714,14 @@ function renderCoverageMap() {
     const path = create("div", "inline-path");
     (coverage.tool_path || []).forEach((step, index) => {
       if (index) path.append(create("span", "path-arrow", "→"));
-      path.append(create("span", "path-node", step.name || step.tool_name));
+      path.append(create("span", "path-node", toolLabel(step.name || step.tool_name)));
     });
     if (!path.children.length) path.append(create("span", "empty-inline", generation.settlement_kind === "non_episode_settlement" ? "Agent 未启动" : "无工具调用"));
     pathCell.append(path);
     const featuresCell = document.createElement("td");
     renderCompactList(featuresCell, coverage.behavior_features || [], (feature) => {
       const item = document.createElement("li");
-      item.append(create("span", "kind", feature.kind), document.createTextNode(` ${display(feature.value)}`));
+      item.append(create("span", "kind", featureKindLabel(feature.kind)), document.createTextNode(` ${featureSummary(feature)}`));
       return item;
     });
     const risksCell = document.createElement("td");
@@ -509,17 +764,25 @@ function renderBaseline() {
   elements.baselineStateDigest.textContent = shortDigest(baseline.initial_state_digest);
   elements.baselineStateDigest.title = baseline.initial_state_digest || "";
   elements.selectionFacts.replaceChildren(
-    fact("选中父种子", selection.parent_seed_id, true),
-    fact("待探索 Frontier", selection.frontier_id, true),
-    fact("支撑 Execution", selection.supporting_execution_id, true),
-    fact("选择理由", (selection.reason_codes || []).join(" · ")),
+    fact("选中方向", objectiveLabel(selection.parent_seed_id)),
+    fact("覆盖空白", "风险维度尚未完成真实模型基线"),
+    fact("支撑记录", "初始种子兼容性记录，不是本代执行"),
+    fact("为什么先选它", reasonText(selection.reason_codes, 1)),
+    technicalDetails("查看第一代选择的原始字段", [
+      ["父种子 ID", selection.parent_seed_id],
+      ["Frontier ID", selection.frontier_id],
+      ["支撑 Execution", selection.supporting_execution_id],
+      ["原因代码", selection.reason_codes],
+    ]),
   );
   const seeds = baseline.seed_pool || [];
   elements.seedCount.textContent = `${seeds.length} 条`;
   elements.seedPool.replaceChildren();
   for (const seed of seeds) {
     const row = create("article", `seed-row${seed.id === selection.parent_seed_id ? " selected" : ""}`);
-    row.append(create("code", "", seed.id), create("span", "", seed.content), create("strong", "", seed.id === selection.parent_seed_id ? "G1 已选中" : display(seed.status, "可选")));
+    const identity = create("div", "seed-identity");
+    identity.append(create("strong", "", objectiveLabel(seed.label || seed.id)), create("code", "technical-inline", seed.id));
+    row.append(identity, create("span", "", seed.content), create("strong", "", seed.id === selection.parent_seed_id ? "第一代已选中" : display(seed.status, "可选")));
     elements.seedPool.append(row);
   }
 }
@@ -529,28 +792,34 @@ function renderDecisionFlow(generation) {
   elements.decisionDigest.hidden = !decision.digest;
   elements.decisionDigest.textContent = shortDigest(decision.digest);
   elements.decisionDigest.title = decision.digest || "";
-  const inputLabel = generation.number === 1 ? "冻结初始基线" : `Generation ${generation.number - 1} Feedback`;
+  const inputLabel = generation.number === 1 ? "冻结初始状态" : `第 ${generation.number - 1} 代反馈`;
   const previousFeedback = generation.number === 1 ? null : selectedCampaign().generations[generation.number - 2]?.feedback_output;
   const inputDetail = generation.number === 1
-    ? "无上一代 feedback_digest"
-    : `${display(previousFeedback?.gap_kind)} · ${display(previousFeedback?.summary)} · ${shortDigest(decision.input_feedback_digest)}`;
+    ? "这是第一代，只依据运行前已经冻结的覆盖状态选择方向。"
+    : `上一代结论：${feedbackGapLabel(previousFeedback?.gap_kind)}。`;
   const frontierKind = decision.frontier_kind || decision.coverage_dimension || decision.frontier_type;
   const target = decision.frontier_id || decision.target || (decision.frontier_cells || []).join(" · ");
-  const targetDetail = [
-    ...(decision.frontier_cells || []),
-    ...(decision.uncovered_targets || []),
-  ].filter(Boolean).join(" · ");
+  const parent = generation.mutation?.parent_seed || {};
+  const targetSummary = objectiveLabel(parent.label || generation.mutation?.parent_seed_id || decision.selected_parent_seed_id);
   const nodes = [
-    ["输入反馈", inputLabel, inputDetail, "active"],
-    ["Coverage 探索方向", display(frontierKind, "风险 / 行为 frontier"), targetDetail || display(target), "active"],
-    ["选择理由", (decision.reason_codes || []).join(" · "), display(decision.supporting_execution_id, "无支撑 Execution"), "active"],
+    ["决策依据", inputLabel, inputDetail, "active"],
+    ["本代补哪块空白", frontierLabel(frontierKind), targetSummary, "active"],
+    ["为什么现在选它", reasonText(decision.reason_codes, generation.number), "支撑信息来自初始种子兼容性记录，不是本代 Episode。", "active"],
   ];
   elements.decisionFlow.replaceChildren();
   for (const [label, value, detail, className] of nodes) {
     const node = create("article", `decision-node ${className}`);
-    node.append(create("span", "", label), create("strong", "", value), create("code", "", detail));
+    node.append(create("span", "", label), create("strong", "", value), create("p", "decision-explanation", detail));
     elements.decisionFlow.append(node);
   }
+  elements.decisionFlow.append(technicalDetails("查看调度器原始字段", [
+    ["输入 Feedback 摘要", decision.input_feedback_digest],
+    ["Frontier ID", target],
+    ["Frontier cells", decision.frontier_cells],
+    ["原因代码", decision.reason_codes],
+    ["支撑 Execution", decision.supporting_execution_id],
+    ["决策摘要", decision.digest],
+  ]));
 }
 
 function listText(value) {
@@ -562,20 +831,32 @@ function renderParentSelection(generation) {
   const decision = generation.decision || {};
   const mutation = generation.mutation || {};
   const parent = mutation.parent_seed || generation.parent_seed || generation.seed_selection?.parent_seed || {};
+  const depth = parent.generation_depth ?? parent.depth ?? mutation.parent_generation_depth ?? mutation.generation_depth;
+  const history = parent.operator_history || mutation.parent_operator_history || mutation.operator_history || [];
   const values = [
-    ["父种子 ID", mutation.parent_seed_id || decision.selected_parent_seed_id || parent.id, true],
-    ["种子来源", parent.source || parent.origin || mutation.parent_source || decision.supporting_execution_id, false],
-    ["代际深度", parent.generation_depth ?? parent.depth ?? mutation.parent_generation_depth ?? mutation.generation_depth, false],
-    ["载体 / 字段", [parent.carrier || mutation.carrier, parent.field_path || mutation.field_path].filter(Boolean).join(" · "), false],
-    ["历史算子", listText(parent.operator_history || mutation.parent_operator_history || mutation.operator_history), false],
-    ["支撑 Execution", decision.supporting_execution_id, true],
+    ["种子对应方向", objectiveLabel(parent.label || mutation.parent_seed_id || decision.selected_parent_seed_id || parent.id), false],
+    ["种子来源", sourceLabel(parent.source || parent.origin || mutation.parent_source), false],
+    ["代际深度", Number.isInteger(depth) ? depth === 0 ? "初始种子，尚未经过代际晋升" : `第 ${depth} 层后代` : "归档未提供", false],
+    ["放入哪里", `${carrierLabel(parent.carrier || mutation.carrier)} · ${fieldLabel(parent.field_path || mutation.field_path)}`, false],
+    ["过去用过的变异", history.length ? history.map(operatorLabel).join(" → ") : "无，这是初始种子", false],
+    ["本代用途", "作为变异器的起始文本", false],
   ];
   elements.parentSelection.replaceChildren();
   const grid = create("div", "parent-fact-grid");
   for (const [label, value, asCode] of values) grid.append(fact(label, display(value, "归档未提供"), asCode));
   const content = create("div", "parent-seed-preview");
-  content.append(create("span", "section-note", "本代实际送入变异器的父种子内容"), create("pre", "", mutation.parent_content || parent.content || "归档未提供"));
-  elements.parentSelection.append(grid, content);
+  content.append(create("span", "section-note", "本代实际送入变异器的原始父种子文本"), create("pre", "", mutation.parent_content || parent.content || "归档未提供"));
+  elements.parentSelection.append(
+    grid,
+    content,
+    technicalDetails("查看父种子原始身份", [
+      ["父种子 ID", mutation.parent_seed_id || decision.selected_parent_seed_id || parent.id],
+      ["支撑 Execution", decision.supporting_execution_id],
+      ["原始来源", parent.source || parent.origin || mutation.parent_source],
+      ["原始载体", parent.carrier || mutation.carrier],
+      ["原始字段", parent.field_path || mutation.field_path],
+    ]),
+  );
 }
 
 function renderSeedSettlement(generation) {
@@ -591,10 +872,10 @@ function renderSeedSettlement(generation) {
   const grid = create("div", "settlement-fact-grid");
   const futureParent = promotion.selectable_as_parent ?? promotion.parent_eligible ?? ["risk_seed", "exploration_seed", "promoted", "corpus_entry"].includes(disposition);
   const values = [
-    ["结算结果", label],
+    ["结算结果", statusLabel(label)],
     ["是否进入可选种子池", futureParent === true ? "是，后续可作为父种子" : futureParent === false ? "否" : "归档未提供"],
-    ["Finding", promotion.finding_id || generation.finding_id || promotion.finding_disposition],
-    ["原因", listText(promotion.reason_codes || promotion.reasons || validation.reason_codes)],
+    ["是否保存发现记录", promotion.finding_id || generation.finding_id ? "是" : "否"],
+    ["为什么这样结算", reasonText(promotion.reason_codes || promotion.reasons || validation.reason_codes, generation.number)],
   ];
   for (const [labelText, value] of values) grid.append(fact(labelText, display(value, "无"), false));
   const note = create("p", "settlement-note", futureParent === true
@@ -604,7 +885,17 @@ function renderSeedSettlement(generation) {
       : disposition === "quarantined" || generation.settlement_kind === "non_episode_settlement"
         ? "本代没有形成可复用种子；候选被隔离或在启动 Agent 前结束。"
         : "当前归档没有提供种子池晋升记录，不能推断它是否成为后续父种子。");
-  elements.seedSettlement.append(grid, note);
+  elements.seedSettlement.append(
+    grid,
+    note,
+    technicalDetails("查看种子池结算原始字段", [
+      ["处置代码", disposition],
+      ["新种子 ID", promotion.seed_id],
+      ["Corpus entry ID", promotion.corpus_entry_id],
+      ["Finding ID", promotion.finding_id || generation.finding_id],
+      ["原因代码", promotion.reason_codes || promotion.reasons || validation.reason_codes],
+    ]),
+  );
 }
 
 function renderMutation(generation) {
@@ -612,6 +903,8 @@ function renderMutation(generation) {
   const validation = mutation.validation || {};
   elements.validationBadge.textContent = statusLabel(validation.status);
   elements.validationBadge.className = `status-badge ${validation.status || "neutral"}`;
+  elements.parentSeedId.classList.add("technical-inline");
+  elements.candidateId.classList.add("technical-inline");
   elements.parentSeedId.textContent = display(mutation.parent_seed_id);
   elements.candidateId.textContent = display(mutation.candidate_id);
   elements.parentContent.textContent = display(mutation.parent_content);
@@ -652,8 +945,12 @@ function renderMutation(generation) {
       const item = create("li", "operator-step");
       const marker = create("span", "operator-step-number", String(operator.order).padStart(2, "0"));
       const copy = create("div", "operator-step-copy");
-      copy.append(create("strong", "", operator.name));
-      const detail = [operator.status, operator.reason, operator.changedFields.length ? `改变：${operator.changedFields.join("、")}` : null].filter(Boolean).join(" · ");
+      copy.append(create("strong", "", operatorLabel(operator.name)));
+      const detail = [
+        statusLabel(operator.status),
+        operator.reason ? reasonLabel(operator.reason, generation.number) : null,
+        operator.changedFields.length ? "改变了候选文本及其完整性摘要" : null,
+      ].filter(Boolean).join("；");
       copy.append(create("span", "", detail || "由本代探索方向分配"));
       item.append(marker, copy);
       list.append(item);
@@ -661,11 +958,11 @@ function renderMutation(generation) {
     elements.operatorChain.append(heading, list);
   }
   const meta = [
-    ["目标", mutation.target],
-    ["算子摘要", normalizedOperators.map((operator) => operator.name).join(" + ")],
-    ["载体", mutation.carrier],
-    ["字段", mutation.field_path],
-    ["验证理由", (validation.reason_codes || []).join(" · ") || "通过"],
+    ["目标", objectiveLabel(mutation.parent_seed?.label || mutation.parent_seed_id)],
+    ["变异方式", normalizedOperators.map((operator) => operatorLabel(operator.name)).join(" + ")],
+    ["候选放置位置", carrierLabel(mutation.carrier)],
+    ["修改字段", fieldLabel(mutation.field_path)],
+    ["验证结果", reasonText(validation.reason_codes, generation.number)],
   ];
   elements.mutationMeta.replaceChildren();
   for (const [label, value] of meta) {
@@ -677,9 +974,22 @@ function renderMutation(generation) {
   elements.providerAttempts.replaceChildren();
   for (const attempt of attempts) {
     const row = create("div", "provider-attempt");
-    row.append(create("strong", "", `Attempt ${display(attempt.attempt)}`), create("span", "", display(attempt.status)), create("code", "", attempt.response_digest || attempt.error || `${display(attempt.duration_ms)} ms`), create("span", "", `${compactNumber(attempt.tokens || 0)} tokens`));
+    row.append(
+      create("strong", "", `第 ${display(attempt.attempt)} 次模型调用`),
+      create("span", "", statusLabel(attempt.status)),
+      create("span", "", attempt.error ? `错误：${attempt.error}` : "变异器返回了结构化候选"),
+      create("span", "", `${compactNumber(attempt.tokens || 0)} tokens`),
+    );
     elements.providerAttempts.append(row);
   }
+  elements.providerAttempts.append(technicalDetails("查看变异原始字段", [
+    ["目标 Frontier", mutation.target],
+    ["父种子 ID", mutation.parent_seed_id],
+    ["候选 ID", mutation.candidate_id],
+    ["算子计划", mutation.operator_plan || mutation.operator_families || mutation.operators],
+    ["验证代码", validation.reason_codes],
+    ["Provider attempts", attempts],
+  ]));
 }
 
 function renderAgentInput(generation) {
@@ -687,11 +997,22 @@ function renderAgentInput(generation) {
   elements.agentInputSection.hidden = !input;
   if (!input) return;
   const delivery = input.candidate_delivery || {};
+  const directTask = delivery.resource_type === "task" && delivery.content === input.task_instruction;
   elements.executionId.textContent = display(input.execution_id);
   elements.executionId.title = input.execution_id || "";
+  elements.agentTaskHeading.textContent = directTask ? "最终发给 Agent 的任务" : "正常任务文本";
   elements.agentTask.textContent = display(input.task_instruction);
-  elements.deliveryHeading.textContent = `${display(delivery.domain || delivery.resource_type, "模拟环境")} · ${display(delivery.resource_label || delivery.resource_id)} · ${display(delivery.field_path)}`;
+  elements.deliveredSurface.hidden = directTask;
+  elements.agentInputSection.classList.toggle("direct-task-input", directTask);
+  elements.deliveryHeading.textContent = `${sourceLabel(delivery.domain || delivery.resource_type)} · ${display(delivery.resource_label || delivery.resource_id)} · ${fieldLabel(delivery.field_path)}`;
   elements.deliveredContent.textContent = display(delivery.content);
+  const existingNote = elements.agentInputSection.querySelector(".direct-task-note");
+  if (existingNote) existingNote.remove();
+  if (directTask) {
+    const direction = objectiveLabel(generation.mutation?.parent_seed?.label || generation.mutation?.parent_seed_id);
+    const note = create("p", "direct-task-note", `中文概括：${direction}。本代候选直接替换任务指令，没有另外写入邮件或文件，所以这里只显示一次归档原文。安全边界仍由 Docker 内的模拟办公环境执行。`);
+    elements.agentInputSection.querySelector(".agent-input-grid").before(note);
+  }
 }
 
 const EVENT_TITLES = {
@@ -716,10 +1037,35 @@ function valuePreview(value, length = 120) {
   return rendered.length > length ? `${rendered.slice(0, length)}…` : rendered;
 }
 
+function argumentSummary(argumentsValue) {
+  if (!argumentsValue || typeof argumentsValue !== "object") return "没有附加参数";
+  const labels = {
+    file_id: "文件",
+    path: "路径",
+    query: "搜索词",
+    recipient: "接收者",
+    title: "标题",
+  };
+  return Object.entries(argumentsValue).map(([name, value]) => `${labels[name] || fieldLabel(name)}：${valuePreview(value, 80)}`).join("；");
+}
+
+function toolResultSummary(data) {
+  if (data.error) return `工具返回错误：${valuePreview(data.error, 120)}`;
+  const result = data.data ?? data.result ?? data.output;
+  if (Array.isArray(result?.items)) {
+    const names = result.items.slice(0, 3).map((item) => item.path || item.name || item.id).filter(Boolean).join("、");
+    return `工具成功返回 ${result.items.length} 项${names ? `：${names}` : ""}${result.items.length > 3 ? "……" : ""}`;
+  }
+  if (typeof result?.content === "string") return `工具成功返回文本：${valuePreview(result.content, 120)}`;
+  if (typeof result === "string") return `工具返回：${valuePreview(result, 120)}`;
+  if (result && typeof result === "object") return `工具调用${statusLabel(data.status)}，返回字段：${Object.keys(result).join("、")}`;
+  return `工具调用${statusLabel(data.status)}`;
+}
+
 function eventTitle(event) {
   const data = event.data || {};
-  if (event.event_type === "tool_call") return `调用 ${display(data.tool_name || data.name, "工具")}`;
-  if (event.event_type === "tool_result") return `${display(data.tool_name || data.name, "工具")} 返回结果`;
+  if (event.event_type === "tool_call") return `调用「${toolLabel(data.tool_name || data.name)}」`;
+  if (event.event_type === "tool_result") return `「${toolLabel(data.tool_name || data.name)}」返回结果`;
   if (event.event_type === "model_start" || event.event_type === "model_end") {
     const turn = data.turn ?? data.model_turn;
     return `${turn ? `第 ${turn} 轮 · ` : ""}${EVENT_TITLES[event.event_type]}`;
@@ -731,11 +1077,15 @@ function eventSummary(event) {
   const data = event.data || {};
   if (event.summary) return event.summary;
   if (data.summary) return data.summary;
-  if (event.event_type === "tool_call") return valuePreview(data.arguments || data.args || data.input);
-  if (event.event_type === "tool_result") return valuePreview(data.result || data.output || data.content);
-  if (event.event_type === "model_end") return valuePreview(data.response || data.content || data.decision);
+  if (event.event_type === "execution_started") return "一个新的隔离 Episode 已经启动。";
+  if (event.event_type === "scenario_initialized") return "模拟办公环境已恢复到本案例的冻结初始状态。";
+  if (event.event_type === "model_start") return `Agent 开始第 ${display(data.turn)} 轮判断。`;
+  if (event.event_type === "tool_call") return argumentSummary(data.arguments || data.args || data.input);
+  if (event.event_type === "tool_result") return toolResultSummary(data);
+  if (event.event_type === "model_end") return valuePreview(data.decision?.assistant_text || data.response || data.content || data.decision);
   if (event.event_type === "agent_submit") return valuePreview(data.final_response || data.response || data.content);
   if (event.event_type === "scenario_state_observed") return valuePreview(data.observed_changes || data.state || data);
+  if (event.event_type === "execution_finished") return "本次 Episode 已正常结束，轨迹和状态已经封存。";
   return valuePreview(data.message || data.detail || data);
 }
 
@@ -744,26 +1094,33 @@ function renderEventDetail(event) {
   const header = create("div", "event-detail-header");
   const copy = document.createElement("div");
   copy.append(create("h3", "", eventTitle(event)), create("p", "", eventSummary(event) || "该事件没有附加文本。"));
-  header.append(copy, create("code", "", `SEQ ${String(event.sequence).padStart(3, "0")}`));
+  header.append(copy, create("code", "technical-inline", `SEQ ${String(event.sequence).padStart(3, "0")}`));
   const facts = create("div", "event-facts");
   const values = [
-    ["事件类型", event.event_type],
-    ["来源", event.source],
+    ["发生了什么", EVENT_TITLES[event.event_type] || eventTitle(event)],
+    ["由谁记录", sourceLabel(event.source)],
+    ["Episode 内步骤", `第 ${event.sequence} 步`],
     ["逻辑时间", event.logical_time],
-    ["时间戳", event.timestamp],
-    ["输入摘要", shortDigest(event.input_digest)],
-    ["输出摘要", shortDigest(event.output_digest)],
-    ["状态摘要", shortDigest(event.state_digest)],
-    ["Checkpoint", shortDigest(event.checkpoint_id)],
   ];
   for (const [label, value] of values) {
     const item = create("div", "event-fact");
-    item.append(create("span", "", label), create("code", "", value));
+    item.append(create("span", "", label), create("strong", "", value));
     facts.append(item);
   }
-  const raw = create("details", "raw-event");
-  raw.append(create("summary", "", "查看完整结构化事件"), create("pre", "", JSON.stringify(event, null, 2)));
-  elements.eventDetail.append(header, facts, raw);
+  elements.eventDetail.append(
+    header,
+    facts,
+    technicalDetails("查看完整结构化事件", [
+      ["事件类型", event.event_type],
+      ["来源", event.source],
+      ["时间戳", event.timestamp],
+      ["输入摘要", event.input_digest],
+      ["输出摘要", event.output_digest],
+      ["状态摘要", event.state_digest],
+      ["Checkpoint", event.checkpoint_id],
+      ["原始事件", event],
+    ]),
+  );
 }
 
 function renderTimeline(generation) {
@@ -782,7 +1139,7 @@ function renderTimeline(generation) {
     item.append(create("span", "event-index", String(event.sequence).padStart(2, "0")));
     const copy = create("span", "event-copy");
     copy.append(create("strong", "", eventTitle(event)), create("span", "", eventSummary(event) || "无附加内容"));
-    item.append(copy, create("code", "event-type", event.event_type));
+    item.append(copy, create("code", "event-type technical-inline", event.event_type));
     item.addEventListener("click", () => {
       state.selectedEvent = index;
       renderTimeline(generation);
@@ -830,7 +1187,11 @@ function renderToolPath(generation) {
   }
   for (const step of path) {
     const item = document.createElement("li");
-    item.append(create("strong", "", step.name || step.tool_name), create("span", "", `结果：${display(step.outcome)}`), evidenceLinks(step.evidence_refs || step.evidence_sequences, generation.number));
+    item.append(
+      create("strong", "", toolLabel(step.name || step.tool_name)),
+      create("span", "", `结果：${statusLabel(step.outcome)}`),
+      evidenceLinks(step.evidence_refs || step.evidence_sequences, generation.number),
+    );
     elements.toolPath.append(item);
   }
 }
@@ -849,10 +1210,19 @@ function renderBehaviorFeatures(generation) {
   }, new Map());
   for (const [kind, entries] of grouped) {
     const group = create("section", "feature-group");
-    group.append(create("h4", "", `${kind} · ${entries.length}`));
+    group.append(create("h4", "", `${featureKindLabel(kind)} · ${entries.length}`));
     for (const feature of entries) {
       const row = create("div", "feature-row");
-      row.append(create("code", "", feature.value), evidenceLinks(feature.evidence_refs || feature.evidence_sequences, generation.number));
+      row.append(
+        create("span", "feature-human", featureSummary(feature)),
+        evidenceLinks(feature.evidence_refs || feature.evidence_sequences, generation.number),
+        technicalDetails("原始特征", [
+          ["特征类型", feature.kind],
+          ["特征值", feature.value],
+          ["维度", feature.dimensions],
+          ["特征 ID", feature.id],
+        ]),
+      );
       group.append(row);
     }
     elements.behaviorFeatures.append(group);
@@ -871,19 +1241,23 @@ function renderRiskContexts(generation) {
     panel.append(create("strong", "", display(context.label, riskLabel(context))));
     const facts = document.createElement("dl");
     const values = [
-      ["入口", context.entry_kind],
-      ["来源域", context.source_domain || context.source],
-      ["目标域", context.sink_domain || context.sink],
-      ["动作", context.sink_action],
-      ["载体", context.carrier],
-      ["授权分支", context.authorization_branch],
-      ["路径性质", context.planned === true ? "planned" : context.planned === false ? "unexpected" : null],
-      ["结果", context.outcome],
+      ["入口", carrierLabel(context.entry_kind)],
+      ["来源", sourceLabel(context.source_domain || context.source)],
+      ["目标", sourceLabel(context.sink_domain || context.sink)],
+      ["动作", simpleValueLabel(context.sink_action)],
+      ["载体", carrierLabel(context.carrier)],
+      ["授权情况", reasonLabel(context.authorization_branch)],
+      ["是否属于原计划", context.planned === true ? "是" : context.planned === false ? "否，属于额外触达" : "归档未提供"],
+      ["结果", simpleValueLabel(context.outcome)],
     ];
     for (const [label, value] of values) {
       facts.append(create("dt", "", label), create("dd", "", value));
     }
-    panel.append(facts, evidenceLinks(context.evidence_refs || context.evidence_sequences, generation.number));
+    panel.append(
+      facts,
+      evidenceLinks(context.evidence_refs || context.evidence_sequences, generation.number),
+      technicalDetails("查看风险上下文原始字段", [["原始记录", context]]),
+    );
     elements.riskContexts.append(panel);
   }
 }
@@ -901,17 +1275,52 @@ function renderCoverageContribution(generation) {
   renderRiskContexts(generation);
 }
 
+function renderGenerationBrief(generation) {
+  const numbers = coverageNumbers(generation);
+  const path = generation.coverage?.tool_path || [];
+  const outcomeCounts = path.reduce((counts, step) => {
+    counts[step.outcome] = (counts[step.outcome] || 0) + 1;
+    return counts;
+  }, {});
+  const promotion = generation.seed_promotion || generation.promotion || generation.corpus_settlement || {};
+  const cards = [
+    [
+      "为什么测试",
+      generation.number === 1
+        ? "从冻结初始状态中选择一个尚未完成真实模型基线的风险方向。"
+        : `读取第 ${generation.number - 1} 代反馈后，继续补齐尚未覆盖的风险方向。`,
+    ],
+    [
+      "Agent 做了什么",
+      path.length
+        ? `共执行 ${path.length} 次工具调用：成功 ${outcomeCounts.succeeded || 0} 次，被阻止或拒绝 ${(outcomeCounts.blocked || 0) + (outcomeCounts.rejected || 0)} 次。`
+        : "候选没有进入 Agent 执行，因此没有工具调用。",
+    ],
+    [
+      "本代带来什么",
+      `新增 ${numbers.behaviorDelta} 个行为特征、${numbers.riskDelta} 个风险上下文；${promotion.parent_eligible === true ? "候选已进入后续可选种子池" : "候选没有成为后续父种子"}。`,
+    ],
+  ];
+  elements.generationBrief.replaceChildren();
+  cards.forEach(([label, value], index) => {
+    const card = create("article", "brief-card");
+    card.append(create("span", "brief-number", String(index + 1).padStart(2, "0")), create("strong", "", label), create("p", "", value));
+    elements.generationBrief.append(card);
+  });
+}
+
 function renderGeneration() {
   const generation = selectedGeneration();
   state.selectedGeneration = generation.number;
   const numbers = coverageNumbers(generation);
-  elements.generationEyebrow.textContent = `GENERATION ${String(generation.number).padStart(2, "0")} · DECISION ${generation.internal_decision_index}`;
-  elements.generationTitle.textContent = `Generation ${generation.number}`;
+  elements.generationEyebrow.textContent = `第 ${generation.number} 代自动探索`;
+  elements.generationTitle.textContent = `第 ${generation.number} 代`;
   elements.generationSubtitle.textContent = generation.settlement_kind === "candidate_settlement"
-    ? `${generation.episode.events.length} 个实际 TraceEvent · 行为新增 ${numbers.behaviorDelta} · 风险上下文新增 ${numbers.riskDelta}`
-    : "候选在宿主验证阶段结算，没有启动 Agent Episode。";
+    ? `实际记录 ${generation.episode.events.length} 个行为事件 · 新增 ${numbers.behaviorDelta} 个行为特征 · 新增 ${numbers.riskDelta} 个风险上下文`
+    : "候选在完整性检查阶段结束，没有启动 Agent 执行。";
   elements.generationStatus.textContent = statusLabel(generation.status);
   elements.generationStatus.className = `status-badge ${generation.status || "neutral"}`;
+  renderGenerationBrief(generation);
   renderDecisionFlow(generation);
   renderParentSelection(generation);
   renderMutation(generation);
@@ -920,13 +1329,14 @@ function renderGeneration() {
   elements.episodeSection.hidden = !hasEpisode;
   elements.nonEpisodeSection.hidden = hasEpisode;
   if (hasEpisode) renderTimeline(generation);
-  else elements.nonEpisodeReason.textContent = (generation.mutation?.validation?.reason_codes || []).join(" · ") || "候选未通过宿主验证。";
+  else elements.nonEpisodeReason.textContent = reasonText(generation.mutation?.validation?.reason_codes, generation.number) || "候选未通过宿主验证。";
   renderCoverageContribution(generation);
   renderSeedSettlement(generation);
 }
 
 function render() {
   if (!state.snapshot) return;
+  document.body.classList.toggle("show-technical", state.showTechnical);
   renderCampaignPicker();
   renderSource();
   renderNavigation();
@@ -1022,6 +1432,10 @@ elements.fileInput.addEventListener("change", () => {
   if (file) importSnapshot(file);
 });
 elements.autoSync.addEventListener("change", updateSyncTimer);
+elements.technicalDetails.addEventListener("change", () => {
+  state.showTechnical = elements.technicalDetails.checked;
+  document.body.classList.toggle("show-technical", state.showTechnical);
+});
 elements.timelinePrev.addEventListener("click", () => stepTimeline(-1));
 elements.timelineNext.addEventListener("click", () => stepTimeline(1));
 elements.timelinePlay.addEventListener("click", toggleTimeline);
