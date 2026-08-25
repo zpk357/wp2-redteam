@@ -219,7 +219,7 @@ def _run_real(args, store, bootstrap, lock: Stage6ModelLock) -> dict[str, object
             startup_timeout_seconds=600,
             execution_timeout_seconds=900,
             limits=SandboxLimits(
-                memory_limit="14g",
+                memory_limit="22g",
                 nano_cpus=8_000_000_000,
                 pids_limit=512,
                 tmpfs_size="2g",

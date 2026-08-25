@@ -150,6 +150,11 @@ class DockerSandboxScheduler:
                     "SANDBOX_TOKEN": token,
                     "EXECUTION_ID": execution_id,
                     "TRACE_G_RUNTIME_MODE": execution_mode,
+                    "OLLAMA_NUM_PARALLEL": "1",
+                    "OLLAMA_MAX_LOADED_MODELS": "1",
+                    "OLLAMA_KEEP_ALIVE": "0",
+                    "OLLAMA_FLASH_ATTENTION": "1",
+                    "OLLAMA_KV_CACHE_TYPE": "q8_0",
                 },
                 labels={
                     self.component_label: self.component_value,

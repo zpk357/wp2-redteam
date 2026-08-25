@@ -14,6 +14,7 @@ from sandbox.fuzzer.v2_stage6_identity import (
     Stage6RepairFileIdentity,
     Stage6RepairPlanLock,
     Stage6Role,
+    seal_inference_config,
     seal_repair_application_receipt,
     seal_repair_plan_lock,
     seal_repair_role_plan,
@@ -175,13 +176,24 @@ def _seal(args: argparse.Namespace) -> int:
                 "role_digest",
             }
         )
+        inference_values = base_role.inference.model_dump(exclude={"config_digest"})
+        inference_values.update(
+            {
+                "ollama_num_parallel": 1,
+                "ollama_max_loaded_models": 1,
+                "ollama_keep_alive": "0",
+                "ollama_flash_attention": True,
+                "ollama_kv_cache_type": "q8_0",
+            }
+        )
+        active_inference = seal_inference_config(**inference_values)
         active_roles.append(
             seal_role_identity(
                 **values,
                 image_reference=role_plan.final_image_reference,
                 image_id=final_image_id,
                 image_build_receipt_digest=build_receipt_digest,
-                inference=base_role.inference,
+                inference=active_inference,
             )
         )
         applied_roles.append(

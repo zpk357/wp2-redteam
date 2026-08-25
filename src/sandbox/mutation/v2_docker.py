@@ -110,6 +110,11 @@ class DockerOllamaV2MutationProvider:
                 environment={
                     "TRACE_G_V2_MUTATION_REQUEST_B64": encoded,
                     "TRACE_G_RUNTIME_MODE": "live",
+                    "OLLAMA_NUM_PARALLEL": "1",
+                    "OLLAMA_MAX_LOADED_MODELS": "1",
+                    "OLLAMA_KEEP_ALIVE": "0",
+                    "OLLAMA_FLASH_ATTENTION": "1",
+                    "OLLAMA_KV_CACHE_TYPE": "q8_0",
                 },
                 labels={
                     "trace-g.component": "office-v2-llm-mutator",
@@ -127,7 +132,7 @@ class DockerOllamaV2MutationProvider:
                         else {}
                     ),
                 },
-                mem_limit="14g",
+                mem_limit="22g",
                 nano_cpus=8_000_000_000,
                 pids_limit=512,
                 tmpfs={

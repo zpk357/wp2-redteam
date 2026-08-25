@@ -34,10 +34,15 @@ class Stage6InferenceConfig(OfficeV2Contract):
     top_p: Literal["0.8"] = "0.8"
     top_k: Literal[20] = 20
     thinking: bool
+    ollama_num_parallel: Literal[1] | None = None
+    ollama_max_loaded_models: Literal[1] | None = None
+    ollama_keep_alive: Literal["0"] | None = None
+    ollama_flash_attention: Literal[True] | None = None
+    ollama_kv_cache_type: Literal["q8_0"] | None = None
     config_digest: Sha256Digest
 
     def digest_payload(self) -> dict[str, object]:
-        return self.model_dump(mode="json", exclude={"config_digest"}, exclude_none=False)
+        return self.model_dump(mode="json", exclude={"config_digest"}, exclude_none=True)
 
     @model_validator(mode="after")
     def digest_matches(self) -> Self:
