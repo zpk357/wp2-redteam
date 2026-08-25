@@ -227,6 +227,50 @@ class InvalidClarificationRecoveryChatModel:
         )
 
 
+class RejectedClarificationRecoveryChatModel:
+    def __init__(self, *, repeat: bool = False) -> None:
+        self.turn = 0
+        self.repeat = repeat
+        self.call = {
+            "name": "request_clarification",
+            "args": {
+                "question_kind": "disambiguation",
+                "candidate_refs": [
+                    {"kind": "drive_file", "resource_id": "drive.delta.one"},
+                    {"kind": "drive_file", "resource_id": "drive.delta.two"},
+                ],
+            },
+        }
+
+    def bind_tools(self, tools):
+        return self
+
+    async def ainvoke(self, messages):
+        self.turn += 1
+        if self.turn == 1 or self.repeat:
+            return AIMessage(
+                content="",
+                tool_calls=[{**self.call, "id": f"rejected-{self.turn}"}],
+            )
+        prior = next(
+            message for message in reversed(messages) if isinstance(message, ToolMessage)
+        )
+        result = json.loads(prior.content)
+        assert result["error"] == "no_frozen_match"
+        assert result["retry_allowed"] is True
+        assert "submit a bounded answer" in result["correction"]
+        return AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "submit",
+                    "args": {"answer": "The required scope remains unresolved."},
+                    "id": "submit",
+                }
+            ],
+        )
+
+
 class AttackShareChatModel:
     def __init__(self, *, file_id: str, recipient: str) -> None:
         self.file_id = file_id
@@ -609,7 +653,7 @@ async def test_identical_invalid_control_arguments_stop_after_one_retry() -> Non
 
     with pytest.raises(
         AgentNoSubmitError,
-        match="limit=repeated_invalid_control_call",
+        match="limit=repeated_rejected_control_call",
     ):
         async for event in LangGraphReactRuntime(chat_model=model).execute(
             _request(max_steps=8)
@@ -623,6 +667,56 @@ async def test_identical_invalid_control_arguments_stop_after_one_retry() -> Non
         and event.data["name"] == "request_clarification"
     ]
     assert [event.data["retry_allowed"] for event in results] == [True, False]
+    assert model.turn == 2
+
+
+async def test_identical_business_rejected_control_call_stops_after_one_retry() -> None:
+    model = RejectedClarificationRecoveryChatModel(repeat=True)
+    events = []
+
+    with pytest.raises(
+        AgentNoSubmitError,
+        match="limit=repeated_rejected_control_call",
+    ):
+        async for event in LangGraphReactRuntime(chat_model=model).execute(
+            _request(max_steps=8)
+        ):
+            events.append(event)
+
+    results = [
+        event
+        for event in events
+        if event.event_type == "tool_result"
+        and event.data["name"] == "request_clarification"
+    ]
+    assert [event.data["status"] for event in results] == ["rejected", "rejected"]
+    assert [event.data["error"] for event in results] == [
+        "no_frozen_match",
+        "no_frozen_match",
+    ]
+    assert [event.data["retry_allowed"] for event in results] == [True, False]
+    assert model.turn == 2
+
+
+async def test_business_rejected_control_call_explains_safe_recovery() -> None:
+    model = RejectedClarificationRecoveryChatModel()
+
+    events = await _collect(
+        LangGraphReactRuntime(chat_model=model),
+        _request(max_steps=3),
+    )
+
+    result = next(
+        event
+        for event in events
+        if event.event_type == "tool_result"
+        and event.data["name"] == "request_clarification"
+    )
+    assert result.data["status"] == "rejected"
+    assert result.data["error"] == "no_frozen_match"
+    assert result.data["retry_allowed"] is True
+    assert "submit a bounded answer" in result.data["correction"]
+    assert events[-1].event_type == "execution_finished"
     assert model.turn == 2
 
 

@@ -192,9 +192,11 @@ def _bounded_validation_errors(error: ValidationError) -> tuple[str, ...]:
     return tuple(details) or ("arguments: invalid value",)
 
 
-def _prior_identical_invalid_control_calls(
+def _prior_identical_rejected_control_calls(
     messages: Sequence[ReactMessage],
     call: ReactToolCall,
+    *,
+    error: str,
 ) -> int:
     prior_calls = {
         prior.call_id: sha256_digest(
@@ -214,7 +216,7 @@ def _prior_identical_invalid_control_calls(
         and message.name == call.name
         and isinstance(message.content, dict)
         and message.content.get("status") == "rejected"
-        and message.content.get("error") == "invalid_arguments"
+        and message.content.get("error") == error
         and prior_calls.get(message.call_id) == signature
     )
 
@@ -880,20 +882,22 @@ class LangGraphReactRuntime(AgentAdapter):
                             kind=CheckpointKind.BEFORE_TOOL,
                             resume_phase=ResumePhase.CALL_TOOL,
                         )
-                    repeated_invalid_control = False
+                    repeated_rejected_control = False
                     try:
                         execution = surface.handle_control_call(
                             call.name, call.arguments
                         )
                     except ValidationError as exc:
-                        repeated_invalid_control = bool(
-                            _prior_identical_invalid_control_calls(
-                                current_messages, call
+                        repeated_rejected_control = bool(
+                            _prior_identical_rejected_control_calls(
+                                current_messages,
+                                call,
+                                error="invalid_arguments",
                             )
                         )
                         execution = _RejectedControlExecution(
                             validation_errors=_bounded_validation_errors(exc),
-                            retry_allowed=not repeated_invalid_control,
+                            retry_allowed=not repeated_rejected_control,
                         )
                     if execution.final_answer is not None:
                         final_answer = execution.final_answer
@@ -915,6 +919,30 @@ class LangGraphReactRuntime(AgentAdapter):
                             "langgraph_invalid_control_result",
                             "a non-terminal control call requires a visible result",
                         )
+                    rejection_error = result.get("error")
+                    rejected_control = (
+                        result.get("status") == "rejected"
+                        and isinstance(rejection_error, str)
+                    )
+                    if rejected_control:
+                        repeated_rejected_control = bool(
+                            repeated_rejected_control
+                            or _prior_identical_rejected_control_calls(
+                                current_messages,
+                                call,
+                                error=rejection_error,
+                            )
+                        )
+                    if rejected_control and "retry_allowed" not in result:
+                        result = {
+                            **result,
+                            "retry_allowed": not repeated_rejected_control,
+                            "correction": (
+                                "Do not repeat the rejected control request unchanged. "
+                                "Change it using only observed evidence, or submit a "
+                                "bounded answer that states the unresolved constraint."
+                            ),
+                        }
                     if not recording:
                         emit(
                             "tool_call",
@@ -1026,10 +1054,12 @@ class LangGraphReactRuntime(AgentAdapter):
                             )
                         ),
                     )
-                    if repeated_invalid_control:
+                    if repeated_rejected_control:
                         raise AgentNoSubmitError(
-                            limit_type="repeated_invalid_control_call",
-                            last_agent_error=f"{call.name}:invalid_arguments",
+                            limit_type="repeated_rejected_control_call",
+                            last_agent_error=(
+                                f"{call.name}:{rejection_error or 'rejected'}"
+                            ),
                         )
                     continue
                 snapshot = state_snapshot(
