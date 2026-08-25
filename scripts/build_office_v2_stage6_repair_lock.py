@@ -33,6 +33,7 @@ ROLE_SPECS = (
         "copied_files": (
             "agent_image/app/agent_qwen_bootstrap.py",
             "agent_image/app/office_v2_runtime_surface.py",
+            "agent_image/app/replay/checkpoint.py",
             "agent_image/app/adapter/langgraph_react_runtime.py",
             "agent_image/app/replay/replay_adapter.py",
         ),

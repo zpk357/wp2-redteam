@@ -3,6 +3,7 @@ FROM ${AGENT_BASE_IMAGE}
 
 COPY --chown=10001:10001 agent_image/app/agent_qwen_bootstrap.py /opt/runtime/app/agent_qwen_bootstrap.py
 COPY --chown=10001:10001 agent_image/app/office_v2_runtime_surface.py /opt/runtime/app/office_v2_runtime_surface.py
+COPY --chown=10001:10001 agent_image/app/replay/checkpoint.py /opt/runtime/app/replay/checkpoint.py
 COPY --chown=10001:10001 agent_image/app/adapter/langgraph_react_runtime.py /opt/runtime/app/adapter/langgraph_react_runtime.py
 COPY --chown=10001:10001 agent_image/app/replay/replay_adapter.py /opt/runtime/app/replay/replay_adapter.py
 
