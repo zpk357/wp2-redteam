@@ -8,7 +8,7 @@ fi
 MODE="$1"; CAMPAIGN_ID="$2"; TARGET="$3"; GPU_DEVICE="$4"
 [[ "$MODE" == run || "$MODE" == resume ]] || { echo "ERROR: mode must be run or resume" >&2; exit 2; }
 [[ "$CAMPAIGN_ID" =~ ^[a-z0-9][a-z0-9.-]{0,63}$ ]] || { echo "ERROR: invalid campaign-id" >&2; exit 2; }
-[[ "$TARGET" =~ ^(2|10|20|30|50)$ ]] || { echo "ERROR: target must be 2, 10, 20, 30, or 50" >&2; exit 2; }
+[[ "$TARGET" =~ ^(2|3|5|10|20|30|50)$ ]] || { echo "ERROR: target must be 2, 3, 5, 10, 20, 30, or 50" >&2; exit 2; }
 [[ "$GPU_DEVICE" =~ ^[0-9]+$ ]] || { echo "ERROR: invalid GPU device" >&2; exit 2; }
 [[ "$MODE" == resume || "$TARGET" == 2 ]] || { echo "ERROR: a new Campaign must start with the 2-generation gate" >&2; exit 2; }
 
