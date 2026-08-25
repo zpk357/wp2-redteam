@@ -50,7 +50,7 @@
           </button>
           <button type="button" data-view="baseline">
             <span class="nav-icon" aria-hidden="true">◉</span>
-            <span><strong>初始基线</strong><small>不计入 Campaign 代数</small></span>
+            <span><strong>初始基线</strong><small>冻结状态与初始目标种子</small></span>
           </button>
         </nav>
         <div class="generation-heading"><span>正式代际</span><strong id="generation-count">0</strong></div>
@@ -100,7 +100,7 @@
             <div id="selection-facts" class="fact-grid"></div>
           </section>
           <section class="section-block" aria-labelledby="pool-title">
-            <div class="section-heading compact"><div><p class="section-index">种子池</p><h2 id="pool-title">冻结初始种子池</h2></div><span id="seed-count" class="count-label">0 条</span></div>
+            <div class="section-heading compact"><div><p class="section-index">风险目录与种子池</p><h2 id="pool-title">按风险大类分组的初始种子</h2></div><span id="seed-count" class="count-label">0 条</span></div>
             <div id="seed-pool" class="seed-pool"></div>
           </section>
         </section>
@@ -112,11 +112,11 @@
           </div>
           <section id="generation-brief" class="generation-brief" aria-label="本代简报"></section>
           <section class="section-block" aria-labelledby="input-title">
-            <div class="section-heading"><div><p class="section-index">步骤 01</p><h2 id="input-title">本代探索方向</h2><p class="section-note">本代为什么测试这个方向。</p></div><code id="decision-digest" class="technical-inline">--</code></div>
+            <div class="section-heading"><div><p class="section-index">步骤 01</p><h2 id="input-title">风险方向与父种子选择</h2><p class="section-note">先选择风险大类和具体目标，再从该方向的兼容种子中选择变异起点。</p></div><code id="decision-digest" class="technical-inline">--</code></div>
             <div id="decision-flow" class="decision-flow"></div>
           </section>
           <section class="section-block" aria-labelledby="parent-selection-title">
-            <div class="section-heading"><div><p class="section-index">步骤 02</p><h2 id="parent-selection-title">父种子选择</h2><p class="section-note">本代从种子池拿出了什么，以及它从哪里来。</p></div></div>
+            <div class="section-heading"><div><p class="section-index">步骤 02</p><h2 id="parent-selection-title">目标种子详情</h2><p class="section-note">这是本代变异的具体输入，不是风险维度本身。</p></div></div>
             <div id="parent-selection" class="parent-selection"></div>
           </section>
           <section class="section-block" aria-labelledby="mutation-title">

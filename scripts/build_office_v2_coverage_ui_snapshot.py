@@ -21,12 +21,20 @@ from sandbox.coverage.v2_episode_coverage import (  # noqa: E402
     evaluate_v2_candidate_batch,
 )
 from sandbox.coverage.v2_input import v2_coverage_input_from_recording  # noqa: E402
+from sandbox.coverage.v2_risk_catalog import V2_RISK_CATALOG  # noqa: E402
 from sandbox.fuzzer.v2_campaign_loop import build_v2_coverage_artifact  # noqa: E402
 from sandbox.replay.digests import sha256_digest  # noqa: E402
 from sandbox.replay.manifest import verify_manifest  # noqa: E402
 from sandbox.replay.models import ReplayManifest  # noqa: E402
+from sandbox.scenarios.office_v2.attack_objectives import (  # noqa: E402
+    ATTACK_OBJECTIVE_BY_ID,
+)
 
-SCHEMA_VERSION = "office-v2-coverage-visualization-v2"
+SCHEMA_VERSION = "office-v2-coverage-visualization-v3"
+
+_RISK_OBJECTIVE_BY_ID = {
+    item.objective_id: item for item in V2_RISK_CATALOG.objectives
+}
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -143,9 +151,22 @@ def _seed_projection(seed: dict[str, Any]) -> dict[str, Any]:
     payloads = seed.get("payload_specs") or []
     first = payloads[0] if payloads else {}
     intent = seed.get("origin_intent") or {}
+    objective_id = intent.get("objective_id")
+    risk_objective = _RISK_OBJECTIVE_BY_ID.get(objective_id)
     return {
         "id": seed.get("seed_id"),
-        "label": intent.get("objective_id") or seed.get("seed_id"),
+        "label": objective_id or seed.get("seed_id"),
+        "objective_id": objective_id,
+        "primary_risk_family": (
+            risk_objective.classification.primary_scheduling_family.value
+            if risk_objective is not None
+            else None
+        ),
+        "risk_facets": (
+            [item.value for item in risk_objective.classification.risk_facets]
+            if risk_objective is not None
+            else []
+        ),
         "carrier": first.get("carrier_kind")
         or (seed.get("carrier_recipe") or {}).get("carrier_kind"),
         "field_path": first.get("field_path"),
@@ -154,6 +175,134 @@ def _seed_projection(seed: dict[str, Any]) -> dict[str, Any]:
         "generation_depth": seed.get("generation_depth", 0),
         "operator_history": seed.get("operator_history") or [],
     }
+
+
+def _risk_catalog_projection(seeds: list[dict[str, Any]]) -> dict[str, Any]:
+    seed_ids_by_objective: dict[str, list[str]] = {}
+    for seed in seeds:
+        objective_id = (seed.get("origin_intent") or {}).get("objective_id")
+        if objective_id not in _RISK_OBJECTIVE_BY_ID:
+            raise ValueError(f"seed has no frozen Office V2 risk objective: {seed.get('seed_id')}")
+        seed_ids_by_objective.setdefault(objective_id, []).append(str(seed["seed_id"]))
+
+    objectives = []
+    for risk_objective in V2_RISK_CATALOG.objectives:
+        objective = ATTACK_OBJECTIVE_BY_ID[risk_objective.objective_id]
+        objectives.append(
+            {
+                "id": objective.objective_id,
+                "title": objective.title,
+                "risk_category_ids": list(objective.risk_category_ids),
+                "primary_risk_family": (
+                    risk_objective.classification.primary_scheduling_family.value
+                ),
+                "risk_facets": [
+                    item.value for item in risk_objective.classification.risk_facets
+                ],
+                "milestone_ids": [
+                    item.milestone_id for item in risk_objective.milestones
+                ],
+                "seed_ids": sorted(seed_ids_by_objective.get(objective.objective_id, [])),
+            }
+        )
+
+    families = []
+    for family in V2_RISK_CATALOG.families:
+        family_objectives = [
+            item for item in objectives if item["primary_risk_family"] == family.value
+        ]
+        families.append(
+            {
+                "id": family.value,
+                "objective_ids": [item["id"] for item in family_objectives],
+                "seed_ids": sorted(
+                    seed_id
+                    for item in family_objectives
+                    for seed_id in item["seed_ids"]
+                ),
+            }
+        )
+    return {"families": families, "objectives": objectives}
+
+
+def _frontier_projection(
+    *,
+    state: dict[str, Any],
+    allocation: dict[str, Any],
+) -> dict[str, Any]:
+    frontier_kind = allocation["frontier_kind"]
+    frontier_field = (
+        "risk_frontiers" if frontier_kind == "risk" else "behavior_frontiers"
+    )
+    frontier = _one_by(
+        state["frontiers"][frontier_field],
+        "frontier_id",
+        allocation["frontier_id"],
+        f"{frontier_kind} frontier",
+    )
+    candidate_seed_ids = sorted(
+        {
+            entry["seed_id"]
+            for entry in state["corpus"]["entries"]
+            if allocation["frontier_id"] in entry["frontier_ids"]
+        }
+    )
+    if allocation["parent_seed_id"] not in candidate_seed_ids:
+        raise ValueError("selected parent seed is not compatible with its frontier")
+    state_seed_by_id = {
+        seed["seed_id"]: seed for seed in state["corpus"]["seeds"]
+    }
+
+    projection = {
+        "frontier_kind": frontier_kind,
+        "frontier_id": frontier["frontier_id"],
+        "candidate_seed_ids": candidate_seed_ids,
+        "candidate_seeds": [
+            _seed_projection(state_seed_by_id[seed_id])
+            for seed_id in candidate_seed_ids
+        ],
+        "selected_parent_seed_id": allocation["parent_seed_id"],
+    }
+    if frontier_kind == "risk":
+        objective_id = frontier["objective_id"]
+        risk_objective = _RISK_OBJECTIVE_BY_ID[objective_id]
+        family_id = risk_objective.classification.primary_scheduling_family.value
+        family_objective_ids = [
+            item.objective_id
+            for item in V2_RISK_CATALOG.objectives
+            if item.classification.primary_scheduling_family.value == family_id
+        ]
+        family_seed_ids = sorted(
+            seed["seed_id"]
+            for seed in state["corpus"]["seeds"]
+            if (seed.get("origin_intent") or {}).get("objective_id")
+            in family_objective_ids
+        )
+        projection.update(
+            {
+                "primary_risk_family": family_id,
+                "risk_facets": [
+                    item.value for item in risk_objective.classification.risk_facets
+                ],
+                "objective_id": objective_id,
+                "target_milestone_id": frontier["target_milestone_id"],
+                "family_objective_ids": family_objective_ids,
+                "family_seed_ids": family_seed_ids,
+                "family_seeds": [
+                    _seed_projection(state_seed_by_id[seed_id])
+                    for seed_id in family_seed_ids
+                ],
+            }
+        )
+    else:
+        projection.update(
+            {
+                "behavior_gap_kind": frontier["behavior_gap_kind"],
+                "feature_family": frontier["feature_family"],
+                "related_objective_id": frontier.get("related_objective_id"),
+            }
+        )
+    return projection
 
 
 def _evidence_sequences(refs: object) -> list[int]:
@@ -320,6 +469,7 @@ def build_snapshot(
     initial_state = states[decisions[0]["input_state_digest"]]
     initial_seeds = initial_state["corpus"]["seeds"]
     initial_seeds_by_id = {item["seed_id"]: item for item in initial_seeds}
+    risk_catalog = _risk_catalog_projection(initial_seeds)
     manifests = _load_manifests(data_root)
     model_lock = _json(_archive_path(root, metadata["model_lock"]))
     roles = {item["role"]: item for item in model_lock["roles"]}
@@ -343,6 +493,11 @@ def build_snapshot(
         index = decision["generation_index"]
         number = index + 1
         allocation = decision["allocation"]
+        decision_state = states[decision["input_state_digest"]]
+        frontier_selection = _frontier_projection(
+            state=decision_state,
+            allocation=allocation,
+        )
         allocation_id = allocation["generation_allocation_id"]
         preparation = preparations_by_allocation[allocation_id]
         handoff = handoffs_by_allocation[allocation_id]
@@ -480,6 +635,7 @@ def build_snapshot(
                     "frontier_id": allocation["frontier_id"],
                     "target": allocation["frontier_id"],
                     "frontier_cells": [preparation["brief"]["frontier_description"]],
+                    "frontier_selection": frontier_selection,
                     "reason_codes": [*decision["reason_codes"], *allocation["reason_codes"]],
                     "score_components": allocation["score_components"],
                 },
@@ -646,10 +802,12 @@ def build_snapshot(
                     ),
                     "selection_method": "frozen_scheduler_allocation",
                     "seed_pool": [_seed_projection(item) for item in initial_seeds],
+                    "risk_catalog": risk_catalog,
                     "g1_selection": {
                         "parent_seed_id": first["decision"]["selected_parent_seed_id"],
                         "supporting_execution_id": first["decision"]["supporting_execution_id"],
                         "frontier_id": first["decision"]["frontier_id"],
+                        "frontier_selection": first["decision"]["frontier_selection"],
                         "allocation_digest": decisions[0]["allocation"]["allocation_digest"],
                         "reason_codes": first["decision"]["reason_codes"],
                     },

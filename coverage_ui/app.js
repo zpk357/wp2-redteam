@@ -1,6 +1,6 @@
 "use strict";
 
-const SCHEMA_VERSION = "office-v2-coverage-visualization-v2";
+const SCHEMA_VERSION = "office-v2-coverage-visualization-v3";
 const TERMINAL_EVENTS = new Set(["execution_finished", "execution_error", "execution_timed_out", "execution_cancelled"]);
 
 const state = {
@@ -174,6 +174,13 @@ const OBJECTIVE_LABELS = {
   "a12-workspace-to-drive-propagation": "A12 · 将错误工作区信息传播到外部共享文件",
 };
 
+const RISK_FAMILY_LABELS = {
+  "risk-family.sensitive-information-disclosure": "敏感信息披露",
+  "risk-family.unauthorized-operation-permission-expansion": "未授权操作与权限扩大",
+  "risk-family.wrong-modification-propagation": "错误修改与传播",
+  "risk-family.destructive-operation": "破坏性操作",
+};
+
 const FEATURE_KIND_LABELS = {
   "argument-source-chain": "参数来源链",
   "cross-domain-edge": "跨业务域路径",
@@ -211,6 +218,31 @@ function objectiveLabel(value) {
   const objectiveMatch = normalized.match(/objective\.(a\d{2})\.(.+)$/);
   const key = seedMatch?.[1] || (objectiveMatch ? `${objectiveMatch[1]}-${objectiveMatch[2]}` : null);
   return key ? OBJECTIVE_LABELS[key] || key.replaceAll("-", " ").toUpperCase() : display(value);
+}
+
+function riskFamilyLabel(value) {
+  return RISK_FAMILY_LABELS[value] || display(value).replace("risk-family.", "").replaceAll("-", " ");
+}
+
+function milestoneLabel(value) {
+  const normalized = display(value, "");
+  if (normalized.includes(".atomic.")) return "该目标的首个可验证执行证据";
+  const suffix = normalized.split(".").at(-1);
+  const labels = {
+    acl: "扩大权限",
+    calendar: "修改日程参数",
+    cancel: "取消原日程",
+    create: "创建对象",
+    delete: "删除对象",
+    notify: "通知外部参与者",
+    record: "写入工作区记录",
+    replace: "创建替代日程",
+    send: "发送内容",
+    share: "建立外部共享",
+    stage: "聚合到中间文件",
+    write: "修改记录",
+  };
+  return labels[suffix] || normalized.replaceAll(".", " · ");
 }
 
 function sourceLabel(value) {
@@ -423,6 +455,13 @@ function validateSnapshot(snapshot) {
     const runtimeKind = typeof campaign.runtime === "string" ? campaign.runtime : campaign.runtime?.kind;
     assert(["deepseek_harness", "langgraph"].includes(runtimeKind), "Campaign Runtime 不受支持");
     assert(campaign.baseline && typeof campaign.baseline === "object", "Campaign 缺少初始基线");
+    assert(Array.isArray(campaign.baseline.seed_pool), "Campaign 缺少初始种子池");
+    assert(Array.isArray(campaign.baseline.risk_catalog?.families), "Campaign 缺少风险大类目录");
+    assert(campaign.baseline.risk_catalog.families.length === 4, "Office V2 风险大类必须完整");
+    const baselineSeedIds = new Set(campaign.baseline.seed_pool.map((seed) => seed.id));
+    const groupedSeedIds = campaign.baseline.risk_catalog.families.flatMap((family) => family.seed_ids || []);
+    assert(groupedSeedIds.length === new Set(groupedSeedIds).size, "初始种子不能重复归入多个主风险大类");
+    assert(groupedSeedIds.length === baselineSeedIds.size && groupedSeedIds.every((seedId) => baselineSeedIds.has(seedId)), "风险大类没有覆盖完整初始种子池");
     assert(Array.isArray(campaign.generations) && campaign.generations.length > 0, "Campaign 必须至少包含一代");
     assert(campaign.completed_generations === campaign.generations.length, "完成代数与代际记录数量不一致");
     let previousFeedback = null;
@@ -433,6 +472,18 @@ function validateSnapshot(snapshot) {
       assert(generation.number === expectedNumber, "代次必须从 1 开始连续递增");
       assert(generation.internal_decision_index === index, "内部决策编号与展示代次不一致");
       assert(generation.decision && typeof generation.decision === "object", "代际缺少决策记录");
+      const selection = generation.decision.frontier_selection;
+      assert(selection && typeof selection === "object", "代际缺少风险或行为前沿选择");
+      assert(selection.frontier_id === generation.decision.frontier_id, "前沿选择与调度决策不一致");
+      assert(selection.selected_parent_seed_id === generation.decision.selected_parent_seed_id, "风险方向与父种子不一致");
+      assert(Array.isArray(selection.candidate_seed_ids) && selection.candidate_seed_ids.includes(selection.selected_parent_seed_id), "父种子不在所选前沿的候选集合中");
+      assert(Array.isArray(selection.candidate_seeds) && selection.candidate_seeds.map((seed) => seed.id).join("|") === selection.candidate_seed_ids.join("|"), "前沿候选种子详情不完整");
+      if (generation.decision.frontier_kind === "risk") {
+        assert(typeof selection.primary_risk_family === "string", "风险前沿缺少风险大类");
+        assert(typeof selection.objective_id === "string", "风险前沿缺少具体风险目标");
+        assert(Array.isArray(selection.family_seed_ids) && selection.family_seed_ids.includes(selection.selected_parent_seed_id), "父种子不属于所选风险大类");
+        assert(Array.isArray(selection.family_seeds) && selection.family_seeds.map((seed) => seed.id).join("|") === selection.family_seed_ids.join("|"), "风险大类种子详情不完整");
+      }
       if (index === 0) {
         assert(generation.decision.input_feedback_digest === null, "第一代不得伪造上一代 Feedback");
       } else {
@@ -759,18 +810,25 @@ function fact(label, value, asCode = false) {
 function renderBaseline() {
   const baseline = selectedCampaign().baseline;
   const selection = baseline.g1_selection || {};
+  const frontier = selection.frontier_selection || {};
   elements.baselineCaseId.textContent = display(baseline.scenario_case_id);
   elements.baselineTask.textContent = display(baseline.task_instruction);
   elements.baselineStateDigest.textContent = shortDigest(baseline.initial_state_digest);
   elements.baselineStateDigest.title = baseline.initial_state_digest || "";
   elements.selectionFacts.replaceChildren(
-    fact("选中方向", objectiveLabel(selection.parent_seed_id)),
-    fact("覆盖空白", "风险维度尚未完成真实模型基线"),
-    fact("支撑记录", "初始种子兼容性记录，不是本代执行"),
+    fact("第一代风险大类", riskFamilyLabel(frontier.primary_risk_family)),
+    fact("具体风险目标", objectiveLabel(frontier.objective_id)),
+    fact("最终目标种子", objectiveLabel(selection.parent_seed_id)),
     fact("为什么先选它", reasonText(selection.reason_codes, 1)),
     technicalDetails("查看第一代选择的原始字段", [
       ["父种子 ID", selection.parent_seed_id],
       ["Frontier ID", selection.frontier_id],
+      ["风险大类", frontier.primary_risk_family],
+      ["风险侧面", frontier.risk_facets],
+      ["具体目标", frontier.objective_id],
+      ["目标里程碑", frontier.target_milestone_id],
+      ["同类种子", frontier.family_seed_ids],
+      ["前沿兼容种子", frontier.candidate_seed_ids],
       ["支撑 Execution", selection.supporting_execution_id],
       ["原因代码", selection.reason_codes],
     ]),
@@ -778,17 +836,37 @@ function renderBaseline() {
   const seeds = baseline.seed_pool || [];
   elements.seedCount.textContent = `${seeds.length} 条`;
   elements.seedPool.replaceChildren();
-  for (const seed of seeds) {
-    const row = create("article", `seed-row${seed.id === selection.parent_seed_id ? " selected" : ""}`);
-    const identity = create("div", "seed-identity");
-    identity.append(create("strong", "", objectiveLabel(seed.label || seed.id)), create("code", "technical-inline", seed.id));
-    row.append(identity, create("span", "", seed.content), create("strong", "", seed.id === selection.parent_seed_id ? "第一代已选中" : display(seed.status, "可选")));
-    elements.seedPool.append(row);
+  const seedById = new Map(seeds.map((seed) => [seed.id, seed]));
+  for (const family of baseline.risk_catalog?.families || []) {
+    const group = create("section", `risk-family-group${family.id === frontier.primary_risk_family ? " selected" : ""}`);
+    const heading = create("div", "risk-family-heading");
+    const headingCopy = create("div", "");
+    headingCopy.append(
+      create("strong", "", riskFamilyLabel(family.id)),
+      create("span", "", `${family.objective_ids.length} 个具体风险目标 · ${family.seed_ids.length} 条初始种子`),
+    );
+    heading.append(
+      headingCopy,
+      create("span", "risk-family-state", family.id === frontier.primary_risk_family ? "第一代选择此类" : "待探索"),
+    );
+    const rows = create("div", "risk-family-seeds");
+    for (const seedId of family.seed_ids) {
+      const seed = seedById.get(seedId);
+      if (!seed) continue;
+      const row = create("article", `seed-row${seed.id === selection.parent_seed_id ? " selected" : ""}`);
+      const identity = create("div", "seed-identity");
+      identity.append(create("strong", "", objectiveLabel(seed.objective_id || seed.label || seed.id)), create("code", "technical-inline", seed.id));
+      row.append(identity, create("span", "", seed.content), create("strong", "", seed.id === selection.parent_seed_id ? "第一代已选中" : "该类可选"));
+      rows.append(row);
+    }
+    group.append(heading, rows);
+    elements.seedPool.append(group);
   }
 }
 
 function renderDecisionFlow(generation) {
   const decision = generation.decision || {};
+  const selection = decision.frontier_selection || {};
   elements.decisionDigest.hidden = !decision.digest;
   elements.decisionDigest.textContent = shortDigest(decision.digest);
   elements.decisionDigest.title = decision.digest || "";
@@ -801,9 +879,13 @@ function renderDecisionFlow(generation) {
   const target = decision.frontier_id || decision.target || (decision.frontier_cells || []).join(" · ");
   const parent = generation.mutation?.parent_seed || {};
   const targetSummary = objectiveLabel(parent.label || generation.mutation?.parent_seed_id || decision.selected_parent_seed_id);
+  const familySeedCount = selection.family_seed_ids?.length || 0;
+  const frontierCandidateCount = selection.candidate_seed_ids?.length || 0;
   const nodes = [
     ["决策依据", inputLabel, inputDetail, "active"],
-    ["本代补哪块空白", frontierLabel(frontierKind), targetSummary, "active"],
+    ["选择风险大类", riskFamilyLabel(selection.primary_risk_family), `该类当前有 ${familySeedCount} 条可选种子。`, "active"],
+    ["锁定具体目标", objectiveLabel(selection.objective_id), `本次补「${milestoneLabel(selection.target_milestone_id)}」；此前沿有 ${frontierCandidateCount} 条兼容种子。`, "active"],
+    ["选中父种子", targetSummary, "从该风险方向的兼容种子中选出，作为本代变异起点。", "active"],
     ["为什么现在选它", reasonText(decision.reason_codes, generation.number), "支撑信息来自初始种子兼容性记录，不是本代 Episode。", "active"],
   ];
   elements.decisionFlow.replaceChildren();
@@ -815,6 +897,12 @@ function renderDecisionFlow(generation) {
   elements.decisionFlow.append(technicalDetails("查看调度器原始字段", [
     ["输入 Feedback 摘要", decision.input_feedback_digest],
     ["Frontier ID", target],
+    ["风险大类", selection.primary_risk_family],
+    ["风险侧面", selection.risk_facets],
+    ["具体风险目标", selection.objective_id],
+    ["目标里程碑", selection.target_milestone_id],
+    ["风险大类下种子", selection.family_seed_ids],
+    ["前沿兼容种子", selection.candidate_seed_ids],
     ["Frontier cells", decision.frontier_cells],
     ["原因代码", decision.reason_codes],
     ["支撑 Execution", decision.supporting_execution_id],
@@ -829,27 +917,30 @@ function listText(value) {
 
 function renderParentSelection(generation) {
   const decision = generation.decision || {};
+  const selection = decision.frontier_selection || {};
   const mutation = generation.mutation || {};
   const parent = mutation.parent_seed || generation.parent_seed || generation.seed_selection?.parent_seed || {};
   const depth = parent.generation_depth ?? parent.depth ?? mutation.parent_generation_depth ?? mutation.generation_depth;
   const history = parent.operator_history || mutation.parent_operator_history || mutation.operator_history || [];
+  const familyCandidates = (selection.family_seeds || [])
+    .map((seed) => objectiveLabel(seed.objective_id || seed.label || seed.id));
   const values = [
-    ["种子对应方向", objectiveLabel(parent.label || mutation.parent_seed_id || decision.selected_parent_seed_id || parent.id), false],
+    ["所属风险大类", riskFamilyLabel(selection.primary_risk_family), false],
+    ["同类候选种子", familyCandidates.join("、") || `${selection.family_seed_ids?.length || 0} 条`, false],
+    ["本代最终父种子", objectiveLabel(parent.label || mutation.parent_seed_id || decision.selected_parent_seed_id || parent.id), false],
     ["种子来源", sourceLabel(parent.source || parent.origin || mutation.parent_source), false],
     ["代际深度", Number.isInteger(depth) ? depth === 0 ? "初始种子，尚未经过代际晋升" : `第 ${depth} 层后代` : "归档未提供", false],
-    ["放入哪里", `${carrierLabel(parent.carrier || mutation.carrier)} · ${fieldLabel(parent.field_path || mutation.field_path)}`, false],
     ["过去用过的变异", history.length ? history.map(operatorLabel).join(" → ") : "无，这是初始种子", false],
-    ["本代用途", "作为变异器的起始文本", false],
   ];
   elements.parentSelection.replaceChildren();
   const grid = create("div", "parent-fact-grid");
   for (const [label, value, asCode] of values) grid.append(fact(label, display(value, "归档未提供"), asCode));
   const content = create("div", "parent-seed-preview");
-  content.append(create("span", "section-note", "本代实际送入变异器的原始父种子文本"), create("pre", "", mutation.parent_content || parent.content || "归档未提供"));
+  content.append(create("span", "section-note", "本代实际送入变异器的原始目标种子文本"), create("pre", "", mutation.parent_content || parent.content || "归档未提供"));
   elements.parentSelection.append(
     grid,
     content,
-    technicalDetails("查看父种子原始身份", [
+    technicalDetails("查看目标种子原始身份", [
       ["父种子 ID", mutation.parent_seed_id || decision.selected_parent_seed_id || parent.id],
       ["支撑 Execution", decision.supporting_execution_id],
       ["原始来源", parent.source || parent.origin || mutation.parent_source],
@@ -958,7 +1049,7 @@ function renderMutation(generation) {
     elements.operatorChain.append(heading, list);
   }
   const meta = [
-    ["目标", objectiveLabel(mutation.parent_seed?.label || mutation.parent_seed_id)],
+    ["目标种子", objectiveLabel(mutation.parent_seed?.label || mutation.parent_seed_id)],
     ["变异方式", normalizedOperators.map((operator) => operatorLabel(operator.name)).join(" + ")],
     ["候选放置位置", carrierLabel(mutation.carrier)],
     ["修改字段", fieldLabel(mutation.field_path)],
@@ -1283,12 +1374,15 @@ function renderGenerationBrief(generation) {
     return counts;
   }, {});
   const promotion = generation.seed_promotion || generation.promotion || generation.corpus_settlement || {};
+  const selection = generation.decision?.frontier_selection || {};
+  const riskDirection = riskFamilyLabel(selection.primary_risk_family);
+  const targetSeed = objectiveLabel(generation.mutation?.parent_seed?.label || generation.mutation?.parent_seed_id);
   const cards = [
     [
       "为什么测试",
       generation.number === 1
-        ? "从冻结初始状态中选择一个尚未完成真实模型基线的风险方向。"
-        : `读取第 ${generation.number - 1} 代反馈后，继续补齐尚未覆盖的风险方向。`,
+        ? `从「${riskDirection}」风险大类中锁定具体目标，再选择「${targetSeed}」作为父种子。`
+        : `读取第 ${generation.number - 1} 代反馈后选择「${riskDirection}」方向，并从该类种子中选出「${targetSeed}」。`,
     ],
     [
       "Agent 做了什么",

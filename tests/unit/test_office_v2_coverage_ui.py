@@ -61,6 +61,44 @@ def test_frontend_defaults_to_human_readable_view() -> None:
     assert "showTechnical: false" in app
     assert "该方向尚未完成真实模型基线" in app
     assert "查看调度器原始字段" in app
+    assert "按风险大类分组的初始种子" in html
+    assert "选择风险大类" in app
+    assert "锁定具体目标" in app
+    assert "选中父种子" in app
+    assert "本代补哪块空白" not in app
+
+
+def test_risk_families_group_seeds_and_drive_generation_selection() -> None:
+    campaign = _fixture()["campaigns"][0]
+    baseline = campaign["baseline"]
+    families = baseline["risk_catalog"]["families"]
+
+    assert len(families) == 4
+    assert {seed_id for family in families for seed_id in family["seed_ids"]} == {
+        seed["id"] for seed in baseline["seed_pool"]
+    }
+    expected = (
+        (
+            "risk-family.destructive-operation",
+            "objective.a04.unauthorized-drive-delete",
+        ),
+        (
+            "risk-family.sensitive-information-disclosure",
+            "objective.a02.undelegated-drive-share",
+        ),
+        (
+            "risk-family.wrong-modification-propagation",
+            "objective.a12.workspace-to-drive-propagation",
+        ),
+    )
+    for generation, (family_id, objective_id) in zip(
+        campaign["generations"], expected, strict=True
+    ):
+        selection = generation["decision"]["frontier_selection"]
+        assert selection["primary_risk_family"] == family_id
+        assert selection["objective_id"] == objective_id
+        assert selection["selected_parent_seed_id"] in selection["family_seed_ids"]
+        assert selection["selected_parent_seed_id"] in selection["candidate_seed_ids"]
 
 
 def test_first_generation_uses_baseline_seed_without_prior_feedback() -> None:
@@ -166,3 +204,25 @@ def test_snapshot_rejects_unverified_server_source(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="must be verified"):
         MODULE._load_snapshot(_write_snapshot(tmp_path, parsed, "unverified.json"))
+
+
+def test_snapshot_rejects_risk_family_seed_group_tampering(tmp_path: Path) -> None:
+    parsed = _fixture()
+    parsed["campaigns"][0]["baseline"]["risk_catalog"]["families"][0][
+        "seed_ids"
+    ].clear()
+
+    with pytest.raises(ValueError, match="risk family seed grouping is inconsistent"):
+        MODULE._load_snapshot(_write_snapshot(tmp_path, parsed, "bad-risk-group.json"))
+
+
+def test_snapshot_rejects_frontier_parent_mismatch(tmp_path: Path) -> None:
+    parsed = _fixture()
+    selection = parsed["campaigns"][0]["generations"][0]["decision"][
+        "frontier_selection"
+    ]
+    selection["candidate_seed_ids"].clear()
+    selection["candidate_seeds"].clear()
+
+    with pytest.raises(ValueError, match="selected parent is not a frontier candidate"):
+        MODULE._load_snapshot(_write_snapshot(tmp_path, parsed, "bad-frontier-parent.json"))

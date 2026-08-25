@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-SCHEMA_VERSION = "office-v2-coverage-visualization-v2"
+SCHEMA_VERSION = "office-v2-coverage-visualization-v3"
 RUNTIME_KINDS = frozenset({"deepseek_harness", "langgraph"})
 SETTLEMENT_KINDS = frozenset({"candidate_settlement", "non_episode_settlement"})
 TERMINAL_EVENT_TYPES = frozenset(
@@ -78,7 +78,38 @@ def _validate_campaign(campaign: dict[str, Any]) -> None:
     runtime = _mapping(campaign.get("runtime"), f"campaign {campaign_id} runtime")
     if runtime.get("kind") not in RUNTIME_KINDS:
         raise ValueError(f"campaign {campaign_id} runtime.kind is unsupported")
-    _mapping(campaign.get("baseline"), f"campaign {campaign_id} baseline")
+    baseline = _mapping(campaign.get("baseline"), f"campaign {campaign_id} baseline")
+    seed_pool = _items(baseline.get("seed_pool"), f"campaign {campaign_id} seed_pool")
+    seed_ids = {
+        _non_empty_text(
+            _mapping(seed, f"campaign {campaign_id} seed").get("id"),
+            f"campaign {campaign_id} seed.id",
+        )
+        for seed in seed_pool
+    }
+    risk_catalog = _mapping(
+        baseline.get("risk_catalog"), f"campaign {campaign_id} risk_catalog"
+    )
+    families = _items(
+        risk_catalog.get("families"), f"campaign {campaign_id} risk_catalog.families"
+    )
+    objectives = _items(
+        risk_catalog.get("objectives"), f"campaign {campaign_id} risk_catalog.objectives"
+    )
+    if len(families) != 4 or len(objectives) != 12:
+        raise ValueError(f"campaign {campaign_id} risk catalog is incomplete")
+    grouped_seed_ids: list[str] = []
+    for raw_family in families:
+        family = _mapping(raw_family, f"campaign {campaign_id} risk family")
+        _non_empty_text(family.get("id"), f"campaign {campaign_id} risk family.id")
+        grouped_seed_ids.extend(
+            _non_empty_text(item, f"campaign {campaign_id} risk family.seed_id")
+            for item in _items(
+                family.get("seed_ids"), f"campaign {campaign_id} risk family.seed_ids"
+            )
+        )
+    if len(grouped_seed_ids) != len(set(grouped_seed_ids)) or set(grouped_seed_ids) != seed_ids:
+        raise ValueError(f"campaign {campaign_id} risk family seed grouping is inconsistent")
 
     generations = _items(campaign.get("generations"), f"campaign {campaign_id} generations")
     if campaign.get("completed_generations") != len(generations):
@@ -96,6 +127,54 @@ def _validate_campaign(campaign: dict[str, Any]) -> None:
             raise ValueError(f"{label} internal_decision_index is invalid")
 
         decision = _mapping(generation.get("decision"), f"{label} decision")
+        frontier_selection = _mapping(
+            decision.get("frontier_selection"), f"{label} decision.frontier_selection"
+        )
+        if frontier_selection.get("frontier_id") != decision.get("frontier_id"):
+            raise ValueError(f"{label} frontier selection id mismatch")
+        if frontier_selection.get("selected_parent_seed_id") != decision.get(
+            "selected_parent_seed_id"
+        ):
+            raise ValueError(f"{label} frontier parent seed mismatch")
+        candidate_seed_ids = _items(
+            frontier_selection.get("candidate_seed_ids"),
+            f"{label} decision.frontier_selection.candidate_seed_ids",
+        )
+        candidate_seeds = [
+            _mapping(item, f"{label} frontier candidate seed")
+            for item in _items(
+                frontier_selection.get("candidate_seeds"),
+                f"{label} decision.frontier_selection.candidate_seeds",
+            )
+        ]
+        if [item.get("id") for item in candidate_seeds] != candidate_seed_ids:
+            raise ValueError(f"{label} frontier candidate seed detail mismatch")
+        if decision.get("selected_parent_seed_id") not in candidate_seed_ids:
+            raise ValueError(f"{label} selected parent is not a frontier candidate")
+        if decision.get("frontier_kind") == "risk":
+            _non_empty_text(
+                frontier_selection.get("primary_risk_family"),
+                f"{label} decision.frontier_selection.primary_risk_family",
+            )
+            _non_empty_text(
+                frontier_selection.get("objective_id"),
+                f"{label} decision.frontier_selection.objective_id",
+            )
+            family_seed_ids = _items(
+                frontier_selection.get("family_seed_ids"),
+                f"{label} decision.frontier_selection.family_seed_ids",
+            )
+            family_seeds = [
+                _mapping(item, f"{label} risk family seed")
+                for item in _items(
+                    frontier_selection.get("family_seeds"),
+                    f"{label} decision.frontier_selection.family_seeds",
+                )
+            ]
+            if [item.get("id") for item in family_seeds] != family_seed_ids:
+                raise ValueError(f"{label} risk family seed detail mismatch")
+            if decision.get("selected_parent_seed_id") not in family_seed_ids:
+                raise ValueError(f"{label} selected parent is not in its risk family")
         input_feedback_digest = decision.get("input_feedback_digest")
         if number == 1:
             if input_feedback_digest is not None:

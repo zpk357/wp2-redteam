@@ -31,6 +31,11 @@ python scripts/build_office_v2_coverage_ui_snapshot.py `
 
 - 页面默认使用中文读者视图；摘要、内部 ID、状态码和原始 JSON 只有打开
   `技术细节` 后才会出现，原始证据不会被改写或丢弃。
+- 页面按冻结的四个 Office V2 风险大类组织 A01-A12 初始目标种子。Scheduler 先选择
+  风险/行为前沿及具体目标里程碑，再从兼容种子中选择本代父种子；这些关系由转换器从
+  冻结风险目录和逐代 Campaign 状态恢复，不在浏览器中写死。
+- A01-A12 是具体风险目标的初始种子，不是四个风险大类本身。实际风险上下文仍只由
+  Episode 工具轨迹、Oracle 和状态变化结算。
 - `初始基线` 不计入 Campaign 代数，保存冻结任务、初始种子池和 G1 选择结果。
 - `Generation 1` 的上一代 Feedback 为空，但仍会从初始基线选择父种子并调用 Mutator。
 - 后续代际必须引用上一代 `feedback_output.digest`。

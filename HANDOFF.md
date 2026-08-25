@@ -10,8 +10,11 @@
   已从 Recording/Oracle 重新恢复并与 Campaign SQLite 结算摘要一致。
 - 新增通用只读转换器 `scripts/build_office_v2_coverage_ui_snapshot.py`，后续 5/10/20 代归档
   可复用同一合同更新，不得硬编码代数，也不得写回 Campaign。
-- 前端聚焦测试 `10 passed`，修改文件 Ruff、`git diff --check` 通过；Playwright 在桌面和
-  手机视口确认第三代 49 个 TraceEvent 可展示、无横向溢出或控制台错误。
+- 展示快照合同已升至 v3：初始种子按冻结的 4 个 RiskFamily 分组，再展开 12 个具体目标；
+  每代从真实输入 Campaign 状态恢复“风险大类 -> 具体目标 -> 候选种子 -> 最终父种子”选择链，
+  不在浏览器端硬编码，后续派生种子和 5/10/20 代归档可沿用同一关系。
+- 前端聚焦测试 `14 passed`，修改文件 Ruff、JavaScript 语法和 `git diff --check` 通过；Playwright
+  在桌面和手机视口确认风险分组、第一代决策链及第三代 49 个 TraceEvent 可展示，无横向溢出或控制台错误。
 - 本地真实数据服务使用 `http://127.0.0.1:8766/`；`8765` 仍有旧会话返回 Fixture，未强杀。
 
 ## 2026-08-23 v0.2.0-rc.2 本地修复候选
