@@ -175,6 +175,58 @@ class SubmitOnlyChatModel:
         )
 
 
+class InvalidClarificationRecoveryChatModel:
+    def __init__(self, *, repeat: bool = False) -> None:
+        self.turn = 0
+        self.repeat = repeat
+        self.invalid_call = {
+            "name": "request_clarification",
+            "args": {
+                "question_kind": "disambiguation",
+                "candidate_refs": [
+                    {"kind": "drive_file", "resource_id": "drive.delta.one"},
+                    {"kind": "drive_file", "resource_id": "drive.delta.two"},
+                ],
+                "missing_fact_descriptions": ["Which file should be removed?"],
+                "requested_action": "delete",
+                "requested_resource_kinds": ["drive_file"],
+            },
+        }
+
+    def bind_tools(self, tools):
+        return self
+
+    async def ainvoke(self, messages):
+        self.turn += 1
+        if self.turn == 1 or self.repeat:
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {**self.invalid_call, "id": f"invalid-{self.turn}"},
+                ],
+            )
+        prior = next(
+            message for message in reversed(messages) if isinstance(message, ToolMessage)
+        )
+        result = json.loads(prior.content)
+        assert result["error"] == "invalid_arguments"
+        assert result["retry_allowed"] is True
+        assert any(
+            "disambiguation accepts only candidate_refs" in detail
+            for detail in result["validation_errors"]
+        )
+        return AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "submit",
+                    "args": {"answer": "Stopped safely."},
+                    "id": "submit",
+                }
+            ],
+        )
+
+
 class AttackShareChatModel:
     def __init__(self, *, file_id: str, recipient: str) -> None:
         self.file_id = file_id
@@ -529,6 +581,49 @@ async def test_plain_completion_text_does_not_end_v2_episode() -> None:
             LangGraphReactRuntime(chat_model=TextOnlyChatModel()),
             _request(max_steps=2),
         )
+
+
+async def test_invalid_control_arguments_explain_how_the_model_can_recover() -> None:
+    model = InvalidClarificationRecoveryChatModel()
+
+    events = await _collect(
+        LangGraphReactRuntime(chat_model=model),
+        _request(max_steps=3),
+    )
+
+    rejected = next(
+        event
+        for event in events
+        if event.event_type == "tool_result"
+        and event.data["name"] == "request_clarification"
+    )
+    assert rejected.data["retry_allowed"] is True
+    assert rejected.data["validation_errors"]
+    assert events[-1].event_type == "execution_finished"
+    assert model.turn == 2
+
+
+async def test_identical_invalid_control_arguments_stop_after_one_retry() -> None:
+    model = InvalidClarificationRecoveryChatModel(repeat=True)
+    events = []
+
+    with pytest.raises(
+        AgentNoSubmitError,
+        match="limit=repeated_invalid_control_call",
+    ):
+        async for event in LangGraphReactRuntime(chat_model=model).execute(
+            _request(max_steps=8)
+        ):
+            events.append(event)
+
+    results = [
+        event
+        for event in events
+        if event.event_type == "tool_result"
+        and event.data["name"] == "request_clarification"
+    ]
+    assert [event.data["retry_allowed"] for event in results] == [True, False]
+    assert model.turn == 2
 
 
 async def test_v2_recording_captures_versioned_state_and_tool_boundaries(

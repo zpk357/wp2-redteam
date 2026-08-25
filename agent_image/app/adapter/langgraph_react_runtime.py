@@ -112,11 +112,22 @@ class _V1ControlExecution:
 
 @dataclass(frozen=True, slots=True)
 class _RejectedControlExecution:
+    validation_errors: tuple[str, ...] = ()
+    retry_allowed: bool = True
     final_answer: None = None
     follow_up_user_message: None = None
 
-    def model_visible_payload(self) -> dict[str, str]:
-        return {"status": "rejected", "error": "invalid_arguments"}
+    def model_visible_payload(self) -> dict[str, Any]:
+        return {
+            "status": "rejected",
+            "error": "invalid_arguments",
+            "validation_errors": list(self.validation_errors),
+            "retry_allowed": self.retry_allowed,
+            "correction": (
+                "Change the arguments to match the tool schema; do not repeat "
+                "the rejected arguments unchanged."
+            ),
+        }
 
     def neutral_trace_events(self) -> tuple[()]:
         return ()
@@ -166,6 +177,46 @@ class _GraphState(TypedDict, total=False):
     submitted: bool
     final_answer: str | None
     pending_trusted_followup: str | None
+
+
+def _bounded_validation_errors(error: ValidationError) -> tuple[str, ...]:
+    details = []
+    for item in error.errors(
+        include_url=False,
+        include_context=False,
+        include_input=False,
+    )[:3]:
+        location = ".".join(str(part) for part in item.get("loc", ())) or "arguments"
+        message = str(item.get("msg", "invalid value"))
+        details.append(f"{location}: {message}"[:240])
+    return tuple(details) or ("arguments: invalid value",)
+
+
+def _prior_identical_invalid_control_calls(
+    messages: Sequence[ReactMessage],
+    call: ReactToolCall,
+) -> int:
+    prior_calls = {
+        prior.call_id: sha256_digest(
+            {"name": prior.name, "arguments": prior.arguments}
+        )
+        for message in messages
+        if message.role == "assistant"
+        for prior in message.tool_calls
+        if prior.call_id is not None
+    }
+    signature = sha256_digest({"name": call.name, "arguments": call.arguments})
+    return sum(
+        1
+        for message in messages
+        if message.role == "tool"
+        and message.call_id is not None
+        and message.name == call.name
+        and isinstance(message.content, dict)
+        and message.content.get("status") == "rejected"
+        and message.content.get("error") == "invalid_arguments"
+        and prior_calls.get(message.call_id) == signature
+    )
 
 
 class _LangGraphChatProvider:
@@ -829,12 +880,21 @@ class LangGraphReactRuntime(AgentAdapter):
                             kind=CheckpointKind.BEFORE_TOOL,
                             resume_phase=ResumePhase.CALL_TOOL,
                         )
+                    repeated_invalid_control = False
                     try:
                         execution = surface.handle_control_call(
                             call.name, call.arguments
                         )
-                    except ValidationError:
-                        execution = _RejectedControlExecution()
+                    except ValidationError as exc:
+                        repeated_invalid_control = bool(
+                            _prior_identical_invalid_control_calls(
+                                current_messages, call
+                            )
+                        )
+                        execution = _RejectedControlExecution(
+                            validation_errors=_bounded_validation_errors(exc),
+                            retry_allowed=not repeated_invalid_control,
+                        )
                     if execution.final_answer is not None:
                         final_answer = execution.final_answer
                         emit(
@@ -966,6 +1026,11 @@ class LangGraphReactRuntime(AgentAdapter):
                             )
                         ),
                     )
+                    if repeated_invalid_control:
+                        raise AgentNoSubmitError(
+                            limit_type="repeated_invalid_control_call",
+                            last_agent_error=f"{call.name}:invalid_arguments",
+                        )
                     continue
                 snapshot = state_snapshot(
                     current_messages, turn=turn, final_answer=None

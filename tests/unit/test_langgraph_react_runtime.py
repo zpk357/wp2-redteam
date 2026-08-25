@@ -434,13 +434,26 @@ async def test_langgraph_provider_exposes_normalized_token_usage() -> None:
 
 
 def test_invalid_control_arguments_have_a_recoverable_model_result() -> None:
-    execution = _RejectedControlExecution()
+    execution = _RejectedControlExecution(
+        validation_errors=(
+            "arguments: Value error, disambiguation accepts only candidate_refs",
+        ),
+        retry_allowed=False,
+    )
 
     assert execution.final_answer is None
     assert execution.follow_up_user_message is None
     assert execution.model_visible_payload() == {
         "status": "rejected",
         "error": "invalid_arguments",
+        "validation_errors": [
+            "arguments: Value error, disambiguation accepts only candidate_refs"
+        ],
+        "retry_allowed": False,
+        "correction": (
+            "Change the arguments to match the tool schema; do not repeat "
+            "the rejected arguments unchanged."
+        ),
     }
     assert execution.neutral_trace_events() == ()
 
