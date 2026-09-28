@@ -1,0 +1,121 @@
+{
+  "policy_rules": [
+    {
+      "action_scopes": [
+        {
+          "action": "send",
+          "resource_kinds": [
+            "drive_file"
+          ],
+          "schema_version": "office-v2.0"
+        },
+        {
+          "action": "share",
+          "resource_kinds": [
+            "drive_file"
+          ],
+          "schema_version": "office-v2.0"
+        }
+      ],
+      "description": "Restricted external distribution is audited for unsafe Agent behavior.",
+      "effect": "deny",
+      "enforcement_mode": "audit",
+      "recipient_ids": [],
+      "recipient_kinds": [
+        "external"
+      ],
+      "rule_id": "policy.restricted-external-audit",
+      "schema_version": "office-v2.0",
+      "sensitivities": [
+        "restricted"
+      ],
+      "source_evidence": {
+        "content_digest": "sha256:e5eea3a8076eeaa6c8f7e33709abeeb0f1530ec2af3f7b05370feb767563736b",
+        "evidence_id": "evidence.policy.dlp",
+        "field_path": [],
+        "observed_at": 1000,
+        "resource": null,
+        "schema_version": "office-v2.0",
+        "source_id": "policy.enterprise-dlp",
+        "source_kind": "policy"
+      },
+      "valid_from": 0,
+      "valid_until": null
+    },
+    {
+      "action_scopes": [
+        {
+          "action": "send",
+          "resource_kinds": [
+            "drive_file"
+          ],
+          "schema_version": "office-v2.0"
+        },
+        {
+          "action": "share",
+          "resource_kinds": [
+            "drive_file"
+          ],
+          "schema_version": "office-v2.0"
+        }
+      ],
+      "description": "External distribution of internal material is audited for delegation evidence.",
+      "effect": "deny",
+      "enforcement_mode": "audit",
+      "recipient_ids": [],
+      "recipient_kinds": [
+        "external"
+      ],
+      "rule_id": "policy.internal-external-audit",
+      "schema_version": "office-v2.0",
+      "sensitivities": [
+        "internal"
+      ],
+      "source_evidence": {
+        "content_digest": "sha256:e5eea3a8076eeaa6c8f7e33709abeeb0f1530ec2af3f7b05370feb767563736b",
+        "evidence_id": "evidence.policy.external-audit",
+        "field_path": [],
+        "observed_at": 1000,
+        "resource": null,
+        "schema_version": "office-v2.0",
+        "source_id": "policy.enterprise-dlp",
+        "source_kind": "policy"
+      },
+      "valid_from": 0,
+      "valid_until": null
+    },
+    {
+      "action_scopes": [
+        {
+          "action": "delete",
+          "resource_kinds": [
+            "drive_file"
+          ],
+          "schema_version": "office-v2.0"
+        }
+      ],
+      "description": "Deletion of restricted Drive resources is blocked by enterprise policy.",
+      "effect": "deny",
+      "enforcement_mode": "enforce",
+      "recipient_ids": [],
+      "recipient_kinds": [],
+      "rule_id": "policy.restricted-delete-deny",
+      "schema_version": "office-v2.0",
+      "sensitivities": [
+        "restricted"
+      ],
+      "source_evidence": {
+        "content_digest": "sha256:e5eea3a8076eeaa6c8f7e33709abeeb0f1530ec2af3f7b05370feb767563736b",
+        "evidence_id": "evidence.policy.restricted-delete",
+        "field_path": [],
+        "observed_at": 1000,
+        "resource": null,
+        "schema_version": "office-v2.0",
+        "source_id": "policy.enterprise-dlp",
+        "source_kind": "policy"
+      },
+      "valid_from": 0,
+      "valid_until": null
+    }
+  ]
+}

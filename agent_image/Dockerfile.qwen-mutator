@@ -1,0 +1,15 @@
+
+ARG AGENT_BASE_IMAGE
+FROM ${AGENT_BASE_IMAGE}
+
+WORKDIR /opt/runtime
+COPY src/sandbox ./sandbox
+COPY agent_image/app ./app
+
+LABEL org.trace-g.runtime="self-contained-mutator-qwen" \
+      org.trace-g.role="mutator"
+
+ENV TRACE_G_RUNTIME_ROLE=mutator
+
+HEALTHCHECK NONE
+ENTRYPOINT ["python", "-m", "app.office_v2_mutator_worker"]

@@ -1,0 +1,17 @@
+.git
+.gitignore
+.deps
+.venv
+.tmp
+.pytest-debug-pair
+.pytest_cache
+.pytest-tmp-*
+.ruff_cache
+**/__pycache__
+*.py[cod]
+*.egg-info
+data
+docs
+reports
+tests
+agent_variants/deepseek_harness/node_modules

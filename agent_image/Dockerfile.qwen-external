@@ -1,0 +1,19 @@
+FROM python:3.11.9-slim-bookworm@sha256:8fb099199b9f2d70342674bd9dbccd3ed03a258f26bbd1d556822c6dfc60c317
+ARG MODEL_NAME=qwen3.5:27b-q4_K_M
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/opt/runtime HOME=/tmp/trace-g-home \
+    TRACE_G_RUNTIME_MODE=live TRACE_G_EXTERNAL_OLLAMA=1 \
+    TRACE_G_OLLAMA_ENDPOINT=http://127.0.0.1:11434 TRACE_G_MODEL_NAME=${MODEL_NAME}
+WORKDIR /opt/runtime
+COPY agent_image/requirements.agent-qwen.lock ./requirements.agent-qwen.lock
+RUN --mount=type=bind,from=wheelhouse,target=/tmp/wheelhouse \
+    python -m pip install --no-index --find-links=/tmp/wheelhouse --no-cache-dir --only-binary=:all: --require-hashes --requirement requirements.agent-qwen.lock \
+    && python -m pip check \
+    && groupadd --gid 10001 sandbox \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin sandbox \
+    && mkdir -p /tmp/trace-g-home \
+    && chown 10001:10001 /tmp/trace-g-home
+COPY src/sandbox ./sandbox
+COPY agent_image/app ./app
+USER 10001:10001
+EXPOSE 8080
+ENTRYPOINT ["python", "-m", "app.agent_qwen_bootstrap"]
