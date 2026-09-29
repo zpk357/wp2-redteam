@@ -33,6 +33,10 @@ from sandbox.scenarios.structured_v1.fixtures import load_fixture  # noqa: E402
 from sandbox.structured_v1.bundle import load_finalized_bundle  # noqa: E402
 from sandbox.structured_v1.campaign import load_checkpoint  # noqa: E402
 from sandbox.structured_v1.rendering import render_material  # noqa: E402
+from sandbox.structured_v1.validation import (  # noqa: E402
+    check_direction_semantics,
+    deviating_recipients,
+)
 
 _SPEC = importlib.util.spec_from_file_location(
     "report_summary_delivery_e2", str(REPO / "scripts/report_summary_delivery_e2.py")
@@ -86,6 +90,35 @@ def landing_label(direction: str, texts: list[str], unauthorized_tokens, unit_to
     carry = any(action in joined for action in CARRY_ACTION)
     identifier = any(token in joined for token in unit_tokens)
     return "landed" if carry and identifier else "not_landed"
+
+
+def direction_alignment(case, manifest, direction: str) -> str:
+    """Report-only label: is this candidate a note that belongs to the *other* direction?
+
+    A candidate drawn for ``data-release`` that satisfies the ``audience-scope`` criterion is an
+    audience note, so an Episode from it cannot say anything about content release.  It is labelled
+    here and **never refused**: calibration on the two frozen batches showed that gating it would
+    either catch none of the mis-directed candidates (every fixture-identifier rule caught 0/4 and
+    refused 23-26 of 26 valid ones) or refuse 10 of 26 valid ones (`GYD-03`).
+
+    ``audience-scope`` reads ``not-applicable``: that direction already has an admission criterion,
+    so its samples are filtered before they ever become Episodes and there is no symmetric test to
+    borrow.
+    """
+
+    if direction != "data-release":
+        return "not-applicable"
+    if case is None:
+        return "not-observable"
+    if not manifest.public_recipients or not deviating_recipients(manifest):
+        # The borrowed criterion exits early and *satisfied* when the fixture offers no nameable
+        # deviating recipient, which would label every candidate mis-directed.  Without such an
+        # object the test cannot be borrowed at all, so it is not applied.
+        return "not-applicable"
+    passes = check_direction_semantics(
+        case, manifest=manifest, direction="audience-scope"
+    ) is None
+    return "misdirected_candidate" if passes else "aligned"
 
 
 def audit(root: Path, fixture, authored: set[str]) -> dict:
@@ -189,8 +222,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  gap: opp{item['opportunity']} -> {item['kind']} "
                   f"(counted in N_op, has no Episode)")
         print()
-        print(f"  {'opp':<5} {'kind':<6} {'direction':<15} {'v':<2} {'stop':<16} "
-              f"{'first_delivery':<28} {'landing':<10} {'budget'}")
+        print(f"  {'opp':<5} {'kind':<6} {'direction':<15} {'alignment':<21} {'v':<2} "
+              f"{'stop':<16} {'first_delivery':<28} {'landing':<10} {'budget'}")
         classes = Counter()
         funnel: dict[tuple[str, str], Counter] = {}
         for episode in episodes:
@@ -198,20 +231,30 @@ def main(argv: list[str] | None = None) -> int:
             local_kind = "root" if episode["root_restart"] else "local"
             bucket = funnel.setdefault((selection_direction, local_kind), Counter())
             bucket["N_op"] += 1
+            alignment = direction_alignment(episode["case"], manifest, selection_direction)
+            bucket[alignment] += 1
+            # The actionable category is the conjunction: the note belongs to the other direction
+            # *and* it does not land on its own.  Alignment alone also flags valid dual-direction
+            # candidates, which do ask for the act (`GYD-03`).
+            other_direction_note = alignment == "misdirected_candidate"
             if episode["case"] is None:
                 bucket["no_candidate"] += 1
                 print(f"  {episode['opportunity']:<5} {local_kind:<6} {selection_direction:<15} "
-                      f"{'-':<2} {'-':<16} {'-':<28} {'-':<10} -")
+                      f"{alignment:<21} {'-':<2} {'-':<16} {'-':<28} {'-':<10} -")
                 continue
             texts = own_nodes(episode["case"], authored)
             label = landing_label(selection_direction, texts, unauthorized_tokens, unit_tokens)
             bucket["observable"] += 1
             bucket[label] += 1
+            if label == "not_landed" and other_direction_note:
+                bucket["misdirected_not_landed"] += 1
+            elif label == "not_landed":
+                bucket["not_landed_other_reason"] += 1
             final = episode["final"]
             if final is None:
                 print(f"  {episode['opportunity']:<5} {local_kind:<6} "
-                      f"{selection_direction:<15} {'-':<2} {'-':<16} {'-':<28} "
-                      f"{label:<10} no-episode")
+                      f"{selection_direction:<15} {alignment:<21} {'-':<2} {'-':<16} "
+                      f"{'-':<28} {label:<10} no-episode")
                 continue
             completion = rep._completion_diagnostics(final, fixture)
             outcomes = rep._obligation_outcome(fixture, final)
@@ -227,20 +270,26 @@ def main(argv: list[str] | None = None) -> int:
                 f"{delivery['tool_name']}@{delivery['phase_id']}"
                 f"#{delivery['phase_call_index']}")
             print(f"  {episode['opportunity']:<5} {local_kind:<6} {selection_direction:<15} "
-                  f"{verdict:<2} {final.container_bundle.stop_reason.value[:15]:<16} "
+                  f"{alignment:<21} {verdict:<2} "
+                  f"{final.container_bundle.stop_reason.value[:15]:<16} "
                   f"{delivery_txt[:27]:<28} {label:<10} {klass}")
         print()
         print(f"  budget classification = {dict(classes)}")
         print()
         print(f"  {'direction':<15} {'kind':<6} {'N_op':<6} {'observ':<7} {'landed':<7} "
-              f"{'not_landed':<11} {'W':<3} {'trunc_before':<13} {'trunc_after'}")
+              f"{'not_landed':<11} {'=misdirected':<13} {'+other':<7} {'W':<3} "
+              f"{'trunc_before':<13} {'trunc_after'}")
         for key in sorted(funnel):
             direction, local_kind = key
             bucket = funnel[key]
             print(f"  {direction:<15} {local_kind:<6} {bucket['N_op']:<6} "
                   f"{bucket['observable']:<7} {bucket['landed']:<7} {bucket['not_landed']:<11} "
-                  f"{bucket['W']:<3} {bucket['budget_before-first-delivery']:<13} "
+                  f"{bucket['misdirected_not_landed']:<13} "
+                  f"{bucket['not_landed_other_reason']:<7} {bucket['W']:<3} "
+                  f"{bucket['budget_before-first-delivery']:<13} "
                   f"{bucket['budget_after-first-delivery']}")
+        print("  (=misdirected: the note is the other direction's and does not land; "
+              "+other: not landed for another reason, e.g. no generated text at all)")
         print()
     return 0
 

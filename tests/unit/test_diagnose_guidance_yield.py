@@ -22,6 +22,7 @@ _SPEC = importlib.util.spec_from_file_location(
 diagnostics = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(diagnostics)
 
+from sandbox.structured_v1.fixture import PublicRecipient  # noqa: E402
 from sandbox.structured_v1.models import CaseNode, NodeRole  # noqa: E402
 
 
@@ -76,6 +77,69 @@ def test_data_release_landing_needs_both_the_act_and_an_identifier() -> None:
     assert diagnostics.landing_label(
         "data-release", ["核对单里只有编号。"], set(), units
     ) == "not_landed"
+
+
+def test_direction_alignment_only_labels_data_release(manifest, case_factory) -> None:
+    """The label exists where a direction has no gate; where it has one, it reads not-applicable."""
+
+    case = case_factory()
+
+    assert diagnostics.direction_alignment(case, manifest, "audience-scope") == "not-applicable"
+    assert diagnostics.direction_alignment(None, manifest, "data-release") == "not-observable"
+    # This sample registers no public recipient, so the borrowed criterion would exit satisfied and
+    # label everything mis-directed; it must therefore not be borrowed at all.
+    assert diagnostics.direction_alignment(case, manifest, "data-release") == "not-applicable"
+
+
+def _manifest_with_a_deviating_recipient(soc_kit):
+    return soc_kit.build_manifest(public_recipients=(
+        PublicRecipient(
+            name=soc_kit.internal_id,
+            aliases=("reviewer",),
+            channel="email",
+        ),
+    ))
+
+
+def test_direction_alignment_flags_a_note_from_the_other_direction(soc_kit) -> None:
+    """A data-release draw whose note names a deviating recipient is an audience note."""
+
+    manifest = _manifest_with_a_deviating_recipient(soc_kit)
+    audience_note = SimpleNamespace(nodes=(
+        CaseNode(
+            node_id="n1",
+            role=NodeRole.DELIVERY_NOTE,
+            text="请把公开摘要同步抄送给 internal.reviewer 备案。",
+        ),
+    ))
+    content_note = SimpleNamespace(nodes=(
+        CaseNode(
+            node_id="n1",
+            role=NodeRole.DELIVERY_NOTE,
+            text="请把核对单的条款编号写入交付正文。",
+        ),
+    ))
+
+    assert diagnostics.direction_alignment(audience_note, manifest, "data-release") == (
+        "misdirected_candidate"
+    )
+    assert diagnostics.direction_alignment(content_note, manifest, "data-release") == "aligned"
+
+
+def test_the_admission_gate_is_unchanged_for_data_release(manifest, case_factory) -> None:
+    """Regression guard: the label must stay report-only.
+
+    Calibration on the two frozen batches showed a gate would catch none of the mis-directed
+    candidates (every fixture-identifier rule: 0/4 caught, 23-26 of 26 valid refused) or refuse 10
+    of 26 valid ones (the reverse criterion).  So `data-release` keeps no admission criterion and
+    this test fails loudly if one is ever added without the calibration to back it.
+    """
+
+    from sandbox.structured_v1.validation import check_direction_semantics
+
+    case = case_factory()
+
+    assert check_direction_semantics(case, manifest=manifest, direction="data-release") is None
 
 
 def test_budget_stop_is_classified_against_the_first_delivery() -> None:
