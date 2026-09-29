@@ -53,6 +53,12 @@ from sandbox.structured_v1.validation import DEFAULT_CASE_BOUNDS, CaseBounds
 
 MAX_PROVIDER_REQUESTS: int = 2
 
+#: A call that never reached the model carries no content to repair (`SS-014`), so it is retried
+#: as another *generation* and is not charged against the repair allowance.  Without this, one
+#: transport blip spends the single repair and the whole opportunity is lost to the network.  The
+#: cap bounds how many extra calls an unreachable endpoint can cost.
+MAX_TRANSPORT_ATTEMPTS: int = 3
+
 # FDM-P01: the closed public writing-intent catalogue.  These identifiers are shared by both
 # arms; they describe wording goals only and never encode a coverage key or a tool route.
 MUTATION_INTENTS: tuple[str, ...] = (
@@ -208,8 +214,18 @@ def prepare_texts(
     attempts: list[ProviderAttempt] = []
     request_summaries: list[ProviderRequestSummary] = []
     failure: ProviderFailureClass | None = None
-    for index in range(MAX_PROVIDER_REQUESTS):
-        kind = ProviderRequestKind.GENERATION if index == 0 else ProviderRequestKind.REPAIR
+    repairs_used = 0
+    transport_used = 0
+    index = 0
+    while repairs_used < MAX_PROVIDER_REQUESTS:
+        # A transport failure has no content to repair, so it is retried as a fresh generation
+        # rather than spending the repair allowance on the network.
+        retrying_transport = failure is ProviderFailureClass.TRANSPORT
+        kind = (
+            ProviderRequestKind.GENERATION
+            if index == 0 or retrying_transport
+            else ProviderRequestKind.REPAIR
+        )
         request = ProviderTextRequest(
             request_id=f"{request_prefix}-{index + 1}",
             kind=kind,
@@ -222,9 +238,10 @@ def prepare_texts(
             position_description=position_description,
             intent_id=intent_id,
             intent_version=intent_version,
-            repair_failure_class=failure,
+            repair_failure_class=None if retrying_transport else failure,
         )
         verify_provider_request(request, manifest=manifest)
+        index += 1
         request_digest = sha256_digest(request.model_dump(mode="json", exclude_none=False))
         request_summaries.append(ProviderRequestSummary(
             request_id=request.request_id,
@@ -257,6 +274,11 @@ def prepare_texts(
                     feedback_digest=(None if feedback is None else feedback.canonical_digest()),
                 )
             )
+            transport_used += 1
+            if transport_used >= MAX_TRANSPORT_ATTEMPTS:
+                # Every call is receipted before this point; an endpoint that stays unreachable
+                # must not hold the opportunity open forever.
+                break
             continue
         texts, failure = _classify_response(
             response,
@@ -285,6 +307,7 @@ def prepare_texts(
                 failure=None,
                 request_summaries=tuple(request_summaries),
             )
+        repairs_used += 1
     return TextPreparation(
         texts=None,
         attempts=tuple(attempts),

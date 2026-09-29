@@ -12,7 +12,11 @@ import json
 import pytest
 
 from sandbox.structured_v1.generation import GenerationBudget, generate_texts
-from sandbox.structured_v1.provider import ProviderFailureClass, prepare_texts
+from sandbox.structured_v1.provider import (
+    MAX_TRANSPORT_ATTEMPTS,
+    ProviderFailureClass,
+    prepare_texts,
+)
 from sandbox.structured_v1.text_provider import (
     ATTACK_TECHNIQUE_ANGLES,
     DIRECTION_GOALS,
@@ -264,8 +268,18 @@ def test_new_material_prompt_keeps_private_values_out_of_requests_and_candidates
     assert private_value not in json.dumps(transport.calls, ensure_ascii=False)
 
 
-def test_a_transport_exception_is_billed_and_ends_the_opportunity(manifest) -> None:
+def test_a_transport_exception_is_billed_and_retried_up_to_the_allowance(manifest) -> None:
+    """`SS-014`: every call is receipted, and an unreachable endpoint is bounded by the cap.
+
+    The transport allowance is deliberately separate from the repair allowance: a call that never
+    reached the model carries no content to repair, so spending the one repair on it would end the
+    opportunity over a network blip.
+    """
+
+    attempts: list[int] = []
+
     def _explode(*, url: str, payload: dict, timeout_seconds: int) -> dict:
+        attempts.append(1)
         raise ProviderTransportError("endpoint transport failed")
 
     provider = HttpJsonTextProvider(_options(), transport=_explode)
@@ -279,7 +293,14 @@ def test_a_transport_exception_is_billed_and_ends_the_opportunity(manifest) -> N
 
     assert preparation.accepted is False
     assert preparation.failure is ProviderFailureClass.TRANSPORT
-    assert preparation.requests_used == 2
+    assert preparation.requests_used == MAX_TRANSPORT_ATTEMPTS
+    assert len(attempts) == MAX_TRANSPORT_ATTEMPTS
+    # Every one of those calls still has a receipt, so nothing reads as free.
+    assert all(
+        item.failure_class is ProviderFailureClass.TRANSPORT
+        and item.usage_reported is False
+        for item in preparation.attempts
+    )
     assert preparation.usage_complete() is False
     assert all(attempt.response_digest is None for attempt in preparation.attempts)
 

@@ -15,6 +15,7 @@ import pytest
 from sandbox.structured_v1.models import CaseNode, NodeRole, SlotPatch
 from sandbox.structured_v1.projection import ProjectionLeakError
 from sandbox.structured_v1.provider import (
+    MAX_TRANSPORT_ATTEMPTS,
     ProviderFailureClass,
     ProviderRequestKind,
     ProviderTextItem,
@@ -70,6 +71,67 @@ def _prepare(provider, manifest, **overrides):
     }
     kwargs.update(overrides)
     return prepare_texts(provider=provider, manifest=manifest, **kwargs)
+
+
+class FlakyProvider:
+    """Scripted provider whose calls may fail before any response exists."""
+
+    provider_id = "flaky"
+    provider_version = "1.0"
+
+    def __init__(self, *steps) -> None:
+        self._steps = list(steps)
+        self.requests: list[ProviderTextRequest] = []
+
+    def complete(self, request: ProviderTextRequest) -> ProviderTextResponse:
+        self.requests.append(request)
+        if not self._steps:
+            raise AssertionError("the provider was called more often than scripted")
+        step = self._steps.pop(0)
+        if step is None:
+            raise TimeoutError("scripted transport failure")
+        return step
+
+
+def test_a_transport_failure_is_retried_as_a_generation_not_as_a_repair(manifest) -> None:
+    """`SS-014`: a call that never reached the model has no content to repair."""
+
+    provider = FlakyProvider(None, _response({"n1": "第一段。", "n2": "第二段。"}))
+    preparation = _prepare(provider, manifest)
+
+    assert preparation.accepted is True
+    assert preparation.requests_used == 2
+    assert preparation.attempts[0].failure_class is ProviderFailureClass.TRANSPORT
+    assert preparation.attempts[0].usage_reported is False
+    assert provider.requests[1].kind is ProviderRequestKind.GENERATION
+    assert provider.requests[1].repair_failure_class is None
+
+
+def test_a_transport_blip_does_not_spend_the_repair_allowance(manifest) -> None:
+    provider = FlakyProvider(
+        # A content defect first, so the repair allowance is already partly spent.
+        _response({"n1": "第一段。", "n2": "第二段。"}, refusal="no"),
+        None,
+        _response({"n1": "改后的第一段。", "n2": "改后的第二段。"}),
+    )
+    preparation = _prepare(provider, manifest)
+
+    assert preparation.accepted is True
+    assert preparation.requests_used == 3
+    assert [request.kind for request in provider.requests] == [
+        ProviderRequestKind.GENERATION,
+        ProviderRequestKind.REPAIR,
+        ProviderRequestKind.GENERATION,
+    ]
+
+
+def test_an_unreachable_endpoint_gives_up_after_the_transport_allowance(manifest) -> None:
+    provider = FlakyProvider(None, None, None, None)
+    preparation = _prepare(provider, manifest)
+
+    assert preparation.accepted is False
+    assert preparation.failure is ProviderFailureClass.TRANSPORT
+    assert preparation.requests_used == MAX_TRANSPORT_ATTEMPTS
 
 
 def test_one_valid_response_is_enough(manifest) -> None:

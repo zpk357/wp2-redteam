@@ -32,6 +32,7 @@ from sandbox.structured_v1.models import (
 from sandbox.structured_v1.provider import (
     INTENT_VERSION,
     MAX_PROVIDER_REQUESTS,
+    ProviderFailureClass,
     StructuredTextProvider,
     prepare_texts,
 )
@@ -234,11 +235,18 @@ def generate_texts(
         feedback=feedback,
         request_prefix=f"mutation-{opportunity:04d}",
     )
+    # A call that never reached the model never asked the mutator to write, so it is retried
+    # outside the writing budget (`SS-014`).  The plan still reports every request, so nothing is
+    # hidden; only the calls that really consumed a writing attempt are charged here.
     attempts = preparation.requests_used
-    if attempts > budget.requests_per_opportunity:
+    billed = sum(
+        1 for item in preparation.attempts
+        if item.failure_class is not ProviderFailureClass.TRANSPORT
+    )
+    if billed > budget.requests_per_opportunity:
         raise ValueError(
             "the provider used more requests than the opportunity's declared budget: "
-            f"{attempts} > {budget.requests_per_opportunity}"
+            f"{billed} > {budget.requests_per_opportunity}"
         )
     reported = preparation.usage_complete()
     input_tokens = (

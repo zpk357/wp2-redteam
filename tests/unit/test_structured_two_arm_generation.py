@@ -2,9 +2,10 @@
 `SS-012` step 4, `SS-014`, `SOC-FBK-15`).
 
 The provider here is a scripted double: it exercises the contract (one generation, at most one
-repair, receipts for every request) without a model.  The point of these tests is that the
-*search* - not a test - decides which nodes need text, that a failure ends the opportunity
-instead of producing a candidate, and that unreported usage stays unknown.
+repair, a bounded transport retry allowance, receipts for every request) without a model.  The
+point of these tests is that the *search* - not a test - decides which nodes need text, that a
+failure ends the opportunity instead of producing a candidate, and that unreported usage stays
+unknown.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from sandbox.structured_v1.generation import (
 )
 from sandbox.structured_v1.model import ModelDecision
 from sandbox.structured_v1.provider import (
+    MAX_TRANSPORT_ATTEMPTS,
     ProviderFailureClass,
     ProviderTextItem,
     ProviderTextRequest,
@@ -50,7 +52,9 @@ BUDGET = GenerationBudget(
         ("valid", ("n1", "n2"), True, 1),
         ("repair-once", ("n1", "n2"), True, 2),
         ("always-invalid", ("n1",), False, 2),
-        ("transport-error", ("n1",), False, 2),
+        # A transport failure never reached the model, so it is retried up to the transport
+        # allowance instead of spending the repair (`SS-014`).
+        ("transport-error", ("n1",), False, MAX_TRANSPORT_ATTEMPTS),
         ("valid", (), True, 0),
         (None, (), True, 0),
         (None, ("n1",), False, 0),
@@ -367,12 +371,15 @@ def test_a_failed_generation_is_billed_and_produces_no_episode(manifest, tmp_pat
             break
 
     assert bundle is None
-    assert state.usage.mutator_calls == 2
+    # Every call is billed, including the ones that never reached the model: the transport retry
+    # allowance costs extra mutator calls instead of letting a network blip look free
+    # (`SOC-FBK-15`).
+    assert state.usage.mutator_calls == MAX_TRANSPORT_ATTEMPTS
     # Unreported usage stays unknown: the entry must not read as a free call.
     assert state.usage.mutator_input_tokens is None
     assert state.usage.complete is False
     assert [plan.accepted for plan in state.generations][-1] is False
-    assert [plan.requests for plan in state.generations][-1] == 2
+    assert [plan.requests for plan in state.generations][-1] == MAX_TRANSPORT_ATTEMPTS
     assert state.generations[-1].failure_class == ProviderFailureClass.TRANSPORT.value
     assert state.search.plans[-1].accepted is False
     assert load_checkpoint(path) == state
