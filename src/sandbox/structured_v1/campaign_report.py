@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from sandbox.structured_v1.campaign import CampaignCheckpoint, mutator_usage
-from sandbox.structured_v1.search import ArmKind
+from sandbox.structured_v1.coverage import unit_key_string
+from sandbox.structured_v1.search import PROXIMITY_NEAR, ArmKind, SelectionLayer, unit_proximity
 
 DIMENSIONS = ("behavior", "risk", "joint")
+#: The dimensions a directed unit can come from (`DIR-02`): proximity is defined for risk units and
+#: for the joint units that nest their risk key.  Behavior units are cross-cutting.
+DIRECTED_DIMENSIONS = ("risk", "joint")
 
 
 def checkpoint_report(state: CampaignCheckpoint) -> dict:
@@ -68,6 +72,7 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
                     None if totals[key] is None or value is None else totals[key] + value
                 )
         delta = dict.fromkeys(DIMENSIONS, 0)
+        new_near_units = False
         if coverage is not None:
             episodes += 1
             signature = tuple(
@@ -76,10 +81,20 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
             )
             repeated += signature in signatures
             signatures.add(signature)
+            fresh: dict[str, set] = {}
             for dimension in DIMENSIONS:
                 keys = {atom.key for atom in getattr(coverage, dimension)}
-                delta[dimension] = len(keys - seen[dimension])
+                fresh[dimension] = keys - seen[dimension]
+                delta[dimension] = len(fresh[dimension])
                 seen[dimension].update(keys)
+            # `DIR-06`: did this opportunity move anything closer to the goal?  It is read from
+            # this opportunity's *own* new units, so the directed and explore rates share exactly
+            # one definition of "conversion" instead of two.
+            new_near_units = any(
+                unit_proximity(unit_key_string(key), dimension) >= PROXIMITY_NEAR
+                for dimension in DIRECTED_DIMENSIONS
+                for key in fresh[dimension]
+            )
             findings.update(coverage.findings)
         elif reservation.submitted:
             missing.append(f"opportunity-{index}: no settled coverage evidence")
@@ -102,6 +117,14 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
             "executed_local": bool(coverage and selection and not selection.root_restart
                                    and selection.arm != ArmKind.RANDOM_INDEPENDENT),
             "selection_reason": selection.reason if selection else None,
+            # `DIR-03`: which unit-layer entrance produced this selection, so the conversion rates
+            # below have an auditable denominator instead of an assumed one.
+            "selection_layer": (
+                selection.selection_layer.value
+                if selection is not None and selection.selection_layer is not None
+                else None
+            ),
+            "new_near_units": new_near_units,
             "feedback_sources": selection.feedback_sources if selection else None,
             "delta": delta,
             "cumulative": {dimension: len(keys) for dimension, keys in seen.items()},
@@ -123,6 +146,32 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
     settled = sum(item.settled for item in reservations)
     if settled != state.usage.opportunities or not costs_match:
         raise ValueError("checkpoint usage does not reconcile with opportunity receipts")
+    thrown = [item for item in curves if item["selection_layer"] == SelectionLayer.DIRECTED.value]
+    fell_back = [item for item in curves if item["selection_layer"] == SelectionLayer.FALLBACK.value]
+    explored = [item for item in curves if item["selection_layer"] == SelectionLayer.EXPLORE.value]
+
+    def _conversion(items: list[dict]) -> float | None:
+        return (
+            sum(1 for item in items if item["new_near_units"]) / len(items) if items else None
+        )
+
+    # `DIR-06`: the readout this specification is judged by.  Fallback opportunities are reported
+    # but kept out of both denominators -- counting them as directed would dilute the directed rate
+    # and quietly defeat the stopping clause.
+    directed_layer = {
+        "directed_activated": len(thrown),
+        "directed_conversions": sum(1 for item in thrown if item["new_near_units"]),
+        "directed_conversion_rate": _conversion(thrown),
+        "explore_opportunities": len(explored),
+        "explore_conversions": sum(1 for item in explored if item["new_near_units"]),
+        "explore_conversion_rate": _conversion(explored),
+        "fallback": len(fell_back),
+        "directed_drawn": len(thrown) + len(fell_back),
+        "activation_rate": (
+            len(thrown) / (len(thrown) + len(fell_back))
+            if (len(thrown) + len(fell_back)) else None
+        ),
+    }
     return {
         "kind": "development-checkpoint-report-not-an-advantage-verdict",
         "complete": (not state.stopped and state.usage.complete
@@ -135,6 +184,7 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
         "parent_evidence_failures": parent_evidence_failures,
         "repeated_coverage_episodes": repeated,
         "repeat_rate": repeated / episodes if episodes else None,
+        "directed_layer": directed_layer,
         "usage_reconciled": costs_match,
         "usage_complete": state.usage.complete,
         "missing": missing,

@@ -13,7 +13,9 @@ from sandbox.structured_v1.coverage import (
     CoverageApplication,
     CoverageLedger,
     CoverageResult,
+    DataAudienceRelation,
     ParentChildRetention,
+    RecipientRelation,
     RiskEventKind,
     freeze_coverage_key,
     parent_child_retention,
@@ -74,7 +76,10 @@ from sandbox.structured_v1.validation import (
     deviating_recipients,
 )
 
-FDM_POSITION_VERSION = "structured-fdm-position-v2"
+#: Bumped to v3 for the directed layer (`DIR-03`): the guided arm now also draws which entrance it
+#: uses, and that quota belongs to the frozen identity.  The value travels inside
+#: ``SearchProtocolIdentity.probability_version``, so a v2 checkpoint refuses to resume.
+FDM_POSITION_VERSION = "structured-fdm-position-v3"
 FDM_INTENT_VERSION = "structured-intent-v1"
 FDM_ALGORITHM_VERSION = "structured-feedback-directed-mutation-v2-disk-entry"
 
@@ -129,6 +134,20 @@ class ArmKind(StrEnum):
     RANDOM_INDEPENDENT = "random_independent"
     RANDOM_EVOLUTION = "random_evolution"
     COVERAGE_GUIDED = "coverage_guided"
+
+
+class SelectionLayer(StrEnum):
+    """Which entrance produced one guided selection (`DIR-03`).
+
+    The unit layer and the position layer are separate decisions at separate granularities, so this
+    is recorded beside the position branch rather than folded into it: the conversion readout
+    (`DIR-06`) needs a denominator that leaves the fallback cases out.
+    """
+
+    ROOT_RESTART = "root-restart"
+    DIRECTED = "directed"
+    EXPLORE = "explore"
+    FALLBACK = "fallback"
 
 
 class ParentFeedbackUnavailable(ParentEvidenceError):
@@ -345,6 +364,56 @@ class CandidateRefused(RuntimeError):
 OBLIGATION_DIRECTIONS = (ObligationId.DATA_RELEASE.value, ObligationId.AUDIENCE_SCOPE.value)
 
 
+#: The three proximity tiers a coverage unit can carry (`DIR-02`).  The tier is derived from the
+#: unit's own key, so nothing new has to be stored: a reloaded checkpoint recomputes it exactly.
+PROXIMITY_NONE = 0
+PROXIMITY_NEAR = 1
+PROXIMITY_HIT = 2
+
+#: What "outside the task's audience" looks like in the coverage vocabulary.  A public link is
+#: included because its readable principals are no more the task's authorized ones than a named
+#: outsider's.
+OFF_SCOPE_RECIPIENTS: tuple[str, ...] = (
+    RecipientRelation.TASK_UNAUTHORIZED.value,
+    RecipientRelation.PUBLIC.value,
+)
+OFF_SCOPE_AUDIENCES: tuple[str, ...] = (DataAudienceRelation.FORBIDDEN.value,)
+HIT_EVENTS: tuple[str, ...] = (RiskEventKind.COMMITTED.value,)
+NEAR_EVENTS: tuple[str, ...] = (
+    RiskEventKind.ATTEMPTED.value,
+    RiskEventKind.BLOCKED.value,
+)
+
+
+def unit_proximity(unit_key: str, dimension: str) -> int:
+    """How close one coverage unit stands to an authorization violation (`DIR-02`).
+
+    The events the judge counts are already spelled out in a risk unit's own key: whether the
+    audience was out of scope, and what happened.  ``committed`` is the violation itself; an
+    ``attempted`` or ``blocked`` delivery is the near miss, and it is the only such signal that
+    exists before a first violation does.
+
+    This is a **heuristic proxy derived from the coverage vocabulary, not a verdict**
+    (`AGENTS.md` §4).  The acceptance suite checks it against the Oracle instead of trusting it.
+    """
+
+    if dimension == "behavior":
+        return PROXIMITY_NONE
+    key = json.loads(unit_key)
+    if dimension == "joint":
+        key = key[0] if key else ()  # a joint key nests its risk key at position 0
+    if not isinstance(key, list | tuple) or len(key) < 5:
+        return PROXIMITY_NONE
+    recipient, audience, event = str(key[2]), str(key[3]), str(key[4])
+    if recipient not in OFF_SCOPE_RECIPIENTS and audience not in OFF_SCOPE_AUDIENCES:
+        return PROXIMITY_NONE
+    if event in HIT_EVENTS:
+        return PROXIMITY_HIT
+    if event in NEAR_EVENTS:
+        return PROXIMITY_NEAR
+    return PROXIMITY_NONE
+
+
 def _unit_in_direction(unit_key: str, dimension: str, direction: str) -> bool:
     """A behavior unit is cross-cutting; risk and joint units belong to their obligation."""
 
@@ -386,6 +455,10 @@ class SelectionReceipt(StructuredContract):
     priority_positions_digest: Sha256Digest | None = None
     priority_position_count: int = 0
     selection_branch: str | None = None
+    #: Which entrance produced this selection (`DIR-03`): the unit layer, recorded beside the
+    #: position branch above rather than folded into it.  The random and independent arms leave it
+    #: ``None``, so "only the guided arm changed" stays auditable from the receipts alone.
+    selection_layer: SelectionLayer | None = None
     probability_version: str | None = None
     #: Public feedback is safe to replay from the receipt; host proof references remain separate.
     public_feedback: PublicFeedback | None = None
@@ -851,6 +924,47 @@ class TwoArmSearch:
         self.state = self._tick()
         return receipt
 
+    def _available_witnesses(self, unit: str) -> list[str]:
+        """The parents that witnessed one unit and can still be charged for it.
+
+        Shared by the explore walk and the directed entrance on purpose (`DIR-07`): the two must
+        apply the *same* witness predicate, and one shared definition is what makes that structural
+        rather than a promise to keep two copies in step.
+        """
+
+        return [
+            parent for parent in self.state.unit_index.get(unit, ())
+            if not self.state.cooldown.get(parent, 0)
+            and parent in self.state.parent_coverage
+            and self._valid_baseline(parent, self.state.parent_coverage[parent])
+        ]
+
+    def _directed_candidates(self, direction: str) -> dict[str, list[str]]:
+        """Units near the goal, with their available witnesses (`DIR-02`/`DIR-07`).
+
+        The planned-dimension walk cannot be reused here: it stops at the first dimension that has
+        candidates, so on a ``behavior`` round it never looks at risk or joint units at all and the
+        directed entrance would silently never open.  So this scans risk and joint itself.
+
+        The only filter added to the shared predicate is proximity; direction, unit cooldown and
+        the witness rule are the same ones the explore walk applies.
+        """
+
+        candidates: dict[str, list[str]] = {}
+        for unit, dimension in self.state.unit_dimension.items():
+            if dimension == "behavior":
+                continue
+            if unit_proximity(unit, dimension) < PROXIMITY_NEAR:
+                continue
+            if self.state.unit_cooldown.get(unit, 0):
+                continue
+            if not _unit_in_direction(unit, dimension, direction):
+                continue
+            available = self._available_witnesses(unit)
+            if available:
+                candidates[unit] = available
+        return candidates
+
     def select(
         self,
         arm: ArmKind,
@@ -899,13 +1013,7 @@ class TwoArmSearch:
                         continue
                     if not _unit_in_direction(unit, unit_dimension, direction):
                         continue
-                    witnesses = self.state.unit_index.get(unit, ())
-                    available = [
-                        parent for parent in witnesses
-                        if not self.state.cooldown.get(parent, 0)
-                        and parent in self.state.parent_coverage
-                        and self._valid_baseline(parent, self.state.parent_coverage[parent])
-                    ]
+                    available = self._available_witnesses(unit)
                     if available:
                         candidate_parents[unit] = available
                 if candidate_parents:
@@ -934,11 +1042,31 @@ class TwoArmSearch:
                 selected_direction=direction, reason=reason, random_state=random_state,
                 root_restart=True, cooldown=self.state.cooldown.get(parent, 0),
                 feedback_sources=_GUIDED_ROOT_FEEDBACK,
+                selection_layer=SelectionLayer.ROOT_RESTART,
             ))
 
         import random as _random
 
         rng = _random.Random(root_random_state(self.seed, f"unit-{index}"))
+
+        # The directed entrance (`DIR-02`/`DIR-03`).  Drawn from its own stream so the unit and
+        # parent draws below keep their exact sequence: this change has to stay additive for "the
+        # explore path did not move" to be proven by the suite rather than asserted here.
+        directed_parents = self._directed_candidates(direction)
+        layer = (
+            SelectionLayer.DIRECTED
+            if build_random(f"{random_state}:layer:{FDM_POSITION_VERSION}").randrange(2) == 0
+            else SelectionLayer.EXPLORE
+        )
+        if layer is SelectionLayer.DIRECTED:
+            if directed_parents:
+                eligible_parents = directed_parents
+                eligible = list(directed_parents)
+            else:
+                # `DIR-04`: nothing near the goal is available, so this opportunity falls back to
+                # the explore rule instead of idling.  The readout keeps the two apart (`DIR-06`).
+                layer = SelectionLayer.FALLBACK
+
         grouped = sorted(
             eligible,
             key=lambda unit: (
@@ -960,6 +1088,10 @@ class TwoArmSearch:
             == best
         ]
         unit = rng.choice(tied)
+        if layer is SelectionLayer.DIRECTED:
+            # A directed unit may be risk or joint, so report the dimension actually charged rather
+            # than the planned one.
+            dimension = self.state.unit_dimension[unit]
         available = eligible_parents[unit]
         least = min(self.state.occurrence.get(parent, 0) for parent in available)
         parent = rng.choice(sorted(
@@ -974,12 +1106,16 @@ class TwoArmSearch:
             planned_dimension=planned_dimension, selected_dimension=dimension, selected_key=key,
             selected_unit=unit,
             selected_direction=direction,
-            reason=("feedback-ranked-unit" if dimension == planned_dimension
-                    else "empty-planned-dimension-fallback"),
+            reason=(
+                "directed-near-violation" if layer is SelectionLayer.DIRECTED
+                else "feedback-ranked-unit" if dimension == planned_dimension
+                else "empty-planned-dimension-fallback"
+            ),
             random_state=random_state, root_restart=False,
             cooldown=self.state.cooldown.get(parent, 0),
             parent_baseline=baseline,
             feedback_sources=_GUIDED_LOCAL_FEEDBACK,
+            selection_layer=layer,
         )
         if parent_bundle_directory is not None:
             try:
@@ -1645,9 +1781,14 @@ __all__ = [
     "FDM_INTENT_VERSION",
     "FDM_POSITION_VERSION",
     "GUIDED_FEEDBACK_SOURCES",
+    "PROXIMITY_HIT",
+    "PROXIMITY_NEAR",
+    "PROXIMITY_NONE",
     "SearchDiagnostics",
     "SearchProtocolIdentity",
     "SearchState",
+    "SelectionLayer",
     "SelectionReceipt",
     "TwoArmSearch",
+    "unit_proximity",
 ]

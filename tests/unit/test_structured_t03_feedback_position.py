@@ -153,7 +153,7 @@ def test_guided_receipt_records_priority_and_target_feedback(manifest):
             assert "s1" in receipt.target_slot_ids
             assert receipt.public_feedback is not None
             assert receipt.public_feedback.action_window == "observed"
-            assert receipt.probability_version == "structured-fdm-position-v2"
+            assert receipt.probability_version == "structured-fdm-position-v3"
             # Feedback direction places *material*, so the priority branch must land on a position
             # that writes wording whenever the parent's priority set contains one.
             from sandbox.structured_v1.edit_kernel import needs_text, position_from_data
