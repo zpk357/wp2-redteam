@@ -2,7 +2,7 @@
 
 - 任务 ID：`PPT-20260929-INTRO`
 - 标题：为项目外部技术同事制作项目入门 PPT
-- 状态：`READY`
+- 状态：`DONE`
 - 对应 SPEC：[20260929-project-intro-presentation.md](../specs/20260929-project-intro-presentation.md)
 - 对应需求：`PPT-OBJ-01`、`PPT-SCOPE-01..06`、`PPT-COV-01..07`、`PPT-EVID-01..05`、`PPT-VIS-01..05`、`PPT-AC-01..08`
 
@@ -50,30 +50,30 @@
 
 ## 5. 实施 checklist
 
-- [ ] 将本任务状态改为 `READY`，用户确认后改为 `IN_PROGRESS`。
-- [ ] 阅读 Presentation skill 的实现、图表/表格和最终化要求。
-- [ ] 冻结页面大纲、术语表和事实来源清单。
-- [ ] 选择一个机制验收 Episode 作为双重覆盖主示例，并在页面中标注其证据性质。
-- [ ] 绘制端到端闭环，突出覆盖反馈进入下一轮选择/变异的位置。
-- [ ] 绘制行为覆盖、风险覆盖、联合覆盖和四类新增结果的解释图。
-- [ ] 制作 `coverage_guided` 与随机基线对照页，说明公平性条件与当前限制。
-- [ ] 制作真实运行读数页，展示分母、W/F/Q、比例和样本规模。
-- [ ] 加入“当前已知边界”页，避免把研究假设、联合覆盖完整度或 Judge 置信度加固写成完成结论。
-- [ ] 使用 artifact-tool 导出 PPTX；按 skill 要求先运行 artifact operation marker。
-- [ ] 渲染所有页面，检查文字溢出、重叠、裁切、连线、颜色语义和脚注。
-- [ ] 对事实、数字、术语、来源链接和中文字体做人工复核。
+- [x] 将本任务状态改为 `READY`，用户确认后改为 `IN_PROGRESS`。
+- [x] 阅读 Presentation skill 的实现、图表/表格和最终化要求。
+- [x] 冻结页面大纲、术语表和事实来源清单。
+- [x] 选择机制验收 Episode 作为双重覆盖主示例，并在页面中标注其证据性质。
+- [x] 绘制端到端闭环，突出覆盖反馈进入下一轮选择/变异的位置。
+- [x] 绘制行为覆盖、风险覆盖、联合覆盖和四类新增结果的解释图。
+- [x] 制作 `coverage_guided` 与随机基线对照页，说明公平性条件与当前限制。
+- [x] 制作真实运行读数页，展示分母、W/F/Q、比例和样本规模。
+- [x] 加入“当前已知边界”页，避免把研究假设、联合覆盖完整度或 Judge 置信度加固写成完成结论。
+- [x] 使用 artifact-tool 导出 PPTX；按 skill 要求先运行 artifact operation marker。
+- [x] 渲染所有页面，检查文字溢出、重叠、裁切、连线、颜色语义和脚注。
+- [x] 对事实、数字、术语、来源链接和中文字体做人工复核。
 
 ## 6. 验收 checklist
 
-- [ ] 页面数量在 9 到 11 页之间，主叙事适合约 10 分钟。
-- [ ] 页面不依赖代码阅读，听众可以理解 Scenario、Episode、Trace、Oracle、Coverage 和 Finding 的关系。
-- [ ] 能分别解释行为覆盖、风险覆盖和联合覆盖。
-- [ ] 能解释四类覆盖结果：仅新行为、仅新风险、新联合关系、无新增。
-- [ ] 示例 Episode 能把真实证据、覆盖增量和下一轮反馈连起来。
-- [ ] 清楚说明 `coverage_guided` 与随机基线共享测试条件，唯一原则性差异是是否消费跨 Episode 反馈；若现状存在偏差，必须显式标注。
-- [ ] 真实运行读数含分母和限制，不宣称正式优越性。
-- [ ] 当前能力与未完成项没有混写；Judge 置信度加固没有被宣称为完成。
-- [ ] 所有页面均可读，未发现溢出、重叠、裁切、连线穿字或图表标签歧义。
+- [x] 页面数量在 9 到 11 页之间，主叙事适合约 10 分钟。
+- [x] 页面不依赖代码阅读，听众可以理解 Scenario、Episode、Trace、Oracle、Coverage 和 Finding 的关系。
+- [x] 能分别解释行为覆盖、风险覆盖和联合覆盖。
+- [x] 能解释四类覆盖结果：仅新行为、仅新风险、新联合关系、无新增。
+- [x] 示例 Episode 能把真实证据、覆盖增量和下一轮反馈连起来。
+- [x] 清楚说明 `coverage_guided` 与随机基线共享测试条件，唯一原则性差异是是否消费跨 Episode 反馈；现状限制已显式标注。
+- [x] 真实运行读数含分母和限制，不宣称正式优越性。
+- [x] 当前能力与未完成项没有混写；Judge 置信度加固没有被宣称为完成。
+- [x] 所有页面均可读，未发现溢出、重叠、裁切、连线穿字或图表标签歧义。
 
 ## 7. 验证命令与人工观察
 
@@ -91,6 +91,14 @@ git status --short
 - 人工核对来源页/脚注、真实读数与分母、四类覆盖结果和当前状态限定语。
 - 不运行 Docker、真实模型或远程服务；未运行项必须在交付说明中记录。
 
+执行记录：
+
+- artifact operation marker：`node container_tools/mark_artifact_operation_started.mjs --operation-kind create --expected-output-count 1 --output-format pptx`
+- PPTX finalizer：11 页、16:9、包完整性通过、布局检查通过、`Noto Sans SC` 字体策略通过、artifact-tool 导入验证通过。
+- 渲染检查：`build/presentation-20260929/rendered-v1/` 下 11 页 PNG 已逐页人工检查。
+- 最终交付：`build/presentation-20260929/output/wp2-redteam-project-intro-20260929-v1.pptx`
+- `git diff --check`：通过。
+
 ## 8. 风险、失败信号与回滚
 
 - 风险：把产品目标误写成当前能力；失败信号是页面没有证据等级或把未完成项写成已完成。
@@ -102,6 +110,6 @@ git status --short
 
 ## 9. 尚未解决的问题
 
-- 最终 PPTX 文件名和输出目录在实施开始前冻结。
-- 机制验收 Episode 采用 `summary-delivery-b` 还是其他已有本地验收样本，需要在内容冻结时登记来源。
-- 是否使用模板：当前无用户提供模板，默认采用 artifact-tool 的简洁自定义版式；若模板选择工具可用，按 Presentation skill 流程选择一次。
+- 最终 PPTX 文件名和输出目录已冻结为 `build/presentation-20260929/output/wp2-redteam-project-intro-20260929-v1.pptx`。
+- 机制验收 Episode 已采用已有本地机制验收样本，并在页面中标注为机制说明证据，不作为真实模型效果结论。
+- 当前无用户提供模板，已采用 artifact-tool 的简洁自定义版式。
