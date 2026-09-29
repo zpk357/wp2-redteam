@@ -1,6 +1,6 @@
 # SPEC-SOC-GYD-20260929: 引导违规率诊断与落点测量
 
-- 状态：`DRAFT`。用户已确认诊断顺序；本文件的判据、分母和验收细节仍待书面 review。
+- 状态：`APPROVED`（2026-09-29）。用户确认诊断顺序，并授权执行 AI 决定判据、分母与实施细节。执行结果见[诊断报告](../reports/20260929-guidance-yield-diagnostics.md)。
 - 上位：[产品规格](../SPEC.md) `G-02..04`、`FR-FUZZ-01..05`、`FR-EXP-03..05`；关联：[ENC 规格](20260927-material-encounter-validity.md) `ENC-03..05`、[FDM 规格](20260926-feedback-directed-mutation.md) `FDM-09..10`、[定向层规格](20260929-guided-directed-layer.md) `DIR-02..06`。
 - 本次交付：针对既有运行证据的只读审计、候选落点的离线测量、诊断报告和下一步决策建议。新 Campaign、策略改动、fixture 改动及正式论文协议不在本规格内。
 
