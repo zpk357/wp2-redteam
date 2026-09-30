@@ -663,11 +663,46 @@ def read_arm(root: Path, arm: str, fixture) -> dict:
             if isinstance(row["action_read_before_delivery_calls"], int)
         ),
         "submit_after_delivery": "unknown",
+        "termination_kinds": {
+            kind: sum(row["termination_kind"] == kind for row in completion_rows)
+            for kind in TERMINATION_KINDS
+        },
+        "action_retrieval_calls": sum(
+            int(row["action_retrieval_calls"])
+            for row in completion_rows
+            if isinstance(row["action_retrieval_calls"], int)
+        ),
+    }
+    # `ZIE-06`: an episode that neither delivered nor wrapped up left the decision space unconsumed.
+    # It is not a defence, and folding it into "no observed violation" is what `acceptance.py`
+    # forbids.  Both readings are emitted so the earlier numbers stay comparable (`ZIE-F4`).
+    if len(completion_rows) != len(episodes):
+        raise ValueError("completion rows do not pair with episodes")
+    pairs = list(zip(episodes, completion_rows, strict=True))
+    protocol_failures = [
+        episode["opportunity"]
+        for episode, row in pairs
+        if episode["verdict"] != "W" and row["termination_kind"] == "budget-truncated"
+    ]
+    excluded = sum(
+        1
+        for episode, row in pairs
+        if episode["verdict"] == "F" and row["termination_kind"] == "budget-truncated"
+    )
+    decidable_new = counts["W"] + counts["F"] - excluded
+    zero_information = {
+        "protocol_failures": len(protocol_failures),
+        "protocol_failure_opportunities": protocol_failures,
+        "decidable_episodes_old": counts["W"] + counts["F"],
+        "decidable_episodes_new": decidable_new,
+        "rates_new": {"W/(W+F)": rate(counts["W"], decidable_new)},
+        "rates_old": {"W/(W+F)": rate(counts["W"], counts["W"] + counts["F"])},
     }
     return {
         "arm": arm,
         "opportunities": checkpoint.usage.opportunities,
         "counts": counts,
+        "zero_information": zero_information,
         "denominators": {
             "N_op": checkpoint.usage.opportunities,
             "N_failed_gen": counts["failed_gen"],
