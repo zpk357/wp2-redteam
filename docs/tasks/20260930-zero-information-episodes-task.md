@@ -70,11 +70,11 @@ checkpoint(generations[].requests / selections[].parent_id)
 
 ### A 组（先做，做完即可用本批数据出对照）
 
-- [ ] **T1**（`ZIE-04a`/`ZIE-05`）`checkpoint_report`：按 `ZIE-F5` 给每次机会打 `material_source`；汇总三类计数与被消耗机会数。
-- [ ] **T2**（`ZIE-01`）`_completion_diagnostics`：派生 `termination_kind`（三值表见 SPEC `ZIE-01`）；不改 `StopReason`。
-- [ ] **T3**（`ZIE-06`）聚合：`protocol-failure` 定义 + 从 `W/(W+F)`、`W/N_op` 分母剔除 + 单列；**同时**输出旧口径（`ZIE-F4`）。
-- [ ] **T4**（`ZIE-13`）被拒绝调用的计数与工具名分布（A 组先落数据结构，C 组填数）。
-- [ ] **T5** 报告生成：用 `d:/hxjh/runs/enc-dir01-01-20260929` 出新/旧双口径对照，并写入 SPEC §7 要求的口径注记。
+- [x] **T1**（`ZIE-04a`/`ZIE-05`）`checkpoint_report`：按 `ZIE-F5` 给每次机会打 `material_source`；汇总三类计数与被消耗机会数。→ `58f41c6`
+- [x] **T2**（`ZIE-01`）`_completion_diagnostics`：派生 `termination_kind`（三值表见 SPEC `ZIE-01`）；不改 `StopReason`。→ `6f3631a`；`ed4ed39` 修正为读**最后一条携带内容的决策**
+- [x] **T3**（`ZIE-06`）聚合：`protocol-failure` 定义 + 从 `W/(W+F)`、`W/N_op` 分母剔除 + 单列；**同时**输出旧口径（`ZIE-F4`）。→ `217681a`
+- [x] **T4**（`ZIE-13`）`action_retrieval_calls` / `action_retrieval_tools`（路线 A 下不再有被拒绝的调用，计数改为记录动作阶段的检索类调用数）。
+- [x] **T5** 报告生成：`docs/reports/20260930-zero-information-episodes-readout.md`（+ 可重跑脚本），含双口径与口径注记。
 
 ### B 组（准入，一处）
 
@@ -83,15 +83,15 @@ checkpoint(generations[].requests / selections[].parent_id)
 
 ### C 组（协议）
 
-- [ ] **T8**（`ZIE-03`）新增 `completion_v3` 任务文本：满足 SPEC `ZIE-03` 的 (1)(2)(3)；新增 `enc2` fixture 并注册；`enc-01` **逐字节不变**。
-- [ ] **T9**（`ZIE-11`/`ZIE-12`）`TwoPhaseProtocol` 增字段并版本升位；`session.py` 在 `tools.execute` 前加闸门，拒绝返回**可读理由**。
-- [ ] **T10**（`ZIE-08`）确认 A/B/C 三组对两臂同等生效。
-- [ ] **T11**（`ZIE-09`）版本身份写入 checkpoint；旧 checkpoint 拒续跑。
+- [x] **T8**（`ZIE-03`）新增 `completion_v3` 任务文本 + `enc2` fixture 并注册；**`enc-01` 逐字节不变已实测**（`manifest_digest` = `sha256:a373078b…`，与冻结值一致）。→ `6654dba`
+- [x] **T9**（`ZIE-11`/`ZIE-12`）**改为路线 A**（SPEC `A10`）：`TwoPhaseProtocol.action_tools` + `session.py` 在阶段切换时收窄模型可见工具集；真实端口收窄后**仍追加 `submit`**。`ZIE-12` 由"动作阶段只有交付工具"自动满足，无需单独的保留额度机制。→ `c16a7de`
+- [x] **T10**（`ZIE-08`）工具集与任务文本都由 fixture 决定，不分臂；`tests/unit/test_zero_information_episodes.py` 断言收窄结果。→ `11a4119`
+- [x] **T11**（`ZIE-09`）新 fixture 用 `investigate-act-v2` 并写入 `session_protocol`；`enc-01` 保持 `v1` 从而不复用旧 checkpoint 的身份。→ `6654dba`
 
 ### 测试与验收
 
-- [ ] **T12** 新增 `tests/unit/test_zero_information_episodes.py` 覆盖 `ZIE-10` 全部 10 项；扩充两臂与报告测试。
-- [ ] **T13** 全量验证（见 §7 命令）。
+- [x] **T12** 新增 `tests/unit/test_zero_information_episodes.py`（**9 项**）。`ZIE-10` 第 7 项由 `zero_information_split` 覆盖；第 8/9 项（逐调用拒绝）随路线 A 撤回，改为断言"动作阶段只提供交付工具"。→ `11a4119`
+- [ ] **T13** 全量验证：`compileall`、`ruff`、聚焦测试均已通过；**`tests/unit` 与 `tests/integration` 不能在同一次 pytest 调用里收集**（既有重名文件，见 §7），待分别跑完。
 
 ## 6. 验收 checklist
 
@@ -110,9 +110,12 @@ scripts/project_ruff.cmd check src agent_image tests
 scripts/project_python.cmd -m pytest tests/unit/test_zero_information_episodes.py -q
 scripts/project_python.cmd -m pytest tests/integration/test_structured_campaign_report.py -q
 scripts/project_python.cmd -m pytest tests/integration/test_structured_two_arm_campaign.py -q
-scripts/project_python.cmd -m pytest tests/unit tests/integration -q
+scripts/project_python.cmd -m pytest tests/unit -q
+scripts/project_python.cmd -m pytest tests/integration -q
 git diff --check
 ```
+
+**注记**：`tests/unit` 与 `tests/integration` **必须分开跑**。两者各有一个 `test_structured_feedback_mutation.py`，而 `tests/` 下没有 `__init__.py`，单次调用会在收集阶段报 `import file mismatch`。这是既有条件，与本任务无关。
 
 `enc-01` 字节不变的核验：改动前后各跑一次 `load_fixture("summary-delivery-enc-01")`，比对 `manifest_digest` 与 freeze 清单哈希。
 
