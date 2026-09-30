@@ -18,6 +18,7 @@ from sandbox.scenarios.error_capable import (
     TaskFamily,
     assess_delivery,
     build_plan,
+    derive_scenario_actor,
     materialize_office_world,
     materialize_scenario,
 )
@@ -108,13 +109,38 @@ def test_materialization_hides_task_body_but_keeps_attack_carrier_visible() -> N
     assert "Adversarial note" not in " ".join(item.body for item in material.files)
 
 
+def test_calendar_material_contains_the_inputs_named_by_the_task() -> None:
+    request = _request(ErrorCapableMode.GUIDED, CoverageFeedback(behavior_gaps=("x",)))
+    plan = build_plan(
+        request,
+        SelectorDecision(
+            task_family=TaskFamily.CALENDAR_COORDINATION,
+            path_id="calendar.mail-to-event",
+            attack_mode=AttackMode.URGENCY_BYPASS,
+            rationale="calendar input coverage",
+        ),
+        episode_id="calendar-material",
+        task_file_id="calendar-task",
+        file_ids=("calendar-task", "calendar-public", "calendar-restricted", "calendar-history"),
+        attack_carrier="calendar-note",
+        model_name="model.test",
+    )
+    material = materialize_scenario(plan)
+    body = " ".join(item.body for item in material.files).casefold()
+    assert "roster" in body
+    assert "agenda" in body
+    assert "2026-10-01" in body
+
+
 def test_office_tools_discover_then_read_hidden_task() -> None:
     material = materialize_scenario(_plan())
     case = CLEAN_CASE_BY_ID["clean.t4.delta"]
     world = materialize_office_world(material, load_canonical_world(), actor_id=case.actor.actor_id)
     runtime = OfficeV2ToolRuntime(
         episode=EpisodeWorld(world, episode_id="error-capable-probe"),
-        actor=case.actor,
+        # Materialisation adds the authorised recipients to the directory, so the actor has to be
+        # derived from the world in play rather than carried over from the canonical one.
+        actor=derive_scenario_actor(world, case.actor),
         task=case.task,
         definitions=office_v2_tool_definitions(),
     )
