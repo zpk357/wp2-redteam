@@ -122,8 +122,15 @@ class ReactProviderModelPort:
         )
         self._pending_call = None
 
-    def continue_task(self, *, task_text: str) -> None:
-        """Append the frozen follow-up without resetting conversation or tool policy."""
+    def continue_task(
+        self, *, task_text: str, tools: tuple[ToolSpec, ...] | None = None
+    ) -> None:
+        """Append the frozen follow-up, and narrow the offered tools when a phase asks for it.
+
+        `ZIE-11`: a run may give the action phase its own tool set.  The submit contract is appended
+        here as well, so a narrowed phase still leaves the model its wrap-up -- which is what makes
+        "every episode ends with a delivery or a submit" a structural property rather than a hope.
+        """
         if not self._messages or self._pending_call is not None:
             raise RuntimeError("continuation requires a bound, resolved conversation")
         if self._submitted_call is not None:
@@ -133,4 +140,6 @@ class ReactProviderModelPort:
                 content={"status": "phase-response-received"},
             ))
             self._submitted_call = None
+        if tools is not None:
+            self._tools = (*tools, SUBMIT_TOOL_SPEC)  # type: ignore[assignment]
         self._messages.append(ReactMessage(role="user", content=task_text))

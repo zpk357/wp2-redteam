@@ -133,7 +133,9 @@ class ModelPort(Protocol):
 
     def bind(self, *, task_text: str, tools: tuple[ToolSpec, ...]) -> None: ...
 
-    def continue_task(self, *, task_text: str) -> None: ...
+    def continue_task(
+        self, *, task_text: str, tools: tuple[ToolSpec, ...] | None = None
+    ) -> None: ...
 
     def decide(self, *, step: int) -> ModelDecision: ...
 
@@ -248,6 +250,17 @@ def run_episode(
     phase_tracker = BudgetTracker(budget=phase_budgets[0]) if protocol else tracker
     phases: list[PhaseReceipt] = []
 
+    # `ZIE-11`: the action phase may be given its own tool set.  Naming a tool this run does not
+    # offer is a configuration error rather than a silently empty list.
+    action_tools: tuple[ToolSpec, ...] | None = None
+    if protocol is not None and protocol.action_tools:
+        offered = {spec.name for spec in model_tools}
+        unknown = sorted(set(protocol.action_tools) - offered)
+        if unknown:
+            raise ValueError(f"the action phase names tools this run does not offer: {unknown}")
+        wanted = set(protocol.action_tools)
+        action_tools = tuple(spec for spec in model_tools if spec.name in wanted)
+
     def require_active() -> None:
         if cancelled is not None and cancelled():
             raise RuntimeError("structured episode was cancelled; no further calls permitted")
@@ -275,7 +288,7 @@ def run_episode(
         nonlocal phase_index, phase_start, phase_started, phase_tracker
         require_active()
         close_phase(reason)
-        model.continue_task(task_text=protocol.action_task_text)
+        model.continue_task(task_text=protocol.action_task_text, tools=action_tools)
         phase_index = 1
         phase_start = step
         phase_started = clock.now() or phase_started

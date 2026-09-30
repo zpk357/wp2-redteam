@@ -60,8 +60,12 @@ class ScriptedModelPort:
             )
         return self._decisions[step]
 
-    def continue_task(self, *, task_text: str) -> None:
+    def continue_task(
+        self, *, task_text: str, tools: tuple[ToolSpec, ...] | None = None
+    ) -> None:
         self.continuations.append(task_text)
+        if tools is not None:
+            self.tools = tools
 
     def observe(self, decision: ModelDecision, report: object) -> None:
         del decision
