@@ -147,7 +147,9 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
     if settled != state.usage.opportunities or not costs_match:
         raise ValueError("checkpoint usage does not reconcile with opportunity receipts")
     thrown = [item for item in curves if item["selection_layer"] == SelectionLayer.DIRECTED.value]
-    fell_back = [item for item in curves if item["selection_layer"] == SelectionLayer.FALLBACK.value]
+    fell_back = [
+        item for item in curves if item["selection_layer"] == SelectionLayer.FALLBACK.value
+    ]
     explored = [item for item in curves if item["selection_layer"] == SelectionLayer.EXPLORE.value]
 
     def _conversion(items: list[dict]) -> float | None:

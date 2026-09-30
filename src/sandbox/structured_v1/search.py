@@ -111,7 +111,7 @@ def attack_technique_for(opportunity: int) -> str:
 
 def _offline_placeholder_text(
     manifest: StructuredFixtureManifest,
-    receipt: "SelectionReceipt",
+    receipt: SelectionReceipt,
     node: str,
 ) -> str:
     """Deterministic wording for the no-provider path, landing on the receipt's own direction.
@@ -1480,7 +1480,10 @@ class TwoArmSearch:
 
         technique = attack_technique_for(receipt.opportunity)
         if self.provider is None or self.generation_budget is None:
-            texts = {node: _offline_placeholder_text(self.manifest, receipt, node) for node in wanted}
+            texts = {
+                node: _offline_placeholder_text(self.manifest, receipt, node)
+                for node in wanted
+            }
             plan = MutationPlan(
                 opportunity=receipt.opportunity,
                 arm=receipt.arm.value,
