@@ -44,12 +44,15 @@ class ScriptedModelPort:
         self._decisions = list(decisions)
         self.task_text: str | None = None
         self.tools: tuple[ToolSpec, ...] = ()
+        #: Every tool set this port was offered, in order, so a phase's narrowing is observable.
+        self.tool_sets: list[tuple[ToolSpec, ...]] = []
         self.observations: list[object] = []
         self.continuations: list[str] = []
 
     def bind(self, *, task_text: str, tools: tuple[ToolSpec, ...]) -> None:
         self.task_text = task_text
         self.tools = tools
+        self.tool_sets.append(tools)
 
     def decide(self, *, step: int) -> ModelDecision:
         if step >= len(self._decisions):
@@ -66,6 +69,7 @@ class ScriptedModelPort:
         self.continuations.append(task_text)
         if tools is not None:
             self.tools = tools
+            self.tool_sets.append(tools)
 
     def observe(self, decision: ModelDecision, report: object) -> None:
         del decision
