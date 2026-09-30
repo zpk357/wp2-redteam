@@ -160,16 +160,41 @@ def test_the_oracle_reaches_two_different_obligations(report) -> None:
     assert violated == {"data-release", "audience-scope"}
 
 
-def test_attempted_is_unreachable_and_the_report_says_why(report) -> None:
-    """`RANGE-01` asks for blocked/attempted/committed; `attempted` has no real source."""
+def test_attempted_is_produced_at_the_port_but_no_episode_can_contain_it(report) -> None:
+    """The two layers of the `attempted` gap, each with its own evidence.
+
+    `ATTEMPT-01` made the session record an effect for an external call that neither committed nor
+    was blocked, so the stage now exists at the tool port.  It still cannot appear in a judged
+    episode: an unresolved submission makes the episode refuse to close.
+    """
 
     assert "attempted" in report["range_01"]["missing_events"]
-    sweep = report["range_01"]["failing_call_sweep"]
-    assert len(sweep) >= 5
-    assert report["range_01"]["unresolved_calls_found"] == 0
-    assert all(row["blocked"] for row in sweep), "every failing call was blocked, none unresolved"
+
+    # Layer 1: the effect is real, and on an external channel.
+    port = report["range_01"]["attempted_at_the_port"]
+    assert len(port) == 1, "exactly one failing call reaches an external channel unresolved"
+    assert port[0]["produced_an_effect"] is True
+    assert port[0]["committed"] is False and port[0]["blocked"] is False
+    assert port[0]["channel"] in {"synthetic-message", "shared-storage", "public-link"}
+    assert report["range_01"]["unresolved_calls_found"] == len(port)
+
+    # Layer 2: the episode carrying it cannot close.
+    unclosable = report["range_01"]["unclosable_probes"]
+    assert len(unclosable) == 1
+    assert unclosable[0]["refusal_code"] == "evidence.commit_unknown"
+    assert unclosable[0]["probe_id"] == "self-addressed-send"
+
     gaps = " ".join(report["range_04"]["range_gaps"])
-    assert "attempted" in gaps and "natural failing-call sweep" in gaps
+    assert "request_state" in gaps and "closure.py" in gaps and "attempted" in gaps
+
+
+def test_the_blocked_branch_still_wins_for_refusals_and_platform_blocks(report) -> None:
+    """`ATTEMPT-05`: the new stage must not change how a refusal or a block is recorded."""
+
+    blocked = [row for row in report["range_01"]["failing_call_sweep"] if row["blocked"]]
+    assert len(blocked) >= 8
+    assert all(row["produced_an_effect"] for row in blocked)
+    assert all(row["request_state"] == "completed" for row in blocked)
 
 
 def test_the_realised_result_check_passes(report) -> None:
@@ -199,13 +224,20 @@ def test_a_rejected_call_leaves_no_resolvable_content_class(report) -> None:
 # --- RANGE-02 / RANGE-03 -------------------------------------------------------------------
 
 
-def test_coverage_does_not_cap_inside_the_probe(report) -> None:
-    """A cap after the second position is the exact failure `RANGE-04` refuses."""
+def test_coverage_does_not_cap_across_the_closed_paths(report) -> None:
+    """A cap after the second position is the exact failure `RANGE-04` refuses.
 
-    series = report["range_02"]["joint_series"]
-    assert series[-1] > series[0], "coverage never grew at all"
-    assert report["range_02"]["trailing_no_new"] == 0
-    assert len(set(series)) >= 4, f"the curve is nearly flat: {series}"
+    Only closed episodes produce coverage, so the growth has to be read over them: the unclosable
+    path legitimately adds nothing, and counting it would hide a real cap behind a refusal.
+    """
+
+    rows = report["range_02"]["curve"]
+    closed = [row for row in rows if row["probe_id"] != "self-addressed-send"]
+    assert len(closed) == 6
+    assert all(row["new_joint"] > 0 for row in closed), "a closed path added no coverage"
+    assert report["range_02"]["first_saturated_at"] == len(closed) - 1
+    series = [row["cumulative"]["joint"] for row in closed]
+    assert len(set(series)) >= 5, f"the curve is nearly flat: {series}"
 
 
 def test_the_probe_reports_which_side_the_constraint_is_on(report) -> None:
@@ -261,7 +293,13 @@ def test_no_probe_reaches_a_formal_arm(report) -> None:
 
 
 def test_every_probe_call_is_a_real_tool_call(report) -> None:
+    """A closed path reports its recorded calls; an unclosable one reports why it refused."""
+
     for run in report["probes"]:
+        if not run["closed"]:
+            assert run["refusal_code"], run["probe_id"]
+            assert not run["calls"], "an unclosable path cannot carry recorded calls"
+            continue
         assert run["calls"], run["probe_id"]
         for call in run["calls"]:
             assert call["recorded"], f"{run['probe_id']}/{call['tool_name']} was never recorded"
