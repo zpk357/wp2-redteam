@@ -1,0 +1,151 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import pytest
+
+from sandbox.scenarios.error_capable import (
+    AttackMode,
+    CoverageFeedback,
+    EffectStage,
+    ErrorCapableMode,
+    SelectorDecision,
+    TaskFamily,
+)
+from sandbox.scenarios.error_capable_local import (
+    EpisodeReceipt,
+    LocalCoverageLedger,
+    SelectorReceipt,
+    persist_episode,
+    placebo_indices,
+    restore_episode,
+    run_local_path_probe,
+)
+
+
+def _decision() -> SelectorDecision:
+    return SelectorDecision(
+        task_family=TaskFamily.SUMMARY_DELIVERY,
+        path_id="summary.shared-link",
+        attack_mode=AttackMode.PUBLIC_LINK_EXFILTRATION,
+        rationale="cover a registered joint gap",
+    )
+
+
+def test_selector_receipt_separates_guided_and_random_inputs() -> None:
+    feedback = CoverageFeedback(behavior_gaps=("summary",))
+    guided = SelectorReceipt.record(
+        episode_id="episode-1",
+        mode=ErrorCapableMode.GUIDED,
+        model_identity="model.test",
+        request={"feedback": feedback.model_dump(mode="json")},
+        decision=_decision(),
+        feedback=feedback,
+    )
+    assert guided.feedback_digest == feedback.canonical_digest()
+    random = SelectorReceipt.record(
+        episode_id="episode-2",
+        mode=ErrorCapableMode.RANDOM,
+        model_identity="model.test",
+        request={"seed": 2},
+        decision=_decision(),
+        feedback=None,
+    )
+    assert random.feedback_digest is None
+    with pytest.raises(ValueError, match="random"):
+        SelectorReceipt.record(
+            episode_id="episode-3",
+            mode=ErrorCapableMode.RANDOM,
+            model_identity="model.test",
+            request={},
+            decision=_decision(),
+            feedback=feedback,
+        )
+
+
+def test_coverage_ledger_exposes_four_increment_cases() -> None:
+    ledger = LocalCoverageLedger()
+    ledger, first = ledger.observe(("b1",), ("r1",))
+    ledger, repeat = ledger.observe(("b1",), ("r1",))
+    ledger, behavior_only = ledger.observe(("b2",), ("r1",))
+    ledger, risk_only = ledger.observe(("b1",), ("r2",))
+    ledger, joint = ledger.observe(("b2",), ("r2",))
+    assert (first.new_behavior, first.new_risk, first.new_joint) == (True, True, True)
+    assert (repeat.new_behavior, repeat.new_risk, repeat.new_joint) == (False, False, False)
+    assert behavior_only.new_behavior and not behavior_only.new_risk
+    assert risk_only.new_risk and not risk_only.new_behavior
+    assert joint.new_joint
+    assert isinstance(ledger.feedback(), CoverageFeedback)
+
+
+def test_placebo_schedule_and_idempotent_episode_receipts() -> None:
+    assert placebo_indices(16) == (0, 1)
+    receipt = EpisodeReceipt(
+        episode_id="episode-1",
+        plan_digest="sha256:" + "a" * 64,
+        trace_digest="sha256:" + "b" * 64,
+        stage=EffectStage.READ_ONLY,
+        completed=False,
+        interrupted=True,
+    )
+    with TemporaryDirectory(dir=Path.cwd()) as directory:
+        root = Path(directory)
+        path = persist_episode(receipt, root)
+        assert restore_episode(path) == receipt
+        assert persist_episode(receipt, root) == path
+        with pytest.raises(ValueError, match="different evidence"):
+            persist_episode(
+                receipt.model_copy(update={"trace_digest": "sha256:" + "c" * 64}),
+                root,
+            )
+
+
+def test_each_task_family_has_two_real_tool_paths() -> None:
+    from sandbox.scenarios.error_capable import (
+        ATTACK_SPECS,
+        EpisodeKind,
+        SelectorRequest,
+        build_plan,
+        materialize_scenario,
+    )
+
+    request = SelectorRequest(
+        mode=ErrorCapableMode.GUIDED,
+        seed=9,
+        agent_model_name="model.test",
+        selector_model_name="model.test",
+        available_task_families=tuple(TaskFamily),
+        available_attacks=tuple(AttackMode),
+        feedback=CoverageFeedback(behavior_gaps=("path",)),
+    )
+    path_pairs = {
+        TaskFamily.SUMMARY_DELIVERY: ("summary.draft-confirm-email", "summary.shared-link"),
+        TaskFamily.CALENDAR_COORDINATION: ("calendar.mail-to-event", "calendar.event-followup"),
+        TaskFamily.ACCESS_REVIEW: ("access.report-only", "access.draft-review"),
+    }
+    for index, (family, paths) in enumerate(path_pairs.items()):
+        traces = []
+        for path_index, path_id in enumerate(paths):
+            plan = build_plan(
+                request,
+                SelectorDecision(
+                    task_family=family,
+                    path_id=path_id,
+                    attack_mode=ATTACK_SPECS[index].attack_mode,
+                    episode_kind=EpisodeKind.ATTACK,
+                    rationale="real local path probe",
+                ),
+                episode_id=f"local-{family.value}-{path_index}",
+                task_file_id=f"local-{family.value}-{path_index}-task",
+                file_ids=tuple(
+                    f"local-{family.value}-{path_index}-{role}"
+                    for role in ("task", "public", "restricted", "history")
+                ),
+                attack_carrier=ATTACK_SPECS[index].carriers[0],
+                model_name="model.test",
+            )
+            result = run_local_path_probe(materialize_scenario(plan), path_id=path_id)
+            assert result.completed
+            assert result.committed
+            assert result.task_family == family.value
+            traces.append(result.tool_names)
+        assert traces[0] != traces[1]

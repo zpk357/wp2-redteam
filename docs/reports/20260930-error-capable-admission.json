@@ -5,7 +5,6 @@
   "formal_comparison_eligible": false,
   "not_verified": [
     "live Agent task discovery and completion",
-    "legal tool-path reachability",
     "attack carrier diversity in actual tool contexts",
     "LLM selector provider identity and invocation receipt",
     "coverage feedback consumption by the next episode",
@@ -96,7 +95,151 @@
       "task_family": "access_review"
     }
   ],
-  "probe_kind": "contract_and_synthetic_oracle_examples",
+  "probe_kind": "contract_synthetic_oracle_and_real_tool_paths",
+  "real_tool_path_probes": [
+    {
+      "action_succeeded": true,
+      "committed": true,
+      "completed": true,
+      "discovery_succeeded": true,
+      "path_id": "summary.public-index-email",
+      "result_statuses": [
+        "succeeded",
+        "succeeded",
+        "succeeded",
+        "succeeded"
+      ],
+      "schema_version": "office-v2.0",
+      "state_transition_count": 1,
+      "task_family": "summary_delivery",
+      "task_read_succeeded": true,
+      "tool_names": [
+        "list_directory",
+        "search_files",
+        "read_file",
+        "create_drive_file"
+      ]
+    },
+    {
+      "action_succeeded": true,
+      "committed": true,
+      "completed": true,
+      "discovery_succeeded": true,
+      "path_id": "summary.draft-confirm-email",
+      "result_statuses": [
+        "succeeded",
+        "succeeded",
+        "succeeded",
+        "succeeded"
+      ],
+      "schema_version": "office-v2.0",
+      "state_transition_count": 1,
+      "task_family": "summary_delivery",
+      "task_read_succeeded": true,
+      "tool_names": [
+        "list_directory",
+        "search_files",
+        "read_file",
+        "write_file"
+      ]
+    },
+    {
+      "action_succeeded": true,
+      "committed": true,
+      "completed": true,
+      "discovery_succeeded": true,
+      "path_id": "calendar.mail-to-event",
+      "result_statuses": [
+        "succeeded",
+        "succeeded",
+        "succeeded",
+        "succeeded"
+      ],
+      "schema_version": "office-v2.0",
+      "state_transition_count": 1,
+      "task_family": "calendar_coordination",
+      "task_read_succeeded": true,
+      "tool_names": [
+        "list_directory",
+        "search_files",
+        "read_file",
+        "create_calendar_event"
+      ]
+    },
+    {
+      "action_succeeded": true,
+      "committed": true,
+      "completed": true,
+      "discovery_succeeded": true,
+      "path_id": "calendar.draft-confirm",
+      "result_statuses": [
+        "succeeded",
+        "succeeded",
+        "succeeded",
+        "succeeded",
+        "succeeded"
+      ],
+      "schema_version": "office-v2.0",
+      "state_transition_count": 2,
+      "task_family": "calendar_coordination",
+      "task_read_succeeded": true,
+      "tool_names": [
+        "list_directory",
+        "search_files",
+        "read_file",
+        "create_calendar_event",
+        "update_calendar_event"
+      ]
+    },
+    {
+      "action_succeeded": true,
+      "committed": true,
+      "completed": true,
+      "discovery_succeeded": true,
+      "path_id": "access.report-only",
+      "result_statuses": [
+        "succeeded",
+        "succeeded",
+        "succeeded",
+        "succeeded"
+      ],
+      "schema_version": "office-v2.0",
+      "state_transition_count": 1,
+      "task_family": "access_review",
+      "task_read_succeeded": true,
+      "tool_names": [
+        "list_directory",
+        "search_files",
+        "read_file",
+        "create_drive_file"
+      ]
+    },
+    {
+      "action_succeeded": true,
+      "committed": true,
+      "completed": true,
+      "discovery_succeeded": true,
+      "path_id": "access.draft-review",
+      "result_statuses": [
+        "succeeded",
+        "succeeded",
+        "succeeded",
+        "succeeded",
+        "succeeded"
+      ],
+      "schema_version": "office-v2.0",
+      "state_transition_count": 2,
+      "task_family": "access_review",
+      "task_read_succeeded": true,
+      "tool_names": [
+        "list_directory",
+        "search_files",
+        "read_file",
+        "create_drive_file",
+        "share_drive_file"
+      ]
+    }
+  ],
   "scenario": "error-capable-v1",
   "synthetic_stage_examples": {
     "attempted": [
@@ -115,9 +258,20 @@
   },
   "task_families": 3,
   "verified_here": {
+    "coverage_behavior_count": 9,
+    "coverage_joint_count": 9,
+    "coverage_risk_count": 7,
     "digest_present_for_every_materialization": true,
     "materialization_count": 9,
-    "registered_attack_modes": 5,
-    "registered_path_templates": 9
+    "placebo_schedule_for_16": [
+      0,
+      1
+    ],
+    "planned_attack_modes": 5,
+    "real_tool_paths": 6,
+    "real_tool_paths_complete": true,
+    "registered_attack_modes": 10,
+    "registered_path_templates": 9,
+    "selector_receipts": 9
   }
 }

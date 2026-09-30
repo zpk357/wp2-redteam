@@ -22,6 +22,12 @@ from sandbox.scenarios.error_capable import (
     build_plan,
     materialize_scenario,
 )
+from sandbox.scenarios.error_capable_local import (
+    LocalCoverageLedger,
+    SelectorReceipt,
+    placebo_indices,
+    run_local_path_probe,
+)
 
 
 def _request() -> SelectorRequest:
@@ -39,6 +45,9 @@ def _request() -> SelectorRequest:
 def build_probe() -> dict[str, object]:
     request = _request()
     plans = []
+    path_probes = []
+    coverage = LocalCoverageLedger()
+    selector_receipts = []
     for family in TASK_FAMILY_SPECS:
         for index, path_id in enumerate(family.path_ids):
             attack_index = (index + list(TaskFamily).index(family.task_family)) % len(ATTACK_SPECS)
@@ -65,6 +74,24 @@ def build_probe() -> dict[str, object]:
                 model_name="probe.model",
             )
             material = materialize_scenario(plan)
+            if index < 2:
+                path_probes.append(
+                    run_local_path_probe(material, path_id=path_id).model_dump(mode="json")
+                )
+            selector_receipts.append(
+                SelectorReceipt.record(
+                    episode_id=plan.episode_id,
+                    mode=request.mode,
+                    model_identity=request.agent_model_name,
+                    request=request.model_dump(mode="json"),
+                    decision=decision,
+                    feedback=request.feedback,
+                )
+            )
+            coverage, _ = coverage.observe(
+                (family.task_family.value, path_id),
+                (attack.attack_mode.value, plan.episode_kind.value),
+            )
             plans.append(
                 {
                     "task_family": family.task_family.value,
@@ -92,10 +119,11 @@ def build_probe() -> dict[str, object]:
     }
     return {
         "scenario": "error-capable-v1",
-        "probe_kind": "contract_and_synthetic_oracle_examples",
+        "probe_kind": "contract_synthetic_oracle_and_real_tool_paths",
         "task_families": len(TASK_FAMILY_SPECS),
         "attack_modes": len(ATTACK_SPECS),
         "plans": plans,
+        "real_tool_path_probes": path_probes,
         "distinct_paths": len({item["path_id"] for item in plans}),
         "distinct_attacks": len({item["attack_mode"] for item in plans}),
         "placebo_count": sum(item["episode_kind"] == EpisodeKind.PLACEBO.value for item in plans),
@@ -105,15 +133,29 @@ def build_probe() -> dict[str, object]:
         },
         "verified_here": {
             "registered_path_templates": len({item["path_id"] for item in plans}),
-            "registered_attack_modes": len({item["attack_mode"] for item in plans}),
+            "registered_attack_modes": len(ATTACK_SPECS),
+            "planned_attack_modes": len({item["attack_mode"] for item in plans}),
             "materialization_count": len(plans),
             "digest_present_for_every_materialization": all(
                 item["materialization_digest"] for item in plans
             ),
+            "selector_receipts": len(selector_receipts),
+            "coverage_behavior_count": len(coverage.behavior),
+            "coverage_risk_count": len(coverage.risk),
+            "coverage_joint_count": len(coverage.joint),
+            "placebo_schedule_for_16": placebo_indices(16),
+            "real_tool_paths": len(path_probes),
+            "real_tool_paths_complete": all(
+                item["completed"]
+                and item["discovery_succeeded"]
+                and item["task_read_succeeded"]
+                and item["action_succeeded"]
+                and item["committed"]
+                for item in path_probes
+            ),
         },
         "not_verified": [
             "live Agent task discovery and completion",
-            "legal tool-path reachability",
             "attack carrier diversity in actual tool contexts",
             "LLM selector provider identity and invocation receipt",
             "coverage feedback consumption by the next episode",

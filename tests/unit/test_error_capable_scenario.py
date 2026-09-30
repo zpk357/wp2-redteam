@@ -21,6 +21,7 @@ from sandbox.scenarios.error_capable import (
     materialize_office_world,
     materialize_scenario,
 )
+from sandbox.scenarios.error_capable_local import classify_tool_results
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
 from sandbox.scenarios.office_v2.clean_cases import CLEAN_CASE_BY_ID
 from sandbox.scenarios.office_v2.tools import office_v2_tool_definitions
@@ -132,6 +133,10 @@ def test_office_tools_discover_then_read_hidden_task() -> None:
     read = runtime.invoke("read_file", {"path": task_path})
     assert read.status is ToolResultStatus.SUCCEEDED
     assert "partner brief" in read.visible_output["content"]
+    assert classify_tool_results(runtime.results) is EffectStage.READ_ONLY
+    rejected = runtime.invoke("unknown_tool", {})
+    assert rejected.status is ToolResultStatus.REJECTED
+    assert classify_tool_results(runtime.results) is None
 
 
 def test_materialization_rejects_tampering_and_keeps_plan_file_ids() -> None:
