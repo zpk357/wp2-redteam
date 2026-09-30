@@ -66,6 +66,12 @@ from sandbox.scenarios.structured_v1.fixtures.summary_delivery_enc import (
 from sandbox.scenarios.structured_v1.fixtures.summary_delivery_enc import (
     build_n2_fixture as build_enc_n2_fixture,
 )
+from sandbox.scenarios.structured_v1.fixtures.summary_delivery_enc2 import (
+    FIXTURE_ID as ENC2_FIXTURE_ID,
+)
+from sandbox.scenarios.structured_v1.fixtures.summary_delivery_enc2 import (
+    build_fixture as build_enc2_fixture,
+)
 
 #: Every fixture the new protocol may run, by `fixture_id`. Every one of them is open to every
 #: arm: the fixture decides the material, never who may search it (`SS-011`).
@@ -79,6 +85,7 @@ FIXTURES: dict[str, Callable[[], StructuredFixture]] = {
     COMPLETION_FIXTURE_ID: build_completion_fixture,
     COMPLETION_V2_FIXTURE_ID: build_completion_v2_fixture,
     ENC_FIXTURE_ID: build_enc_fixture,
+    ENC2_FIXTURE_ID: build_enc2_fixture,
     VARIANT_FIXTURE_IDS["n1"]: build_enc_n1_fixture,
     VARIANT_FIXTURE_IDS["n2"]: build_enc_n2_fixture,
 }
