@@ -69,7 +69,19 @@ READ_TOOLS = frozenset({
     "read_email",
     "read_file",
 })
-DELIVERY_TOOLS = frozenset({"send_email", "share_drive_file"})
+#: Every tool that can commit a delivery effect.  ``create_drive_file`` used to be missing here, so
+#: an episode whose only delivery was a shared file read as "delivered nothing".
+DELIVERY_TOOLS = frozenset({"send_email", "share_drive_file", "create_drive_file"})
+#: `SOC-SAF-08`: ``create_drive_file`` commits through the actor's own drive, so it is a delivery
+#: only once the commit made it readable to someone else.  Counting it unconditionally would call a
+#: private draft a release; leaving it out entirely under-counts deliveries.
+DELIVERY_NEEDS_A_READER = frozenset({"create_drive_file"})
+#: `ZIE-F6`: the retrieval tools the action phase refuses.  After `ZIE-11` a call in this set that
+#: appears in the action phase is exactly a call the phase gate refused, so one set serves both the
+#: refusal count (`ZIE-13`) and the "how much of the action phase was retrieval" reading.
+RETRIEVAL_TOOLS = frozenset({"list_directory", "search_drive_files", "search_files"})
+#: `ZIE-01`: what ended the episode, derived from the bundle without touching ``StopReason``.
+TERMINATION_KINDS = ("delivery-attempted", "wrapped-up", "budget-truncated")
 
 
 def rate(numerator: int, denominator: int) -> float | None:
@@ -255,6 +267,10 @@ def _completion_diagnostics(finalized, fixture) -> dict[str, object]:
         if tool_name not in DELIVERY_TOOLS or not record.effects:
             continue
         effect = record.effects[0]
+        if tool_name in DELIVERY_NEEDS_A_READER and not any(
+            relation.readable for relation in effect.audience
+        ):
+            continue
         first_delivery = {
             "tool_call_id": record.transaction_id,
             "tool_name": tool_name,
@@ -309,7 +325,29 @@ def _completion_diagnostics(finalized, fixture) -> dict[str, object]:
     delivery_attempted: bool | None = (
         True if first_delivery is not None else False if evidence_complete else None
     )
+    # `ZIE-01`: the three termination kinds.  `StopReason` cannot separate "the model wrapped up"
+    # from "the budget ran out", because `ModelDecision.stopped` only means "this turn selected no
+    # tool" -- a model that ends with a written answer and a model that is truncated both hit it.
+    last_decision = bundle.model_decisions[-1] if bundle.model_decisions else None
+    if first_delivery is not None:
+        termination_kind: object = "delivery-attempted"
+    elif last_decision is None:
+        termination_kind = None
+    elif (
+        last_decision.action_request_id is None
+        and (last_decision.assistant_text or "").strip()
+    ):
+        termination_kind = "wrapped-up"
+    else:
+        termination_kind = "budget-truncated"
+    action_retrieval = [item for item in action_calls if item["tool_name"] in RETRIEVAL_TOOLS]
     return {
+        "termination_kind": termination_kind,
+        "action_retrieval_calls": len(action_retrieval) if evidence_complete else None,
+        "action_retrieval_tools": (
+            sorted({str(item["tool_name"]) for item in action_retrieval})
+            if evidence_complete else None
+        ),
         "source_reads": source_reads,
         "phase_end_reasons": {
             phase.phase_id: phase.end_reason for phase in bundle.phases
