@@ -2,14 +2,51 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sandbox.structured_v1.campaign import CampaignCheckpoint, mutator_usage
 from sandbox.structured_v1.coverage import unit_key_string
 from sandbox.structured_v1.search import PROXIMITY_NEAR, ArmKind, SelectionLayer, unit_proximity
+
+if TYPE_CHECKING:
+    from sandbox.structured_v1.generation import MutationPlan
 
 DIMENSIONS = ("behavior", "risk", "joint")
 #: The dimensions a directed unit can come from (`DIR-02`): proximity is defined for risk units and
 #: for the joint units that nest their risk key.  Behavior units are cross-cutting.
 DIRECTED_DIMENSIONS = ("risk", "joint")
+#: `ZIE-F5`: where an opportunity's material came from.  A `control` is a drawn no-injection root:
+#: it carries no generated note at all, so a clean result on it is not a defence (`FR-FUZZ-04`).
+MATERIAL_SOURCES = ("normal-injection", "inherited", "control")
+
+
+def _opportunity_candidate_ids(state: CampaignCheckpoint) -> set[str]:
+    """The candidate id each opportunity produced, so "was this a parent opportunity?" is exact.
+
+    Mirrors the naming `TwoArmSearch._generate` uses, which this module already relies on below.
+    """
+
+    return {
+        item.parent_id if item.arm is ArmKind.RANDOM_INDEPENDENT
+        else f"root-restart-{item.opportunity}" if item.root_restart
+        else f"opportunity-{item.opportunity}"
+        for item in state.selections
+    }
+
+
+def material_source(plan: MutationPlan | None, opportunity_candidates: set[str]) -> str | None:
+    """`ZIE-F5`: where this opportunity's material came from, from records that already exist.
+
+    ``requests >= 1`` means the provider wrote wording for this opportunity.  With no request the
+    material either comes from a parent opportunity, or is the frozen root itself -- and a frozen
+    root carries no generated note, which makes it a control rather than an attempt.
+    """
+
+    if plan is None:
+        return None
+    if plan.requests:
+        return "normal-injection"
+    return "inherited" if plan.parent_id in opportunity_candidates else "control"
 
 
 def checkpoint_report(state: CampaignCheckpoint) -> dict:
@@ -21,6 +58,7 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
     """
     plans = {plan.opportunity: plan for plan in state.generations}
     selections = {item.opportunity: item for item in state.selections}
+    opportunity_candidates = _opportunity_candidate_ids(state)
     parent_failures = {
         int(item["opportunity"]): item for item in state.failed_parent_evidence
     }
@@ -113,6 +151,7 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
                 else plan.failure_class if plan and is_failure else None
             ),
             "planned_operation": plan.operation if plan else None,
+            "material_source": material_source(plan, opportunity_candidates),
             "planned_local": plan.operation is not None if plan else None,
             "executed_local": bool(coverage and selection and not selection.root_restart
                                    and selection.arm != ArmKind.RANDOM_INDEPENDENT),
@@ -152,6 +191,22 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
     ]
     explored = [item for item in curves if item["selection_layer"] == SelectionLayer.EXPLORE.value]
 
+    # `ZIE-05`: the source split, and separately how many control opportunities were consumed
+    # instead of becoming an Episode -- so a shrunken cohort is never read as "fewer candidates".
+    source_counts: dict[str, int] = dict.fromkeys(MATERIAL_SOURCES, 0)
+    for item in curves:
+        if item["material_source"] is not None:
+            source_counts[str(item["material_source"])] += 1
+    material_sources = {
+        "normal_injection": source_counts["normal-injection"],
+        "inherited": source_counts["inherited"],
+        "control": source_counts["control"],
+        "control_consumed": sum(
+            1 for item in curves
+            if item["material_source"] == "control" and item["generation_failed"]
+        ),
+    }
+
     def _conversion(items: list[dict]) -> float | None:
         return (
             sum(1 for item in items if item["new_near_units"]) / len(items) if items else None
@@ -187,6 +242,7 @@ def checkpoint_report(state: CampaignCheckpoint) -> dict:
         "repeated_coverage_episodes": repeated,
         "repeat_rate": repeated / episodes if episodes else None,
         "directed_layer": directed_layer,
+        "material_sources": material_sources,
         "usage_reconciled": costs_match,
         "usage_complete": state.usage.complete,
         "missing": missing,
