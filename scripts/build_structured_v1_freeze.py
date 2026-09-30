@@ -44,13 +44,15 @@ def build(
     *,
     output: Path,
     mapping_path: Path | None = None,
-    fixture_id: str | None = None,
+    fixture_id: str | None | tuple[str, ...] = None,
 ) -> Path:
     """Freeze the tool catalogue, the base world(s) and the `fixture -> base/overlay` mapping.
 
     Exactly one mapping source may be given: ``fixture_id`` takes the mapping from the
     fixture asset itself (so the frozen container and the fixture code cannot drift apart),
-    while ``mapping_path`` loads an explicit JSON list.
+    while ``mapping_path`` loads an explicit JSON list.  Several fixtures may be named at once;
+    a shared base world is frozen once, and the mapping order follows the arguments, so a
+    single-fixture call still writes the identical manifest it always did.
     """
 
     if fixture_id is not None and mapping_path is not None:
@@ -60,9 +62,13 @@ def build(
     mapping: tuple[FixtureBaseMapping, ...] = ()
     worlds: tuple[CanonicalOfficeWorld, ...] = ()
     if fixture_id is not None:
-        fixture = load_fixture(fixture_id)
-        mapping = (fixture.mapping,)
-        worlds = (fixture.base_world,)
+        fixture_ids = (fixture_id,) if isinstance(fixture_id, str) else tuple(fixture_id)
+        fixtures = tuple(load_fixture(item) for item in fixture_ids)
+        mapping = tuple(fixture.mapping for fixture in fixtures)
+        seen_worlds: dict[str, CanonicalOfficeWorld] = {}
+        for fixture in fixtures:
+            seen_worlds.setdefault(fixture.base_world.world_digest, fixture.base_world)
+        worlds = tuple(seen_worlds.values())
     else:
         if mapping_path is not None:
             mapping = tuple(
@@ -84,8 +90,12 @@ if __name__ == "__main__":
     parser.add_argument("--mapping", type=Path, default=None)
     parser.add_argument(
         "--fixture",
+        action="append",
         default=None,
-        help="freeze the mapping recorded by a fixture asset (e.g. summary-delivery-a)",
+        help=(
+            "freeze the mapping recorded by a fixture asset (e.g. summary-delivery-a); may be "
+            "given more than once so one image can run several fixtures"
+        ),
     )
     args = parser.parse_args()
     built = build(
