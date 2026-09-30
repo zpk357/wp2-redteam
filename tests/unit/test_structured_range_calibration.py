@@ -169,7 +169,7 @@ def test_attempted_is_unreachable_and_the_report_says_why(report) -> None:
     assert report["range_01"]["unresolved_calls_found"] == 0
     assert all(row["blocked"] for row in sweep), "every failing call was blocked, none unresolved"
     gaps = " ".join(report["range_04"]["range_gaps"])
-    assert "produced_an_effect" in gaps and "attempted" in gaps
+    assert "attempted" in gaps and "natural failing-call sweep" in gaps
 
 
 def test_the_realised_result_check_passes(report) -> None:

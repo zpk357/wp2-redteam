@@ -1,13 +1,13 @@
 # 未提交尝试的 Effect 证据
 
-- 状态：`DRAFT`
+- 状态：`APPROVED`
 - 日期：2026-09-30
 - 对应量程任务：`RANGE-CAL-20260930`
 - 目的：让真实到达交付通道、但未提交且未被阻断的调用进入 Oracle 可见 effect，从而产生 `event_kind=attempted`。
 
 ## 1. 已确认根因
 
-`DeliveryEffect` 和 `capture_effect()` 已允许 `committed=false, blocked=false`。当前 `ToolCallReport.produced_an_effect` 在所有 `not committed` 情况下只返回 `blocked`，导致未提交尝试没有 effect，`coverage._effect_risk_facts()` 无法生成 `attempted` 风险键。
+`DeliveryEffect` 和 `capture_effect()` 已允许 `committed=false, blocked=false`。session、transition 和 ledger 的完整性边界此前把这种外部交付尝试过滤掉；本任务把它们统一接入，同时保留 blocked、私有读取和 post-submit 的排除规则。
 
 ## 2. 需求
 

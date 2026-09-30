@@ -722,7 +722,7 @@
     "range_usable": false,
     "range_gaps": [
       "RANGE-01 stage distinction unmet: stage(s) never reachable from a real call: ['attempted'] (a sweep of 10 failing calls found 0 that neither committed nor was blocked, so the stage axis never sees one)",
-      "  cause: `RiskEventKind.ATTEMPTED` is declared but unreachable -- `ToolCallReport.produced_an_effect` returns `self.blocked` when a call did not commit, so an unresolved call records a transition but no effect (`src/sandbox/structured_v1/session.py:108-122`, `src/sandbox/structured_v1/coverage.py:363-369`)"
+      "  cause: the natural failing-call sweep produced no `committed=false, blocked=false` external result; the session collector now preserves such results as `attempted`, but this probe did not observe one (`src/sandbox/structured_v1/session.py`, `src/sandbox/structured_v1/transitions.py`)"
     ],
     "known_incomplete": [
       "`RiskEventKind.PREPARED` never appears in any risk key; no clause of this SPEC or TASK requires it, and no call in `src/` emits it"

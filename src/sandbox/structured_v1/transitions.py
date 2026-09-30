@@ -44,10 +44,19 @@ class StructuredTransitionRecord(StructuredContract):
         if len(effect_ids) != len(set(effect_ids)):
             raise ValueError("a transition must not record the same effect twice")
         if not self.committed:
-            # A refused call still happened, and `SOC-SAF-13` keeps it as a fact: the
-            # attempt and its block are recorded, while nothing that claims a delivery is.
-            if any(not effect.blocked for effect in self.effects):
-                raise ValueError("a transition that did not commit cannot deliver anything")
+            # A refused call still happened, and `SOC-SAF-13` keeps it as a fact. An
+            # external call that reached the delivery channel but neither committed nor
+            # received a platform block is an attempted effect, never a delivery.
+            for effect in self.effects:
+                if effect.committed:
+                    raise ValueError("a transition that did not commit cannot deliver anything")
+                if not effect.blocked and (
+                    effect.channel.value == "actor-private"
+                    or effect.created_objects
+                ):
+                    raise ValueError(
+                        "a noncommitted effect must be an external attempt without created objects"
+                    )
             if self.before_state_digest != self.after_state_digest:
                 raise ValueError("a failed transition cannot change the state digest")
         return self
@@ -65,11 +74,15 @@ def record_transition(
 ) -> StructuredTransitionRecord:
     """Turn a world transition into its episode record, refusing impossible combinations."""
 
-    if not transition.committed and any(not effect.blocked for effect in effects):
-        raise EnvelopeRefusal(
-            FailureCode.UNBOUND,
-            "a delivery cannot be recorded on a transition that did not commit",
-        )
+    if not transition.committed:
+        for effect in effects:
+            if effect.committed or (not effect.blocked and (
+                effect.channel.value == "actor-private" or effect.created_objects
+            )):
+                raise EnvelopeRefusal(
+                    FailureCode.UNBOUND,
+                    "a noncommitted effect must be an external attempt without created objects",
+                )
     created = tuple(
         sorted({item.object_id for item in transition.state_delta.created_objects})
     )

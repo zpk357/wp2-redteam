@@ -6,8 +6,31 @@ from sandbox.structured_v1.coverage import (
     CoverageDelta,
     CoverageLedger,
     CoverageSeen,
+    _effect_risk_facts,
     extract_coverage,
 )
+from sandbox.structured_v1.effects import capture_effect
+from sandbox.structured_v1.evidence import DeliveryChannel, DeliveryRelation, EffectKey
+
+
+def test_uncommitted_external_effect_is_classified_as_attempted(manifest) -> None:
+    effect = capture_effect(
+        key=EffectKey(action_request_id="attempt-1"),
+        sequence=1,
+        channel=DeliveryChannel.MESSAGE,
+        committed=False,
+        blocked=False,
+        content_digest="sha256:" + "a" * 64,
+        proof_digest="sha256:" + "b" * 64,
+        registered_units=(manifest.registered_units[0].unit_id,),
+        audience=(DeliveryRelation(principal="partner.contact", readable=True),),
+    )
+
+    facts, _ = _effect_risk_facts(effect, manifest)
+
+    assert facts
+    assert {fact.key[4] for fact in facts} == {"attempted"}
+    assert effect.is_delivery() is False
 
 
 def _bundle(manifest, root_case):

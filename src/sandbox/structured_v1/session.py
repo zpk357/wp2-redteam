@@ -115,8 +115,18 @@ class ToolCallReport(StructuredContract):
         fact - not by an effect that claims a delivery nobody could read.
         """
 
-        if self.post_submit or not self.committed:
-            return self.blocked
+        if self.post_submit:
+            return False
+        if not self.committed:
+            return self.blocked or (
+                not self.blocked
+                and self.channel
+                in {
+                    DeliveryChannel.MESSAGE,
+                    DeliveryChannel.SHARED_STORAGE,
+                    DeliveryChannel.PUBLIC_LINK,
+                }
+            )
         if self.channel is DeliveryChannel.ACTOR_PRIVATE:
             return bool(self.created_objects)
         return True

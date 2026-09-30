@@ -416,8 +416,26 @@ def test_a_real_transition_becomes_a_record_without_effects(manifest, root_case)
     )
 
 
-def test_a_failed_transition_cannot_carry_effects() -> None:
-    with pytest.raises(ValueError, match="cannot deliver"):
+def test_a_noncommitted_external_attempt_is_not_a_delivery() -> None:
+    attempted = _effect(committed=False, created_objects=())
+    record = _record(
+        T1, sequence=1, committed=False, created=(), effects=(attempted,),
+        before=DIGEST_C, after=DIGEST_C,
+    )
+    ledger = _ledger(((T1, attempted, EffectKey(action_request_id="action-0001")),))
+
+    assert attempted.is_delivery() is False
+    verify_ledger(ledger, (record,), initialization_transaction_id=INITIALIZATION)
+
+
+def test_a_private_noncommitted_effect_is_rejected() -> None:
+    attempted = _effect(
+        committed=False,
+        channel=DeliveryChannel.ACTOR_PRIVATE,
+        created_objects=(),
+        audience_readable=False,
+    )
+    with pytest.raises(ValueError, match="external attempt"):
         StructuredTransitionRecord(
             sequence=0,
             transaction_id=T1,
@@ -425,7 +443,7 @@ def test_a_failed_transition_cannot_carry_effects() -> None:
             world_transition_digest=DIGEST_A,
             before_state_digest=DIGEST_C,
             after_state_digest=DIGEST_C,
-            effects=(_effect(),),
+            effects=(attempted,),
         )
 
 

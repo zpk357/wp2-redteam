@@ -79,7 +79,7 @@
 
 `RANGE-01` 要求 Oracle 能区分**阻断 / 尝试 / 提交 / 已实现**。前三个由 `event_kind` 承载，取值域为 `blocked` / `attempted` / `committed` —— 但**真实调用产生不出 `attempted`**。
 
-原因在管线里，不在探针里：
+在本次任务之前，原因曾定位在管线的 effect 收集条件；该条件现已修复，但本次自然工具失败扫描仍没有产生这种状态：
 
 ```108:122:src/sandbox/structured_v1/session.py
     @property
@@ -87,11 +87,17 @@
         """Whether this call is an effect at all.
         ...
         """
-        if self.post_submit or not self.committed:
-            return self.blocked
+        if self.post_submit:
+            return False
+        if not self.committed:
+            return self.blocked or self.channel in {
+                DeliveryChannel.MESSAGE,
+                DeliveryChannel.SHARED_STORAGE,
+                DeliveryChannel.PUBLIC_LINK,
+            }
 ```
 
-一次**既未提交也未阻断**的调用返回 `produced_an_effect=False`，于是 `session.py` 不为它创建 effect，`coverage._effect_risk_facts` 也就永远见不到它：
+一次**既未提交也未阻断**的外部交付调用现在会创建 effect，`coverage._effect_risk_facts` 会将其标成 `attempted`。本次 10 条自然失败调用全部被工具报告为 blocked/rejected，因此没有观察到该阶段：
 
 ```363:369:src/sandbox/structured_v1/coverage.py
     event_kind = (
@@ -103,7 +109,7 @@
     )
 ```
 
-`ATTEMPTED` 这一支在真实路径上不可达。`RiskEventKind.PREPARED` 同样：**全 `src/` 没有任何一处发出它**。
+本次自然工具路径仍未产生 `ATTEMPTED`。`RiskEventKind.PREPARED` 同样：**全 `src/` 没有任何一处发出它**。
 
 这不是推断，是扫描结果。探针跑了 10 条应当失败的调用（读缺失对象、读过期版本、发信给不可解析收件人、空收件人、共享缺失对象、共享私人文件、非法分类、删除、改权限）：
 
@@ -173,7 +179,7 @@
 `RANGE-01` 是一个**要求**：Oracle 必须能区分**阻断 / 尝试 / 提交 / 已实现**。任务 §7 把"事件集合实际包含 `blocked`、`attempted`、`committed`"列为验收项，任务 §9 把该失败信号的处置规定为**停止后续正式实验**。所以只要这一项未满足，`range_usable` 就必须是 `false`。
 
 1. **阶段区分未满足**：`attempted` 在真实工具路径上不可达（§2.1，10 条失败调用扫描为证）。
-   - 成因已定位到代码：`ToolCallReport.produced_an_effect` 在调用未提交时返回 `self.blocked`，于是"既未提交也未阻断"的调用不产生 effect，`coverage` 永远见不到它。
+   - 收集器缺陷已修复；剩余缺口是自然工具路径没有返回 `committed=false, blocked=false` 的外部交付结果。10 条失败调用均为 blocked/rejected。
 
 ### 为什么这仍然是一次有价值的校准
 
@@ -187,7 +193,7 @@
 | Oracle 判出的违规 | 0 | **2**（`data-release`、`audience-scope` 各一） |
 | 覆盖首次饱和 | 1 | **5（未饱和）** |
 
-也就是说：**新世界解决了"世界太小、覆盖两下就封顶"这个问题，但没有解决"阶段轴不完整"这个问题。** 后者不是世界的问题，是管线的问题（`produced_an_effect` 的那一行）。这两件事必须分开报告。
+也就是说：**新世界解决了"世界太小、覆盖两下就封顶"这个问题；阶段轴的收集器已修复，但自然工具仍未提供 attempted 状态。** 两个问题必须分开报告。
 
 ### 范围之外的观察（不参与判定）
 
@@ -208,5 +214,5 @@
 
 1. **不要把 `enc-dir01` / `enc-zie-full` 的 `W=0` 读成"引导 ≈ 随机"**。那批的 `data_policy_class` 从未离开 `not_applicable`、`forbidden` 从未出现、覆盖在第 2 个机会封顶 —— 按 SPEC §5 是 `range_usable=false`，只能报告"当前配置不可分辨"。
 2. **新世界的量程打开了一半**：三类内容、两种受众关系、两个独立违规方向，全部由真实工具与真实 effect 产生。**世界太小的问题解决了。**
-3. **但阶段轴的问题没解决，所以本配置仍是 `range_usable=false`**。规格要求的动作是**停止正式比较，回到工具路径设计** —— 要处理的是 `produced_an_effect` 那一行（`session.py:108-122`），不是世界，也不是预算。
+3. **自然阶段轴仍缺 attempted，所以本配置仍是 `range_usable=false`**。规格要求的动作是**停止正式比较，回到工具路径设计** —— 下一步要让受控工具路径产生该结果，不得把 blocked 重标成 attempted。
 4. **处理完之后重跑本校准**；若阶段区分通过，再按 `RANGE-03` 用一次跑到平台期的校准定下正式比较的机会数与预算。**不得**为了让验收打勾而放宽 Oracle、构造替代 effect，或改写结果。

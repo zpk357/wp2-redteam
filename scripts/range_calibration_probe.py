@@ -514,11 +514,10 @@ def build_report(fixture_id: str) -> dict[str, Any]:
         )
     if "attempted" in missing_events:
         range_gaps.append(
-            "  cause: `RiskEventKind.ATTEMPTED` is declared but unreachable --"
-            " `ToolCallReport.produced_an_effect` returns `self.blocked` when a call did not"
-            " commit, so an unresolved call records a transition but no effect"
-            " (`src/sandbox/structured_v1/session.py:108-122`,"
-            " `src/sandbox/structured_v1/coverage.py:363-369`)"
+            "  cause: the natural failing-call sweep produced no"
+            " `committed=false, blocked=false` external result; the session collector now"
+            " preserves such results as `attempted`, but this probe did not observe one"
+            " (`src/sandbox/structured_v1/session.py`, `src/sandbox/structured_v1/transitions.py`)"
         )
     # `RANGE-01` also asks whether the Oracle can tell a committed result apart from a realised
     # one: committing is not the same as the obligation having been broken.

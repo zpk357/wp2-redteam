@@ -2,7 +2,7 @@
 
 - 任务 ID：`ATTEMPT-EFFECT-20260930`
 - 标题：让真实未提交交付调用进入 `attempted` 风险阶段
-- 状态：`DRAFT`
+- 状态：`IN_PROGRESS`
 - 对应 SPEC：[20260930-attempted-effect-evidence.md](../specs/20260930-attempted-effect-evidence.md)
 - 需求：`ATTEMPT-01` 至 `ATTEMPT-05`
 
@@ -41,23 +41,23 @@ Tool runtime result
 
 ## 5. 实施 checklist
 
-- [ ] 添加一个未提交交付通道调用的 session 聚焦测试。
-- [ ] 添加 attempted effect 的 coverage/Oracle 断言。
-- [ ] 添加 read-only 与 post-submit 不生成 effect 的回归断言。
-- [ ] 保持 blocked/committed 现有测试通过。
-- [ ] 运行 range probe，确认 `attempted` 来自真实 effect。
-- [ ] 更新报告：`range_usable` 是否通过必须由完整事件集合重新计算。
+- [x] 添加一个未提交交付通道调用的 session 聚焦测试。
+- [x] 添加 attempted effect 的 coverage 断言。
+- [x] 添加 read-only 与 post-submit 不生成 effect 的回归断言。
+- [x] 保持 blocked/committed 现有测试通过。
+- [ ] 运行 range probe，确认 `attempted` 来自真实工具 effect（当前自然失败扫描仍无该状态）。
+- [x] 更新报告：`range_usable` 是否通过必须由完整事件集合重新计算。
 - [ ] 仅在所有验收项满足时更新 `RANGE-CAL-20260930` 状态。
 
 ## 6. 验收 checklist
 
-- [ ] MESSAGE 未提交未阻断调用生成一个 `committed=false, blocked=false` effect。
-- [ ] 该 effect 出现在 transition record 中，coverage 风险键第五项为 `attempted`。
-- [ ] 该 effect 不出现在 `EpisodeArtifacts.deliveries()` 中。
-- [ ] blocked、committed、read-only、post-submit 行为无回归。
-- [ ] range probe 报告不再缺少 `attempted`，且风险键由真实证据生成。
-- [ ] 旧 fixture digest 和历史证据不变。
-- [ ] 正式实验仍未启动；预算和机会数仍未冻结前不得标记正式准入。
+- [x] MESSAGE 未提交未阻断调用生成一个 `committed=false, blocked=false` effect。
+- [x] 该 effect 出现在 transition record 中，coverage 风险键第五项为 `attempted`。
+- [x] 该 effect 不出现在 `EpisodeArtifacts.deliveries()` 中。
+- [x] blocked、committed、read-only、post-submit 行为无回归。
+- [ ] range probe 报告不再缺少 `attempted`，且风险键由真实证据生成（自然工具路径仍缺失，故 range gate 仍为 false）。
+- [x] 旧 fixture digest 和历史证据不变。
+- [x] 正式实验仍未启动；预算和机会数仍未冻结前不得标记正式准入。
 
 ## 7. 验证命令
 
@@ -78,3 +78,11 @@ git diff --check
 ## 9. 尚未解决的问题
 
 - 需要由现有工具构造一个真实的 `committed=false, blocked=false` 交付通道结果；若 Office 工具没有该状态，必须在受控合成 ToolPort 中验证 session 语义，同时把真实工具不可达继续记录为独立风险。
+
+## 10. 本次验证记录
+
+- `py -3.14 -m pytest tests/unit/test_attempted_effect_evidence.py tests/unit/test_structured_effects.py tests/unit/test_structured_coverage.py tests/unit/test_structured_episode_rehearsal.py tests/unit/test_structured_range_calibration.py -q`：65 passed。
+- `py -3.14 -m compileall -q src agent_image tests`：通过。
+- `scripts/project_ruff.cmd check src agent_image tests`：通过。
+- `git diff --check`：通过。
+- range probe 仍观察到 `attempted` 缺口：10 条自然失败调用全部为 blocked/rejected；因此 `range_usable=false`，本任务不满足自然工具路径的最后一项验收，状态保持 `IN_PROGRESS`。

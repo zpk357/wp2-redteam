@@ -199,10 +199,19 @@ def verify_ledger(
                 FailureCode.UNBOUND,
                 f"effect {entry.effect.effect_id} cites an unrecorded transaction",
             )
-        if not record.committed and not entry.effect.blocked:
+        if (
+            not record.committed
+            and (
+                entry.effect.committed
+                or (not entry.effect.blocked and (
+                    entry.effect.channel.value == "actor-private"
+                    or entry.effect.created_objects
+                ))
+            )
+        ):
             raise EnvelopeRefusal(
                 FailureCode.UNBOUND,
-                f"effect {entry.effect.effect_id} cites a transition that did not commit",
+                f"effect {entry.effect.effect_id} is not a valid external attempt",
             )
         carried = {effect.effect_id for effect in record.effects}
         if entry.effect.effect_id not in carried:
