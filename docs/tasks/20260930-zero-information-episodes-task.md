@@ -18,8 +18,8 @@
 
 全部 `ZIE-01`..`ZIE-13`。分三组：
 
-- **A 组（纯报告层，零行为风险）**：`ZIE-01`、`ZIE-04a` 的分类部分、`ZIE-05`、`ZIE-06`、`ZIE-07`、`ZIE-13` 的计数部分。
-- **B 组（准入，一处）**：`ZIE-04a` 的"控制集不产出 Episode"。
+- **A 组（纯报告层，零行为风险）**：`ZIE-01`、`ZIE-04a` 的全部（标注，不改数字）、`ZIE-05`、`ZIE-06`、`ZIE-07`、`ZIE-13` 的计数部分。
+- ~~B 组（准入，一处）~~：**已于 `v4` 撤回**（SPEC `A8`/`A9`）—— 与 `SS-012` 冲突；三分类只做标注，不改 `search.py`。
 - **C 组（协议，两处）**：`ZIE-03` 动作阶段任务文本、`ZIE-11`/`ZIE-12`/`ZIE-13` 动作阶段约束。
 
 ## 3. 不包含范围
@@ -37,7 +37,7 @@
 |---|---|---|---|
 | 1 | `src/sandbox/structured_v1/campaign_report.py` | `curves[]` 加 `material_source`（`normal-injection`/`inherited`/`control`）；汇总加三类计数与消耗数 | `ZIE-04a`/`ZIE-05` |
 | 2 | `scripts/report_summary_delivery_e2.py` | `_completion_diagnostics` 加 `termination_kind`；聚合加 `protocol-failure` 口径与新/旧双口径 | `ZIE-01`/`ZIE-06` |
-| 3 | `src/sandbox/structured_v1/search.py` | `_generate_root` 的无注入分支不再返回候选：消费该机会并记 `failure_class = no-injected-material` | `ZIE-04a`/`ZIE-F8` |
+| ~~3~~ | ~~`src/sandbox/structured_v1/search.py`~~ | **`v4` 撤回**：与 `SS-012` 冲突。`ZIE-04a` 只读既有记录做标注，**不改 `search.py`** | — |
 | 4 | `src/sandbox/structured_v1/phases.py` | `TwoPhaseProtocol` 增"动作阶段禁用工具集"与"保留额度"两个字段；版本 `investigate-act-v1` → `v2` | `ZIE-09`/`ZIE-11`/`ZIE-12` |
 | 5 | `src/sandbox/structured_v1/session.py` | 在 `tools.execute(decision)` 之前加**按阶段**的调用闸门：拒绝 → 返回可读理由并计数 | `ZIE-11`/`ZIE-12`/`ZIE-13` |
 | 6 | `src/sandbox/scenarios/structured_v1/fixtures/summary_delivery_e2_completion_v3.py` | **新增**：动作阶段任务文本（`ZIE-03`） | `ZIE-03` |
