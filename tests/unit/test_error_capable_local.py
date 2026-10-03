@@ -74,7 +74,13 @@ def test_coverage_ledger_exposes_four_increment_cases() -> None:
     assert behavior_only.new_behavior and not behavior_only.new_risk
     assert risk_only.new_risk and not risk_only.new_behavior
     assert joint.new_joint
-    assert isinstance(ledger.feedback(), CoverageFeedback)
+    # The delta above is a real, usable signal; the *feedback* is not, and this ledger refuses to
+    # produce one.  It used to hand back the covered sets under the `*_gaps` names, which would have
+    # pointed a selector at ground it had already covered (`RA-CLOSE-02`).  Coverage gaps are the
+    # complement of the observed set over a frozen target space, which `CoverageLedger` computes
+    # from execution evidence.
+    with pytest.raises(NotImplementedError, match="CoverageLedger"):
+        ledger.feedback()
 
 
 def test_placebo_schedule_and_idempotent_episode_receipts() -> None:

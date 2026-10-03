@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from app.agent.react_contract import (
@@ -39,24 +41,38 @@ from sandbox.scenarios.error_capable import (
     materialize_office_world,
     restrict_capabilities,
 )
+from sandbox.scenarios.error_capable_committed import (
+    CommittedDeliverable,
+    resolve_committed,
+)
 from sandbox.scenarios.error_capable_identity import ModelIdentity
 from sandbox.scenarios.error_capable_registry import ErrorCapableFixture
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
 from sandbox.scenarios.office_v2.clean_cases import CLEAN_CASE_BY_ID
-from sandbox.scenarios.office_v2.models import ActionKind, OfficeV2Contract, Sha256Digest
+from sandbox.scenarios.office_v2.models import (
+    ActionKind,
+    Identifier,
+    OfficeV2Contract,
+    Sha256Digest,
+)
 from sandbox.scenarios.office_v2.tools import office_v2_tool_definitions
 from sandbox.scenarios.office_v2.tools.contracts import (
     OFFICE_V2_TOOL_CONTRACT_VERSION,
     OfficeToolInvocation,
     OfficeToolResult,
 )
-from sandbox.scenarios.office_v2.tools.runtime import OfficeV2ToolRuntime
-from sandbox.scenarios.office_v2.world import EpisodeWorld
+from sandbox.scenarios.office_v2.tools.runtime import OfficeV2ToolRuntime, ToolSessionCursor
+from sandbox.scenarios.office_v2.world import (
+    EpisodeWorld,
+    OfficeWorldState,
+    StateTransitionRecord,
+)
 from sandbox.tool_contracts import ToolEffect, ToolPermission, ToolSpec
 
 FIRST_INPUT_VERSION = "error-capable-first-input-v1"
 TOOL_MENU_VERSION = "error-capable-tool-menu-v1"
 TRACE_VERSION = "error-capable-trace-v1"
+JOURNAL_VERSION = "error-capable-episode-journal-v1"
 DEFAULT_ACTOR_CASE = "clean.t4.delta"
 
 #: Tools whose successful call means the scripted Agent has acted on the work request.  Derived from
@@ -275,6 +291,10 @@ class ToolStep(OfficeV2Contract):
     request: AgentRequest
     invocation: OfficeToolInvocation | None = None
     result: OfficeToolResult | None = None
+    #: What the commit made readable, read from the world at the moment of the commit.  Recorded on
+    #: the step so the trace carries the delivered content itself, and a later update cannot
+    #: retroactively change what an earlier delivery was.
+    committed: CommittedDeliverable | None = None
 
 
 class TurnRecord(OfficeV2Contract):
@@ -310,6 +330,9 @@ class EpisodeTrace(OfficeV2Contract):
     blocked_first_input: bool = False
     #: How many times the Agent produced a turn with no tool call and was asked to continue.
     continuations: int = Field(default=0, ge=0)
+    #: Things this run could not decide, recorded rather than resolved by guessing.  Recovery uses it
+    #: for an in-flight call whose commit cannot be confirmed from the checkpoint.
+    unresolved: tuple[str, ...] = ()
     trace_digest: Sha256Digest
 
     def digest_payload(self) -> dict[str, Any]:
@@ -327,6 +350,147 @@ class EpisodeTrace(OfficeV2Contract):
             for step in self.steps
             if step.result is not None and step.result.state_transition is not None
         )
+
+
+class JournalPhase(str, Enum):
+    """The boundary a checkpoint was sealed at (`RA-CLOSE-01`).
+
+    A checkpoint is only ever written between boundaries, never during one, so the phase names what
+    is known for certain at that instant rather than what is in flight.
+    """
+
+    FIRST_INPUT = "first-input"
+    AWAITING_MODEL = "awaiting-model"
+    MODEL_RETURNED = "model-returned"
+    BEFORE_CALL = "before-call"
+    AFTER_CALL = "after-call"
+    SETTLED = "settled"
+
+
+def tool_writes_state(tool_name: str) -> bool:
+    """Whether the frozen catalogue says this tool can change the world.
+
+    Read from the definition rather than a hand-kept list, and read at the moment of use rather than
+    stored in a checkpoint: a stored flag could disagree with the catalogue the resumed run uses, and
+    recovery is the one place where that disagreement would matter.
+    """
+
+    definition = office_v2_tool_definitions().get(tool_name)
+    return bool(definition is not None and definition.writes_state)
+
+
+class EpisodeJournal(OfficeV2Contract):
+    """Enough state to continue an Episode without re-running or re-asking for what already happened.
+
+    The journal is not a summary of the trace: the trace is rebuilt from it.  `world_state` and
+    `world_history` are the same recovery boundary as `steps`, so a checkpoint can never describe a
+    tool result whose state change is missing.
+    """
+
+    version: str = JOURNAL_VERSION
+    episode_id: Identifier
+    fixture_id: Identifier
+    fixture_freeze_digest: Sha256Digest
+    plan_digest: Sha256Digest
+    materialization_digest: Sha256Digest
+    model_identity: ModelIdentity
+    adapter_version: str
+    actor_case: str
+    dropped_capabilities: tuple[str, ...] = ()
+    seed: int = Field(ge=0)
+    max_tool_requests: int = Field(ge=0)
+    max_continuations: int = Field(ge=0)
+    first_input: FirstInput
+    phase: JournalPhase
+    #: How many requests have been bound.  The cursor matters on its own: losing it would let a
+    #: resumed Episode re-use ids that an earlier call already consumed.
+    issued: int = Field(ge=0)
+    turns: tuple[TurnRecord, ...] = ()
+    messages: tuple[ReactMessage, ...] = ()
+    steps: tuple[ToolStep, ...] = ()
+    #: Requests the Agent issued that had produced no result when the checkpoint was sealed.  They
+    #: carry the full request, including arguments, so a resumed Episode continues the same
+    #: conversation rather than asking the model to produce the call a second time.
+    pending: tuple[AgentRequest, ...] = ()
+    #: The state digest at Episode start, so a restore can prove the transaction chain is complete.
+    initial_state_digest: Sha256Digest
+    #: The canonical world this Episode is an isolated copy of.  `EpisodeWorld.restore` needs it to
+    #: re-establish provenance; without it a restore would accept any state that happens to chain.
+    base_world_digest: Sha256Digest
+    #: The tool session's time origin and invocation counter are not part of the world state, and
+    #: neither can be recomputed from it: the origin was taken from the state as it was before any
+    #: commit, and the counter is how invocation and decision ids are numbered.  Without this a
+    #: resumed Episode would renumber its calls and shift every later timestamp.
+    runtime_time_origin: datetime
+    world_state: OfficeWorldState
+    world_history: tuple[StateTransitionRecord, ...] = ()
+    unresolved: tuple[str, ...] = ()
+    settled: bool = False
+    final_trace: EpisodeTrace | None = None
+    journal_digest: Sha256Digest
+
+    def digest_payload(self) -> dict[str, Any]:
+        return self.model_dump(mode="json", exclude={"journal_digest"}, exclude_none=False)
+
+    def seal(self) -> EpisodeJournal:
+        return self.model_copy(update={"journal_digest": sha256_digest(self.digest_payload())})
+
+    def digest_is_valid(self) -> bool:
+        return self.journal_digest == sha256_digest(self.digest_payload())
+
+    def mismatches(
+        self,
+        *,
+        fixture: ErrorCapableFixture,
+        plan: EpisodeScenarioPlan,
+        material: MaterializedScenario,
+        model_identity: ModelIdentity,
+        adapter_version: str,
+        actor_case: str,
+        dropped_capabilities: tuple[str, ...],
+        seed: int,
+        max_tool_requests: int,
+        max_continuations: int,
+    ) -> tuple[str, ...]:
+        """Every way this journal fails to describe the requested Episode; empty means it matches.
+
+        Recovery has to refuse a journal whose identity or plan moved, and it has to say which field
+        moved -- "refused" without a reason is not something a later reader can check.
+        """
+
+        expected = {
+            "fixture_id": (self.fixture_id, fixture.fixture_id),
+            "fixture_freeze_digest": (self.fixture_freeze_digest, fixture.freeze_digest),
+            "plan_digest": (
+                self.plan_digest,
+                sha256_digest(plan.model_dump(mode="json")),
+            ),
+            "materialization_digest": (
+                self.materialization_digest,
+                material.materialization_digest,
+            ),
+            "model_identity": (
+                self.model_identity.identity_digest,
+                model_identity.identity_digest,
+            ),
+            "adapter_version": (self.adapter_version, adapter_version),
+            "actor_case": (self.actor_case, actor_case),
+            "dropped_capabilities": (
+                tuple(self.dropped_capabilities),
+                tuple(dropped_capabilities),
+            ),
+            "seed": (self.seed, seed),
+            "max_tool_requests": (self.max_tool_requests, max_tool_requests),
+            "max_continuations": (self.max_continuations, max_continuations),
+        }
+        found = [name for name, (was, now) in expected.items() if was != now]
+        if self.episode_id != plan.episode_id:
+            found.append("episode_id")
+        if self.first_input.payload_digest != FirstInput.build(
+            plan=plan, material=material, specs=office_tool_specs()
+        ).payload_digest:
+            found.append("first_input")
+        return tuple(found)
 
 
 #: What the Controller needs from an Agent, and all it may assume (`RA-02`).  This is the
@@ -360,6 +524,16 @@ def _rejection_message(call_id: str, name: str, reason: str) -> ReactMessage:
     )
 
 
+def _actor_for(episode: EpisodeWorld, template: Any) -> Any:
+    """`derive_scenario_actor`, applied to an Episode world rather than a canonical one.
+
+    Only `world.state` is read.  A restored Episode is not a canonical world, and the actor has to be
+    derived from the state actually in play or the runtime refuses it for a stale directory digest.
+    """
+
+    return derive_scenario_actor(episode, template)  # type: ignore[arg-type]
+
+
 async def run_agent_episode(
     *,
     fixture: ErrorCapableFixture,
@@ -372,11 +546,18 @@ async def run_agent_episode(
     max_continuations: int = 3,
     actor_case: str = DEFAULT_ACTOR_CASE,
     drop_capabilities: tuple[str, ...] = (),
+    journal: Any | None = None,
+    resume: bool = False,
 ) -> EpisodeTrace:
     """Run one Episode with the Agent deciding every tool call.
 
     Budget exhaustion is recorded, not raised: a truncated Episode is evidence about the Agent and
     must not be dressed up as a completed one.
+
+    With `journal` (a `JournalStore`), a checkpoint is sealed at every boundary the recovery contract
+    names, so a hard kill costs at most the call that was in flight.  With `resume`, the Episode
+    continues from that checkpoint: results already recorded are reused rather than re-produced, and
+    a settled Episode returns its sealed trace without executing anything.
     """
 
     if plan.episode_id != material.plan.episode_id:
@@ -410,18 +591,72 @@ async def run_agent_episode(
             trace_digest="sha256:" + "0" * 64,
         )
 
+    from sandbox.scenarios.error_capable_journal import rebuild_world
+
+    plan_digest = sha256_digest(plan.model_dump(mode="json"))
     case = CLEAN_CASE_BY_ID[actor_case]
-    world = materialize_office_world(
-        material, load_canonical_world(), actor_id=case.actor.actor_id
-    )
-    actor = derive_scenario_actor(world, case.actor)
-    if drop_capabilities:
-        actor = restrict_capabilities(actor, drop=drop_capabilities)
+    drop = tuple(drop_capabilities)
+
+    resumed: EpisodeJournal | None = None
+    if resume:
+        if journal is None:
+            raise ValueError("resume requires a journal store")
+        resumed = journal.read_for(
+            fixture=fixture,
+            plan=plan,
+            material=material,
+            model_identity=model_identity,
+            adapter_version=adapter.version,
+            actor_case=actor_case,
+            dropped_capabilities=drop,
+            seed=seed,
+            max_tool_requests=max_tool_requests,
+            max_continuations=max_continuations,
+        )
+        if resumed.settled and resumed.final_trace is not None:
+            # Re-settling a finished Episode could add a second commit or a second coverage
+            # settlement; handing back what is already sealed cannot.
+            return resumed.final_trace
+
+    if resumed is None:
+        episode_world = EpisodeWorld(
+            materialize_office_world(
+                material, load_canonical_world(), actor_id=case.actor.actor_id
+            ),
+            episode_id=plan.episode_id,
+        )
+        initial_state_digest = episode_world.state_digest
+    else:
+        episode_world = rebuild_world(resumed)
+        initial_state_digest = resumed.initial_state_digest
+
+    actor = _actor_for(episode_world, case.actor)
+    if drop:
+        actor = restrict_capabilities(actor, drop=drop)
+    # A resumed session continues with the same invocation numbering, the same resolved provenance
+    # and the same time origin as the session that was interrupted.  All three are rebuilt from the
+    # checkpoint's own steps, so the cursor cannot describe a call the journal does not contain.
+    cursor = None
+    if resumed is not None:
+        cursor = ToolSessionCursor(
+            time_origin=resumed.runtime_time_origin,
+            invocations=tuple(
+                step.invocation for step in resumed.steps if step.invocation is not None
+            ),
+            results=tuple(step.result for step in resumed.steps if step.result is not None),
+            evidence=tuple(
+                item
+                for step in resumed.steps
+                if step.result is not None
+                for item in step.result.output_evidence
+            ),
+        )
     runtime = OfficeV2ToolRuntime(
-        episode=EpisodeWorld(world, episode_id=plan.episode_id),
+        episode=episode_world,
         actor=actor,
         task=case.task,
         definitions=office_v2_tool_definitions(),
+        cursor=cursor,
     )
     # Must happen before the first invocation, so the recorded context is provably the one the Agent
     # saw rather than one reconstructed afterwards.
@@ -430,19 +665,118 @@ async def run_agent_episode(
         system_prompt_digest=first_input.system_prompt_digest,
     )
 
-    messages: list[ReactMessage] = list(first_input.messages())
-    turns: list[TurnRecord] = []
-    steps: list[ToolStep] = []
+    messages: list[ReactMessage] = (
+        list(first_input.messages()) if resumed is None else list(resumed.messages)
+    )
+    turns: list[TurnRecord] = [] if resumed is None else list(resumed.turns)
+    steps: list[ToolStep] = [] if resumed is None else list(resumed.steps)
+    issued = 0 if resumed is None else resumed.issued
+    unresolved: list[str] = [] if resumed is None else list(resumed.unresolved)
     stop_reason = "model-stopped"
-    budget_exhausted = False
-    continuations = 0
-    final_turn_had_tool_call = False
-    provider_stop_reason: str | None = None
-    truncated = False
+    budget_exhausted = issued >= max_tool_requests
+    continuations = sum(1 for turn in turns if turn.tool_request_count == 0)
+    final_turn_had_tool_call = bool(turns[-1].tool_request_count) if turns else False
+    provider_stop_reason: str | None = turns[-1].stop_reason if turns else None
+    truncated = any(
+        (turn.stop_reason or "").casefold() in {"length", "max_tokens", "truncated"}
+        for turn in turns
+    )
     menu = {spec.name: spec for spec in specs}
-    issued = 0
 
-    for turn_index in range(64):
+    def snapshot(**changes: Any) -> EpisodeJournal:
+        """Seal everything known about the Episode at this instant.
+
+        The world state, its transaction history and the tool results are captured together, so a
+        checkpoint cannot describe a result whose state change is missing.
+        """
+
+        fields: dict[str, Any] = {
+            "episode_id": plan.episode_id,
+            "fixture_id": fixture.fixture_id,
+            "fixture_freeze_digest": fixture.freeze_digest,
+            "plan_digest": plan_digest,
+            "materialization_digest": material.materialization_digest,
+            "model_identity": model_identity,
+            "adapter_version": adapter.version,
+            "actor_case": actor_case,
+            "dropped_capabilities": drop,
+            "seed": seed,
+            "max_tool_requests": max_tool_requests,
+            "max_continuations": max_continuations,
+            "first_input": first_input,
+            "issued": issued,
+            "turns": tuple(turns),
+            "messages": tuple(messages),
+            "steps": tuple(steps),
+            "pending": (),
+            "initial_state_digest": initial_state_digest,
+            "base_world_digest": episode_world.base_world_digest,
+            "runtime_time_origin": runtime.time_origin,
+            "world_state": episode_world.state,
+            "world_history": episode_world.history,
+            "unresolved": tuple(unresolved),
+            "phase": JournalPhase.FIRST_INPUT,
+            "settled": False,
+            "final_trace": None,
+        }
+        fields.update(changes)
+        return EpisodeJournal(**fields, journal_digest="sha256:" + "0" * 64).seal()
+
+    def checkpoint(**changes: Any) -> None:
+        if journal is not None:
+            journal.write(snapshot(**changes))
+
+    # Before the first Provider request, so a kill while the model is thinking still leaves a record
+    # of the frozen plan, the material, the audited first input and the budget.
+    if resumed is None:
+        checkpoint(phase=JournalPhase.FIRST_INPUT)
+
+    # A checkpoint sealed before a call means that call was in flight when the process died.  The
+    # world only ever existed in memory, so the checkpoint cannot say whether it committed.  The
+    # pending list is walked in order and the walk stops at the first call that could have had an
+    # effect: everything before it is re-issued because it cannot change the world, and everything
+    # from that call onward is recorded as unresolved rather than re-sent.
+    if resumed is not None:
+        for pending_request in resumed.pending:
+            if tool_writes_state(pending_request.tool_name):
+                unresolved.append(
+                    f"in-flight {pending_request.tool_name} ({pending_request.call_id}) at sequence"
+                    f" {pending_request.sequence}: commit outcome is not confirmable from the"
+                    " checkpoint, so it was not re-issued"
+                )
+                stop_reason = "recovery-uncertain-commit"
+                break
+            if not pending_request.accepted:
+                steps.append(ToolStep(request=pending_request))
+                messages.append(
+                    _rejection_message(
+                        pending_request.call_id,
+                        pending_request.tool_name,
+                        pending_request.rejection or "rejected",
+                    )
+                )
+                continue
+            result = runtime.invoke(pending_request.tool_name, dict(pending_request.arguments))
+            steps.append(
+                ToolStep(
+                    request=pending_request,
+                    invocation=runtime.invocations[-1],
+                    result=result,
+                    committed=None,
+                )
+            )
+            messages.append(
+                _tool_message(pending_request.call_id, pending_request.tool_name, result)
+            )
+            checkpoint(phase=JournalPhase.AFTER_CALL)
+
+    for turn_index in range(len(turns), 64):
+        if stop_reason == "recovery-uncertain-commit":
+            break
+        if budget_exhausted:
+            stop_reason = "tool-request-budget-exhausted"
+            break
+        checkpoint(phase=JournalPhase.AWAITING_MODEL)
         turn = await adapter.generate(tuple(messages), specs, seed=seed)
         turns.append(
             TurnRecord(
@@ -500,10 +834,10 @@ async def run_agent_episode(
                 tool_calls=bound_calls,
             )
         )
+        turn_requests: list[AgentRequest] = []
         for call in bound_calls:
             sequence = issued
             issued += 1
-            call_id = call.call_id
             spec = menu.get(call.name)
             rejection: str | None = None
             if sequence >= max_tool_requests:
@@ -518,23 +852,65 @@ async def run_agent_episode(
                 except Exception as error:  # noqa: BLE001 - a refusal is a record, not a crash
                     rejection = f"arguments rejected: {type(error).__name__}"
 
-            request = AgentRequest.from_call(
-                sequence=sequence,
-                call_id=call_id,
-                call=call,
-                agent_text=turn.assistant_text,
-                accepted=rejection is None,
-                rejection=rejection,
+            turn_requests.append(
+                AgentRequest.from_call(
+                    sequence=sequence,
+                    call_id=call.call_id,
+                    call=call,
+                    agent_text=turn.assistant_text,
+                    accepted=rejection is None,
+                    rejection=rejection,
+                )
             )
-            if rejection is not None:
+
+        # The model returned and every call is bound.  Recording the whole turn before executing any
+        # of it means a kill during the first call still leaves the turn's intent on disk, with the
+        # arguments the Agent actually sent.
+        checkpoint(phase=JournalPhase.MODEL_RETURNED, pending=tuple(turn_requests))
+
+        for offset, request in enumerate(turn_requests):
+            call_id = request.call_id
+            if not request.accepted:
                 steps.append(ToolStep(request=request))
-                messages.append(_rejection_message(call_id, call.name, rejection))
+                messages.append(
+                    _rejection_message(call_id, request.tool_name, request.rejection or "rejected")
+                )
                 continue
 
-            result = runtime.invoke(call.name, dict(call.arguments))
+            # Written before the call runs: whether it committed is the one thing a kill can lose,
+            # so the boundary has to be visible rather than inferred afterwards.  Everything still
+            # to run in this turn is recorded with it -- listing only the call in flight would let a
+            # resumed Episode jump to the next turn and silently drop the rest of this one.
+            checkpoint(phase=JournalPhase.BEFORE_CALL, pending=tuple(turn_requests[offset:]))
+            result = runtime.invoke(request.tool_name, dict(request.arguments))
             invocation = runtime.invocations[-1]
-            steps.append(ToolStep(request=request, invocation=invocation, result=result))
-            messages.append(_tool_message(call_id, call.name, result))
+            committed = None
+            if result.state_transition is not None and result.state_transition.committed:
+                # Resolved now, against the state this commit produced: a later call of the same
+                # episode must not change what this delivery delivered.
+                committed = resolve_committed(
+                    runtime.state,
+                    result.state_transition,
+                    tool_name=request.tool_name,
+                    arguments=dict(request.arguments),
+                    actor_id=actor.actor_id,
+                )
+            steps.append(
+                ToolStep(
+                    request=request,
+                    invocation=invocation,
+                    result=result,
+                    committed=committed,
+                )
+            )
+            messages.append(_tool_message(call_id, request.tool_name, result))
+            # The result and the state it produced are written in the same checkpoint, so no reader
+            # can ever see one without the other.  What is left of the turn is recorded with it, for
+            # the same reason `BEFORE_CALL` records it: a checkpoint that said "nothing pending" in
+            # the middle of a turn would send a resumed Episode past the rest of that turn.
+            checkpoint(
+                phase=JournalPhase.AFTER_CALL, pending=tuple(turn_requests[offset + 1 :])
+            )
         if budget_exhausted:
             break
     else:
@@ -567,9 +943,14 @@ async def run_agent_episode(
         truncated=truncated,
         budget_exhausted=budget_exhausted,
         continuations=continuations,
+        unresolved=tuple(unresolved),
         trace_digest="sha256:" + "0" * 64,
     )
-    return trace.model_copy(update={"trace_digest": sha256_digest(trace.digest_payload())})
+    settled = trace.model_copy(update={"trace_digest": sha256_digest(trace.digest_payload())})
+    # Settling is the last boundary.  It is written once per Episode, so a caller resuming a settled
+    # Episode gets this same trace back instead of executing anything a second time.
+    checkpoint(phase=JournalPhase.SETTLED, settled=True, pending=(), final_trace=settled)
+    return settled
 
 
 def _looks_like_scenario_file(value: str) -> bool:

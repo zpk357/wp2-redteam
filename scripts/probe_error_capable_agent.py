@@ -146,16 +146,28 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
         plan, material = _plan_for(
             family_index, args.path_index, episode_id
         )
-        trace = await run_agent_episode(
-            fixture=fixture,
-            plan=plan,
-            material=material,
-            adapter=adapter,
-            model_identity=identity,
-            seed=args.seed + family_index,
-            max_tool_requests=args.max_tool_requests,
-            drop_capabilities=drop,
-        )
+        store = None
+        if args.journal_root is not None:
+            from sandbox.scenarios.error_capable_journal import JournalStore
+
+            store = JournalStore(args.journal_root, plan.episode_id)
+            store.claim()
+        try:
+            trace = await run_agent_episode(
+                fixture=fixture,
+                plan=plan,
+                material=material,
+                adapter=adapter,
+                model_identity=identity,
+                seed=args.seed + family_index,
+                max_tool_requests=args.max_tool_requests,
+                drop_capabilities=drop,
+                journal=store,
+                resume=args.resume,
+            )
+        finally:
+            if store is not None:
+                store.release()
         bridged = bridge_trace(trace, material=material, plan=plan)
         episodes.append(
             {
@@ -194,6 +206,17 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=20260930)
     parser.add_argument("--path-index", type=int, default=0)
     parser.add_argument("--max-tool-requests", type=int, default=24)
+    parser.add_argument(
+        "--journal-root",
+        type=Path,
+        default=None,
+        help="write a running checkpoint per Episode here, so a hard kill costs at most one call",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="continue each Episode from its checkpoint instead of starting it over",
+    )
     parser.add_argument(
         "--blocked-capability",
         action="append",

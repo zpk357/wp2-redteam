@@ -19,6 +19,7 @@ from sandbox.scenarios.error_capable import (
     MaterializedScenario,
     SelectorDecision,
     TaskFamily,
+    derive_scenario_actor,
     materialize_office_world,
 )
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
@@ -97,13 +98,22 @@ class LocalCoverageLedger(OfficeV2Contract):
         )
 
     def feedback(self) -> CoverageFeedback:
-        def compact(key: tuple[str, ...]) -> str:
-            return "-".join(key)
+        """Refused on purpose: this ledger cannot produce coverage feedback.
 
-        return CoverageFeedback(
-            behavior_gaps=tuple(compact(key) for key in sorted(self.behavior)),
-            risk_gaps=tuple(compact(key) for key in sorted(self.risk)),
-            joint_gaps=tuple(compact(key) for key in sorted(self.joint)),
+        It used to return the *covered* sets under the `*_gaps` names.  A selector told "here are the
+        gaps" and handed what has already been covered is steered back onto ground it has covered,
+        which is the opposite of what coverage guidance is for (`RA-CLOSE-02`).
+
+        The keys here are raw tool-name tuples.  They are not coverage keys derived from execution
+        evidence, and this ledger has no frozen target space to subtract them from, so there is no
+        correct answer to compute -- only a wrong one to avoid.  `CoverageLedger.feedback` computes
+        the complement of the observed set over a space enumerated from the fixture manifest.
+        """
+
+        raise NotImplementedError(
+            "LocalCoverageLedger holds raw tool-name tuples, not evidence-derived coverage keys,"
+            " and has no frozen target space to subtract from; use"
+            " error_capable_coverage.CoverageLedger.feedback instead"
         )
 
 
@@ -165,7 +175,7 @@ def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
     world = materialize_office_world(material, load_canonical_world(), actor_id=case.actor.actor_id)
     runtime = OfficeV2ToolRuntime(
         episode=EpisodeWorld(world, episode_id=f"probe-{material.plan.episode_id}"),
-        actor=case.actor,
+        actor=derive_scenario_actor(world, case.actor),
         task=case.task,
         definitions=office_v2_tool_definitions(),
     )

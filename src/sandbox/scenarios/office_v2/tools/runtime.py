@@ -100,6 +100,30 @@ class ToolDefinition:
     writes_state: bool = False
 
 
+@dataclass(frozen=True)
+class ToolSessionCursor:
+    """The parts of a tool session that do not live in the world state.
+
+    A resumed Episode has to continue with the same invocation numbering, the same resolved
+    provenance and the same time origin.  None of the three is in `OfficeWorldState`:
+
+    * invocation ids and action request ids are `...{sequence:06d}` over a session counter, so a
+      fresh runtime restarts them at zero;
+    * a tool's timestamp is `time_origin + (number of invocations so far)`, so a fresh runtime
+      restarts that too;
+    * the evidence ledger is what `verify_sources` checks an argument against, so a call whose source
+      was produced earlier in the Episode would be refused after a restore that dropped it.
+
+    Recomputing the time origin from a state that has already taken a commit would shift every later
+    timestamp, which is why it is carried explicitly rather than derived.
+    """
+
+    time_origin: datetime
+    invocations: tuple[OfficeToolInvocation, ...] = ()
+    results: tuple[OfficeToolResult, ...] = ()
+    evidence: tuple[OutputEvidence, ...] = ()
+
+
 class OfficeV2ToolRuntime:
     """Own one deterministic tool session for one isolated Episode."""
 
@@ -115,6 +139,7 @@ class OfficeV2ToolRuntime:
         observation_policy: ObservationPolicy | None = None,
         delegation_statement_visible: bool = False,
         policy_statement_visible: bool = False,
+        cursor: ToolSessionCursor | None = None,
     ) -> None:
         if actor.actor_id != task.actor_id:
             raise ValueError("actor and task actor must match")
@@ -134,7 +159,24 @@ class OfficeV2ToolRuntime:
         self.evidence = EvidenceLedger()
         self._invocations: list[OfficeToolInvocation] = []
         self._results: list[OfficeToolResult] = []
-        self._time_origin = _latest_business_time(episode.state)
+        #: Calls made by *this* session, as opposed to calls adopted from a cursor.  The two differ
+        #: exactly when an Episode is resumed, and the context-binding guard cares about the former.
+        self._session_invocations = 0
+        if cursor is None:
+            self._time_origin = _latest_business_time(episode.state)
+        else:
+            # Contiguity is checked rather than assumed: a gap would silently renumber every call
+            # after it, and the whole point of the cursor is that the numbering does not move.
+            sequences = [item.sequence for item in cursor.invocations]
+            if sequences != list(range(len(sequences))):
+                raise ValueError("resumed invocations must be contiguous and start at zero")
+            if len(cursor.results) != len(cursor.invocations):
+                raise ValueError("resumed results must correspond one-to-one with invocations")
+            self._invocations = list(cursor.invocations)
+            self._results = list(cursor.results)
+            self._time_origin = cursor.time_origin
+            if cursor.evidence:
+                self.evidence.add(cursor.evidence)
         expected_binding_world_digest = binding_world_digest or episode.state.canonical_digest()
         for binding in bindings:
             if binding.world_digest != expected_binding_world_digest:
@@ -144,6 +186,12 @@ class OfficeV2ToolRuntime:
     @property
     def state(self) -> OfficeWorldState:
         return self.episode.state
+
+    @property
+    def time_origin(self) -> datetime:
+        """This session's time origin, read before a cursor is taken from the session."""
+
+        return self._time_origin
 
     @property
     def invocations(self) -> tuple[OfficeToolInvocation, ...]:
@@ -177,9 +225,14 @@ class OfficeV2ToolRuntime:
         agent_context_digest: str,
         system_prompt_digest: str,
     ) -> None:
-        """Seal the exact task and policy prompt visible before any tool call."""
+        """Seal the exact task and policy prompt visible before any tool call.
 
-        if self._invocations:
+        What matters is whether *this session* has invoked anything.  A resumed session starts with
+        the earlier session's invocations already adopted, and refusing to bind there would make a
+        restore impossible; refusing after this session's own first call is what the guard is for.
+        """
+
+        if self._session_invocations:
             raise ValueError("Agent-visible context must be bound before tool invocation")
         self.agent_context_digest = agent_context_digest
         self.system_prompt_digest = system_prompt_digest
@@ -539,6 +592,7 @@ class OfficeV2ToolRuntime:
             before_state_digest=self.state.canonical_digest(),
         )
         self._invocations.append(invocation)
+        self._session_invocations += 1
         return invocation
 
     def _action_request(
