@@ -24,6 +24,7 @@ for _candidate in (_HERE.parent, _HERE.parents[1] / "src", _HERE.parents[1] / "a
 
 from sandbox.scenarios.error_capable_agent import tool_writes_state  # noqa: E402
 from sandbox.scenarios.error_capable_journal import (  # noqa: E402
+    LOCK_SUFFIX,
     JournalCorruptError,
     JournalIdentityError,
     JournalStore,
@@ -31,6 +32,9 @@ from sandbox.scenarios.error_capable_journal import (  # noqa: E402
 
 CHILD = str(_HERE.parent / "run_error_capable_resumable.py")
 EPISODE_ID = "probe.summary_delivery.0"
+#: What a process killed without cleanup reports.  POSIX reports death by signal as a negative
+#: code; the Windows fallback exits with 128 + SIGKILL, because there is no SIGKILL there to die of.
+KILLED_RETURNCODE = -9 if os.name != "nt" else 137
 #: Every boundary the recovery contract names.  `settled` is included because a kill after settling
 #: must not let a resume execute anything at all.
 KILL_PHASES = ("awaiting-model", "model-returned", "before-call", "after-call", "settled")
@@ -92,6 +96,29 @@ def run_matrix(workdir: Path, kill_counts: int) -> list[dict[str, object]]:
                                 "note": "the killed run still wrote its final summary"})
                 continue
 
+            # The case is only worth judging if the process actually died the way the contract
+            # assumes.  Both of these were once silently untrue on Windows, where the kill raised
+            # `AttributeError` instead: the child exited through its `finally` blocks, which released
+            # the writer lock, and every result below was describing a different failure.  Checking
+            # it here means the same degradation cannot go unnoticed a second time.
+            if killed.returncode != KILLED_RETURNCODE:
+                results.append({
+                    "case": case,
+                    "verdict": "FAIL",
+                    "note": f"the kill did not happen: child exited {killed.returncode},"
+                            f" expected {KILLED_RETURNCODE}; an exception after the checkpoint is"
+                            " not a force kill and would not exercise the same recovery",
+                })
+                continue
+            if not (root / f"{EPISODE_ID}{LOCK_SUFFIX}").exists():
+                results.append({
+                    "case": case,
+                    "verdict": "FAIL",
+                    "note": "no writer lock survived the kill, so cleanup ran before the process"
+                            " died: this was not a kill that skips cleanup",
+                })
+                continue
+
             # Taken now, before anything resumes: the resume writes to the same log, so reading it
             # later would mix the interrupted run's checkpoints with the resumed run's.
             log_at_kill = json.loads((root / "pending-log.json").read_text(encoding="utf-8"))
@@ -101,8 +128,10 @@ def run_matrix(workdir: Path, kill_counts: int) -> list[dict[str, object]]:
                 ["--root", str(root), "--resume", "--output", str(resumed_out)]
             )
             if resumed.returncode != 0:
+                # The whole stderr, not a tail: a truncated traceback cannot be diagnosed, and the
+                # only thing it is read for is exactly that.
                 results.append({"case": case, "verdict": "FAIL",
-                                "note": f"resume failed: {resumed.stderr[-400:]}"})
+                                "note": f"resume failed: {resumed.stderr}"})
                 continue
             got = _summary(resumed_out)
 
@@ -169,7 +198,7 @@ def run_matrix(workdir: Path, kill_counts: int) -> list[dict[str, object]]:
             twice = _child(["--root", str(root), "--resume", "--output", str(twice_out)])
             if twice.returncode != 0:
                 results.append({"case": f"{case}/twice", "verdict": "FAIL",
-                                "note": twice.stderr[-300:]})
+                                "note": twice.stderr})
             else:
                 again = _summary(twice_out)
                 stable = again == got

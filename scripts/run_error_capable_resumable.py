@@ -2,8 +2,8 @@
 
 This is the child process of the recovery matrix.  It exists as a separate process because the
 recovery contract is about a process that dies: an exception would unwind cleanly and prove nothing,
-so the only honest failure to inject here is `SIGKILL` at the moment a checkpoint has just been
-written.
+so the only honest failure to inject here is a kill that runs no cleanup at all, at the moment a
+checkpoint has just been written.
 """
 
 from __future__ import annotations
@@ -33,8 +33,24 @@ from sandbox.scenarios.error_capable_journal import JournalStore  # noqa: E402
 from sandbox.scenarios.error_capable_registry import load_error_capable_fixture  # noqa: E402
 
 
+def _die_now() -> None:
+    """Terminate this process the way `SIGKILL` would, on every platform.
+
+    `signal.SIGKILL` does not exist on Windows.  A test that called it did not kill anything: it
+    raised `AttributeError`, and the child unwound through its `finally` blocks, releasing the
+    writer lock on the way out.  That is a different failure from a process dying mid-`write`, and
+    it is precisely the difference the recovery contract is about, so the kill has to skip cleanup
+    the way a signal does.  The checkpoint is written and fsynced before this is called.
+    """
+
+    if hasattr(signal, "SIGKILL"):
+        os.kill(os.getpid(), signal.SIGKILL)
+    else:
+        os._exit(137)  # 128 + SIGKILL; no `finally`, no `atexit`, and no lock release
+
+
 class KillingJournalStore(JournalStore):
-    """A store that dies of `SIGKILL` right after the nth checkpoint of a named phase."""
+    """A store that dies without cleanup right after the nth checkpoint of a named phase."""
 
     def __init__(
         self, root: Path | str, episode_id: str, *, kill_at: str | None, kill_count: int
@@ -69,8 +85,8 @@ class KillingJournalStore(JournalStore):
         )
         path = super().write(journal)
         if self.kill_at and journal.phase.value == self.kill_at and self.matched >= self.kill_count:
-            # After the write: the kill destroys everything after this boundary.
-            os.kill(os.getpid(), signal.SIGKILL)
+            # After the write: the kill destroys everything after this boundary, including the lock.
+            _die_now()
         return path
 
 
