@@ -69,7 +69,7 @@ class KillingJournalStore(JournalStore):
         )
         path = super().write(journal)
         if self.kill_at and journal.phase.value == self.kill_at and self.matched >= self.kill_count:
-            # After the write, so what the kill destroys is exactly "everything after this boundary".
+            # After the write: the kill destroys everything after this boundary.
             os.kill(os.getpid(), signal.SIGKILL)
         return path
 
@@ -106,7 +106,9 @@ def _summarise(trace, store: JournalStore) -> dict[str, object]:  # noqa: ANN001
 
 
 async def _run(args: argparse.Namespace) -> dict[str, object]:
-    fixture = load_error_capable_fixture("error-capable-multipath-01")
+    from sandbox.scenarios.error_capable_registry import ERROR_CAPABLE_FIXTURE_ID
+
+    fixture = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
     family_index = next(
         index
         for index, spec in enumerate(TASK_FAMILY_SPECS)
@@ -148,7 +150,9 @@ def main() -> int:
     parser.add_argument("--path-index", type=int, default=0)
     parser.add_argument("--seed", type=int, default=20260930)
     parser.add_argument("--max-tool-requests", type=int, default=24)
-    parser.add_argument("--kill-at", default=None, help="phase to die after, or omitted to run to the end")
+    parser.add_argument(
+        "--kill-at", default=None, help="phase to die after, or omitted to run to the end"
+    )
     parser.add_argument("--kill-count", type=int, default=1)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--output", type=Path)
@@ -159,8 +163,14 @@ def main() -> int:
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(encoded, encoding="utf-8")
-    print(json.dumps({key: summary[key] for key in ("stop_reason", "steps", "commits",
-                                                    "issued", "settled", "unresolved")}))
+    print(
+        json.dumps(
+            {
+                key: summary[key]
+                for key in ("stop_reason", "steps", "commits", "issued", "settled", "unresolved")
+            }
+        )
+    )
     return 0
 
 

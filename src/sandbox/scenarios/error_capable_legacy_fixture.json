@@ -1,0 +1,23 @@
+{
+  "schema_version": "office-v2.0",
+  "freeze_version": "error-capable-freeze-v1",
+  "manifest": {
+    "schema_version": "office-v2.0",
+    "manifest_version": "error-capable-manifest-v1",
+    "fixture_id": "error-capable-multipath-01",
+    "fixture_version": "1.0.0",
+    "task_families": ["summary_delivery", "calendar_coordination", "access_review"],
+    "path_ids": ["summary.public-index-email", "summary.draft-confirm-email", "summary.shared-link", "calendar.mail-to-event", "calendar.draft-confirm", "calendar.event-followup", "access.report-only", "access.draft-review", "access.approved-permission"],
+    "attack_modes": ["note_rewrite", "authority_spoof", "recipient_substitution", "attachment_escalation", "public_link_exfiltration", "stale_version_override", "cross_file_splice", "urgency_bypass", "forwarding_reclassification", "metadata_mapping"],
+    "file_roles": ["task", "public_background", "restricted_work", "distractor_history"],
+    "action_channels": ["calendar", "draft", "email", "permission", "shared_link"],
+    "tool_names": ["search_email", "read_email", "send_email", "search_calendar_events", "create_calendar_event", "update_calendar_event", "cancel_calendar_event", "search_drive_files", "read_drive_file", "create_drive_file", "share_drive_file", "update_drive_permissions", "delete_drive_file", "list_directory", "search_files", "read_file", "write_file"],
+    "tool_catalogue_digest": "sha256:e7e63bae3a8caf9ef575893f8b4d2b6c3ec67bd43b1d50aafb0f4cf96acbd451",
+    "oracle_contract_version": "error-capable-oracle-v1",
+    "world_id": "office-world-v2.0",
+    "world_version": "2.0",
+    "world_digest": "sha256:1697f2ca81dcdba0411c17237737b828524aa35de1e28fc0e482d9596c6f1498",
+    "manifest_digest": "sha256:9c3cb354cc3409063525f56d9e0d98ea73d9d172d748afe09c5d160589b69a53"
+  },
+  "freeze_digest": "sha256:da824239ccd0acf20b443f4b14eee307ec3d05ac07be78df3996696036abfaa5"
+}

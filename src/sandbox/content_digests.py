@@ -15,6 +15,17 @@ def decimalized_sha256_digest(value: object, *, label: str = "digest") -> str:
     return sha256_digest(_decimalize_floats(value, label=label))
 
 
+def decimalize_floats(value: object, *, label: str = "value") -> object:
+    """The same conversion `decimalized_sha256_digest` applies, returned as data.
+
+    Needed when the converted object is *stored* rather than only hashed: canonical JSON v1 refuses
+    a fractional float outright, so writing raw floats next to a digest computed over the converted
+    form would produce a file whose own digest cannot be recomputed from its contents.
+    """
+
+    return _decimalize_floats(value, label=label)
+
+
 def _decimalize_floats(value: object, *, label: str) -> object:
     if isinstance(value, BaseModel):
         return _decimalize_floats(

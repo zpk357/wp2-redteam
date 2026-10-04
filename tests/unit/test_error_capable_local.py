@@ -16,7 +16,6 @@ from sandbox.scenarios.error_capable_local import (
     LocalCoverageLedger,
     SelectorReceipt,
     persist_episode,
-    placebo_indices,
     restore_episode,
     run_local_path_probe,
 )
@@ -83,8 +82,7 @@ def test_coverage_ledger_exposes_four_increment_cases() -> None:
         ledger.feedback()
 
 
-def test_placebo_schedule_and_idempotent_episode_receipts() -> None:
-    assert placebo_indices(16) == (0, 1)
+def test_idempotent_episode_receipts() -> None:
     receipt = EpisodeReceipt(
         episode_id="episode-1",
         plan_digest="sha256:" + "a" * 64,

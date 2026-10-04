@@ -14,6 +14,7 @@ the same revision produce the same manifest, and `verify` recomputes rather than
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 from pydantic import model_validator
 
@@ -26,11 +27,11 @@ from sandbox.scenarios.office_v2.tools import (
     office_v2_tool_definitions,
 )
 
-ERROR_CAPABLE_FIXTURE_ID = "error-capable-multipath-01"
-ERROR_CAPABLE_FIXTURE_VERSION = "1.0.0"
-ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v1"
-ERROR_CAPABLE_ORACLE_CONTRACT_VERSION = "error-capable-oracle-v1"
-ERROR_CAPABLE_FREEZE_VERSION = "error-capable-freeze-v1"
+ERROR_CAPABLE_FIXTURE_ID = "error-capable-multipath-02"
+ERROR_CAPABLE_FIXTURE_VERSION = "2.0.0"
+ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v2"
+ERROR_CAPABLE_ORACLE_CONTRACT_VERSION = "error-capable-oracle-v2"
+ERROR_CAPABLE_FREEZE_VERSION = "error-capable-freeze-v2"
 
 #: The action channels the scenario registers, taken from the families themselves rather than
 #: restated here, so a family that gains a channel cannot leave the manifest behind.
@@ -56,10 +57,11 @@ class ErrorCapableFixtureManifest(OfficeV2Contract):
     world_id: Identifier
     world_version: str
     world_digest: Sha256Digest
+    scenario_registry_digest: Sha256Digest | None = None
     manifest_digest: Sha256Digest
 
     def digest_payload(self) -> dict[str, object]:
-        return self.model_dump(mode="json", exclude={"manifest_digest"}, exclude_none=False)
+        return self.model_dump(mode="json", exclude={"manifest_digest"}, exclude_none=True)
 
     @model_validator(mode="after")
     def digest_matches(self) -> ErrorCapableFixtureManifest:
@@ -116,6 +118,8 @@ def build_error_capable_fixture() -> ErrorCapableFixture:
         raise RuntimeError("live Office V2 tool catalogue differs from the frozen name list")
 
     world = load_canonical_world()
+    from sandbox.scenarios.error_capable_world import CARRIER_SLOTS, LAYOUT_COUNTS, PATH_TEMPLATES
+
     fields = {
         "fixture_id": ERROR_CAPABLE_FIXTURE_ID,
         "fixture_version": ERROR_CAPABLE_FIXTURE_VERSION,
@@ -130,6 +134,15 @@ def build_error_capable_fixture() -> ErrorCapableFixture:
         "world_id": world.world_id,
         "world_version": str(world.world_version),
         "world_digest": world.world_digest,
+        "scenario_registry_digest": sha256_digest(
+            {
+                "families": [item.model_dump(mode="json") for item in TASK_FAMILY_SPECS],
+                "attacks": [item.model_dump(mode="json") for item in ATTACK_SPECS],
+                "paths": [item.model_dump(mode="json") for item in PATH_TEMPLATES],
+                "carriers": CARRIER_SLOTS,
+                "layouts": LAYOUT_COUNTS,
+            }
+        ),
     }
     # The digest is self-validating, so it is sealed from a placed digest rather than assigned and
     # then re-checked -- the same two-step `seal_model_inference_options` uses.
@@ -157,6 +170,9 @@ def build_error_capable_fixture() -> ErrorCapableFixture:
 #: hold different contract types, and RA-01 requires old fixtures to stay untouched.
 ERROR_CAPABLE_FIXTURES: dict[str, Callable[[], ErrorCapableFixture]] = {
     ERROR_CAPABLE_FIXTURE_ID: build_error_capable_fixture,
+    "error-capable-multipath-01": lambda: ErrorCapableFixture.model_validate_json(
+        Path(__file__).with_name("error_capable_legacy_fixture.json").read_text(encoding="utf-8")
+    ),
 }
 
 
@@ -164,16 +180,14 @@ def load_error_capable_fixture(fixture_id: str) -> ErrorCapableFixture:
     builder = ERROR_CAPABLE_FIXTURES.get(fixture_id)
     if builder is None:
         known = sorted(ERROR_CAPABLE_FIXTURES)
-        raise KeyError(
-            f"unknown error-capable fixture {fixture_id!r}; registered: {known}"
-        )
+        raise KeyError(f"unknown error-capable fixture {fixture_id!r}; registered: {known}")
     return builder()
 
 
 def verify_error_capable_fixture(fixture: ErrorCapableFixture) -> bool:
     """Rebuild from the frozen inputs and compare.  A drifting manifest must not pass."""
 
-    rebuilt = build_error_capable_fixture()
+    rebuilt = load_error_capable_fixture(fixture.fixture_id)
     return (
         fixture.manifest.manifest_digest == rebuilt.manifest.manifest_digest
         and fixture.freeze_digest == rebuilt.freeze_digest

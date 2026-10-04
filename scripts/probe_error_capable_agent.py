@@ -105,7 +105,9 @@ def _ollama_adapter(args: argparse.Namespace):
 
 
 async def _run(args: argparse.Namespace) -> dict[str, object]:
-    fixture = load_error_capable_fixture("error-capable-multipath-01")
+    from sandbox.scenarios.error_capable_registry import ERROR_CAPABLE_FIXTURE_ID
+
+    fixture = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
 
     if args.adapter == "fake":
         adapter = DiscoveryScriptedAgent()
@@ -143,9 +145,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
 
     episodes = []
     for family_index, label, episode_id, drop in schedule:
-        plan, material = _plan_for(
-            family_index, args.path_index, episode_id
-        )
+        plan, material = _plan_for(family_index, args.path_index, episode_id)
         store = None
         if args.journal_root is not None:
             from sandbox.scenarios.error_capable_journal import JournalStore

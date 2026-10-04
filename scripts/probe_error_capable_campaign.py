@@ -1,8 +1,8 @@
 """Run both arms of the coverage-feedback campaign and compare them field by field.
 
 This is the smoke that `RA-CLOSE-02` asks for: guided receives a coverage snapshot derived from the
-previous Episode's execution evidence, random receives none and never reaches for one, and every
-other input the two arms get is checked to be identical rather than asserted to be.
+previous Episode's execution evidence, random samples uniformly without a selection model or
+history, and shared Agent conditions and menus are checked explicitly.
 
 Run: python scripts/probe_error_capable_campaign.py --adapter fake
      python scripts/probe_error_capable_campaign.py --adapter ollama --episodes 3
@@ -38,14 +38,16 @@ from sandbox.scenarios.error_capable_campaign import (  # noqa: E402
 )
 from sandbox.scenarios.error_capable_identity import ModelIdentity  # noqa: E402
 from sandbox.scenarios.error_capable_registry import (  # noqa: E402
+    ERROR_CAPABLE_FIXTURE_ID,
     load_error_capable_fixture,
 )
+from sandbox.scenarios.error_capable_selector import LLMSelector  # noqa: E402
 
 FAKE_ROW = "contract-test-not-a-model-result"
 
 
 async def _run(args: argparse.Namespace) -> dict[str, object]:
-    fixture = load_error_capable_fixture("error-capable-multipath-01")
+    fixture = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
 
     if args.adapter == "fake":
         adapter = DiscoveryScriptedAgent()
@@ -62,9 +64,13 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
         )
         evidence_kind = "provider-backed-agent-run"
 
-    selector = ScriptedSelector(
-        path_ids={spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS},
-        attacks=tuple(spec.attack_mode.value for spec in ATTACK_SPECS),
+    selector = (
+        ScriptedSelector(
+            path_ids={spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS},
+            attacks=tuple(spec.attack_mode.value for spec in ATTACK_SPECS),
+        )
+        if args.adapter == "fake"
+        else LLMSelector(adapter, identity)
     )
 
     reports = {}
@@ -125,10 +131,22 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
                     "observed_count": len(report.ledger.observed),
                 },
                 "sentinel_reads": list(report.sentinel_reads),
+                "selection_attempts": [
+                    a.model_dump(mode="json") for a in report.selection_attempts
+                ],
+                "selection_provider_calls": sum(
+                    a.provider_calls for a in report.selection_attempts
+                ),
+                "selection_elapsed_ms": sum(
+                    a.elapsed_ms for a in report.selection_attempts
+                ),
+                "selection_tokens": report.selection_cost()["tokens"],
+                "selection_tokens_status": report.selection_cost()["tokens_status"],
+                "selection_cost": report.selection_cost(),
                 "feedback_used": [list(item) for item in report.feedback_used()],
-                "final_coverage": report.ledger.feedback(
-                    report.targets, limit=1_000
-                ).model_dump(mode="json"),
+                "final_coverage": report.ledger.feedback(report.targets, limit=1_000).model_dump(
+                    mode="json"
+                ),
             }
             for mode, report in reports.items()
         },

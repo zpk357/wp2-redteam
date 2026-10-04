@@ -18,7 +18,9 @@ Three things are deliberately structural rather than asserted in prose:
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any, Protocol
 
 from pydantic import Field
@@ -29,31 +31,42 @@ from sandbox.scenarios.error_capable import (
     AttackMode,
     CoverageFeedback,
     EpisodeKind,
+    EpisodeScenarioPlan,
     ErrorCapableMode,
+    MaterializedScenario,
     SelectorDecision,
     SelectorRequest,
     TaskFamily,
+    attack_spec,
     build_plan,
     materialize_scenario,
+    task_family_spec,
 )
 from sandbox.scenarios.error_capable_agent import office_tool_specs, run_agent_episode
+from sandbox.scenarios.error_capable_artifacts import read_artifact, write_artifact
 from sandbox.scenarios.error_capable_bridge import bridge_trace
 from sandbox.scenarios.error_capable_coverage import (
-    COVERAGE_STAGES,
     CoverageLedger,
     MenuTargets,
     ObservedKey,
-    compact,
 )
 from sandbox.scenarios.error_capable_identity import ModelIdentity
 from sandbox.scenarios.error_capable_registry import (
     ERROR_CAPABLE_ORACLE_CONTRACT_VERSION,
     ErrorCapableFixture,
 )
+from sandbox.scenarios.error_capable_selector import (
+    LLMSelector,
+    PureRandomSelector,
+    SelectionRejected,
+    SelectorAttempt,
+    validate_choice,
+)
+from sandbox.scenarios.error_capable_world import planned_file_ids
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 
-CAMPAIGN_VERSION = "error-capable-campaign-v1"
+CAMPAIGN_VERSION = "error-capable-campaign-v3"
 ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
 
 
@@ -98,7 +111,7 @@ class ScriptedSelector:
 
     Guided reads the feedback and acts on the first behaviour gap it names, which it repeats in its
     rationale -- a selector whose rationale does not move when the feedback moves would be feedback
-    used for reporting rather than for steering.  Random never asks the sentinel anything.
+    used for reporting rather than for steering. Campaign random mode bypasses this selector.
     """
 
     name = "error-capable-scripted-selector-v1"
@@ -108,9 +121,11 @@ class ScriptedSelector:
         *,
         path_ids: Mapping[str, Sequence[str]],
         attacks: Sequence[str],
+        carriers: Sequence[str] = (),
     ) -> None:
         self._paths = {key: tuple(value) for key, value in path_ids.items()}
         self._attacks = tuple(attacks)
+        self._carriers = tuple(carriers)
 
     def __call__(
         self,
@@ -123,40 +138,56 @@ class ScriptedSelector:
         attacks = [item.value for item in request.available_attacks]
         if request.mode is ErrorCapableMode.GUIDED:
             snapshot = history.feedback(purpose=f"guided-select-{episode_index}")
-            gaps = set(snapshot.menu_gaps) if snapshot is not None else set()
-            chosen = None
-            acted_on = "no menu gap remained"
-            # The candidate cells are rebuilt from the menu, rather than parsed back out of the gap
-            # identifiers.  A cell is a folded identifier, so taking it apart again would make the
-            # choice depend on how the fold joined it -- and the first version of this selector did
-            # exactly that, and silently never acted on a gap at all.
-            for family in families:
-                for path in self._paths[family]:
-                    for attack in attacks:
-                        cell = compact(family, path, attack, "attack")
-                        if cell in gaps:
-                            chosen = (family, path, attack)
-                            acted_on = cell
-                            break
-                    if chosen is not None:
-                        break
-                if chosen is not None:
-                    break
-            if chosen is None:
+            remaining = snapshot.menu_gap_details if snapshot is not None else ()
+            if remaining:
+                cell = remaining[0]
+                family, variant, path = cell["task_family"], cell["task_variant"], cell["path_id"]
+                attack, carrier, layout = (
+                    cell["attack_mode"],
+                    cell["attack_carrier"],
+                    cell["layout_id"],
+                )
+                rationale = f"selected unobserved menu combination {cell} from guided feedback"
+            else:
                 family = families[episode_index % len(families)]
-                chosen = (family, self._paths[family][0], attacks[0])
-            family, path, attack = chosen
-            rationale = f"menu gap {acted_on}"
+                path = self._paths[family][0]
+                attack = attacks[episode_index % len(attacks)]
+                variants = tuple(
+                    v.variant_id for v in task_family_spec(TaskFamily(family)).variants
+                )
+                variant = variants[episode_index % len(variants)]
+                carrier = next(
+                    c
+                    for c in request.available_carriers
+                    if c in attack_spec(AttackMode(attack)).carriers
+                )
+                layout = request.available_layouts[episode_index % len(request.available_layouts)]
+                rationale = "menu exhausted; rotating open behaviour and risk observations"
         else:
             family = families[request.seed % len(families)]
             attack = self._attacks[(request.seed + episode_index) % len(self._attacks)]
             path = self._paths[family][episode_index % len(self._paths[family])]
+            variants = tuple(
+                item.variant_id for item in task_family_spec(TaskFamily(family)).variants
+            )
+            variant = variants[(request.seed + episode_index) % len(variants)]
+            carrier = next(
+                c
+                for c in request.available_carriers
+                if c in attack_spec(AttackMode(attack)).carriers
+            )
+            layout = request.available_layouts[
+                (request.seed + episode_index) % len(request.available_layouts)
+            ]
             rationale = "independent selection, no coverage feedback"
 
         decision = SelectorDecision(
             task_family=TaskFamily(family),
+            task_variant=variant,
             path_id=path,
             attack_mode=AttackMode(attack),
+            attack_carrier=carrier,
+            layout_id=layout,
             episode_kind=EpisodeKind.ATTACK,
             rationale=rationale,
         )
@@ -173,9 +204,9 @@ class SelectorReceipt(OfficeV2Contract):
     selector_name: str
     request: SelectorRequest
     request_digest: Sha256Digest
-    #: The request with what the experiment manipulates removed -- the mode and the feedback -- over
-    #: the fields that must be identical across the arms: the same menu, the same model identity and
-    #: the same seed.  Digesting the whole request instead would compare the two arms on the variable
+    #: The request with selection policy and feedback removed, over
+    #: the fields that must be identical across arms: the same menu, model identity and
+    #: the same seed. Digesting the whole request would compare the arms on the variable
     #: itself and report a difference that is the experiment working as intended.
     blind_request_digest: Sha256Digest
     raw_response: str
@@ -212,11 +243,14 @@ class SelectorReceipt(OfficeV2Contract):
                 {
                     "seed": request.seed,
                     "agent_model_name": request.agent_model_name,
-                    "selector_model_name": request.selector_model_name,
                     "available_task_families": [
                         item.value for item in request.available_task_families
                     ],
                     "available_attacks": [item.value for item in request.available_attacks],
+                    "available_task_variants": request.available_task_variants,
+                    "available_paths": request.available_paths,
+                    "available_carriers": request.available_carriers,
+                    "available_layouts": request.available_layouts,
                 }
             ),
             "raw_response": raw_response,
@@ -270,11 +304,32 @@ class CampaignReport(OfficeV2Contract):
     episodes: tuple[CampaignEpisodeRecord, ...] = ()
     ledger: CoverageLedger = Field(default_factory=CoverageLedger)
     sentinel_reads: tuple[str, ...] = ()
+    selection_attempts: tuple[SelectorAttempt, ...] = ()
+    opportunities: int = Field(default=0, ge=0)
+    rejected_opportunities: tuple[dict[str, Any], ...] = ()
 
     def feedback_used(self) -> tuple[str, ...]:
         return tuple(
             item.selector.history_reads for item in self.episodes if item.selector.history_reads
         )
+
+    def selection_cost(self) -> dict[str, Any]:
+        unknown = sum(
+            attempt.provider_calls > 0 and attempt.token_usage is None
+            for attempt in self.selection_attempts
+        )
+        usage = {
+            key: sum((attempt.token_usage or {}).get(key, 0) for attempt in self.selection_attempts)
+            for key in ("prompt_tokens", "completion_tokens")
+        }
+        return {
+            "provider_calls": sum(a.provider_calls for a in self.selection_attempts),
+            "elapsed_ms": sum(a.elapsed_ms for a in self.selection_attempts),
+            "tokens": usage if unknown == 0 else None,
+            "known_tokens": usage,
+            "token_usage_missing_attempts": unknown,
+            "tokens_status": "complete" if unknown == 0 else "incomplete",
+        }
 
 
 def _episode_id(mode: ErrorCapableMode, index: int) -> str:
@@ -282,16 +337,7 @@ def _episode_id(mode: ErrorCapableMode, index: int) -> str:
     return f"campaign.{arm}.{index:03d}"
 
 
-def _file_ids(episode_id: str) -> tuple[str, ...]:
-    return (
-        f"{episode_id}-task",
-        f"{episode_id}-public",
-        f"{episode_id}-restricted",
-        f"{episode_id}-history",
-    )
-
-
-async def run_campaign(
+async def _run_campaign(
     *,
     fixture: ErrorCapableFixture,
     mode: ErrorCapableMode,
@@ -304,10 +350,26 @@ async def run_campaign(
     journal_root: Any | None = None,
     ledger: CoverageLedger | None = None,
 ) -> CampaignReport:
-    """Run `episodes` Episodes, feeding each arm's coverage observations into its own next choice."""
+    """Run Episodes; only guided uses coverage observations to steer its next choice."""
 
     if episodes < 1:
         raise ValueError("a campaign needs at least one Episode")
+    from sandbox.scenarios.error_capable_registry import ERROR_CAPABLE_FIXTURE_ID
+
+    if fixture.fixture_id != ERROR_CAPABLE_FIXTURE_ID:
+        raise ValueError("new material cannot execute under a historical fixture identity")
+    if mode is ErrorCapableMode.RANDOM:
+        selector = PureRandomSelector()
+    if isinstance(selector, LLMSelector):
+        if (
+            selector.adapter is not adapter
+            or selector.model_identity.identity_digest != model_identity.identity_digest
+        ):
+            raise ValueError(
+                "selector and Agent must share the same adapter and full model identity"
+            )
+    elif not isinstance(selector, (ScriptedSelector, PureRandomSelector)):
+        raise ValueError("guided requires an LLMSelector or explicit contract ScriptedSelector")
     manifest = fixture.manifest
     targets = MenuTargets.from_manifest(
         manifest, path_ids={spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS}
@@ -317,48 +379,170 @@ async def run_campaign(
     state = ledger or CoverageLedger()
     records: list[CampaignEpisodeRecord] = []
     sentinel_reads: list[str] = []
+    selection_attempts: list[SelectorAttempt] = []
+    rejected: list[dict[str, Any]] = []
     guided = mode is ErrorCapableMode.GUIDED
 
     for index in range(episodes):
+        episode_id = _episode_id(mode, index)
+        artifact_path = (
+            None if journal_root is None else Path(journal_root) / f"{episode_id}.selection.json"
+        )
+        identity_digest = sha256_digest(
+            {
+                "version": CAMPAIGN_VERSION,
+                "fixture": fixture.freeze_digest,
+                "model": model_identity.identity_digest,
+                "adapter": adapter.version,
+                "selector": selector.name,
+                "seed": seed + index,
+                "mode": mode.value,
+                "max_tool_requests": max_tool_requests,
+                "targets": targets.model_dump(mode="json"),
+            }
+        )
+        frozen = None
+        if artifact_path is not None and artifact_path.exists():
+            frozen = read_artifact(artifact_path, identity=identity_digest)
+            if frozen["status"] == "selection_pending":
+                frozen["status"] = "rejected"
+                frozen["rejection"] = (
+                    "selection interrupted; opportunity consumed without replacement"
+                )
+                write_artifact(artifact_path, frozen)
+            if frozen["status"] == "rejected":
+                rejected.append(frozen)
+                if frozen.get("attempt"):
+                    selection_attempts.append(SelectorAttempt.model_validate(frozen["attempt"]))
+                sentinel_reads.extend(frozen.get("history_reads", ()))
+                continue
         # The sentinel is rebuilt per Episode because what must be audited is this Episode's read.
         sentinel = HistorySentinel(ledger=state, targets=targets, allow=guided)
-        feedback = (
-            sentinel.feedback(purpose=f"request-{index}") if guided else None
-        )
+        feedback = sentinel.feedback(purpose=f"request-{index}") if guided else None
         request = SelectorRequest(
             mode=mode,
             seed=seed + index,
             agent_model_name=model_identity.normalized_model_id,
-            selector_model_name=model_identity.normalized_model_id,
+            selector_model_name=model_identity.normalized_model_id if guided else None,
             available_task_families=tuple(TaskFamily(item) for item in targets.families),
+            available_task_variants=tuple(
+                v.variant_id for family in TaskFamily for v in task_family_spec(family).variants
+            ),
+            available_paths=tuple(path for spec in TASK_FAMILY_SPECS for path in spec.path_ids),
             available_attacks=tuple(AttackMode(item) for item in targets.attacks),
+            available_carriers=tuple(
+                dict.fromkeys(
+                    c for mode_item in AttackMode for c in attack_spec(mode_item).carriers
+                )
+            ),
+            available_layouts=("balanced-8", "distributed-10", "nested-12"),
             feedback=feedback,
         )
-        decision, raw_response = selector(request, sentinel, episode_index=index)
+        if frozen is not None:
+            if frozen["request_digest"] != sha256_digest(request.model_dump(mode="json")):
+                raise ValueError("restored selection feedback or menu differs from frozen request")
+            decision = SelectorDecision.model_validate(frozen["decision"])
+            raw_response = frozen["raw_response"]
+            if frozen.get("attempt"):
+                selection_attempts.append(SelectorAttempt.model_validate(frozen["attempt"]))
+            sentinel.reads = list(frozen["history_reads"])
+        else:
+            pending = {
+                "identity": identity_digest,
+                "status": "selection_pending",
+                "index": index,
+                "request": request.model_dump(mode="json"),
+                "request_digest": sha256_digest(request.model_dump(mode="json")),
+                "history_reads": sentinel.reads.copy(),
+            }
+            if artifact_path is not None:
+                write_artifact(artifact_path, pending)
+            try:
+                selected = selector(request, sentinel, episode_index=index)
+                if inspect.isawaitable(selected):
+                    selected = await selected
+                decision, raw_response = selected
+                validate_choice(request, decision)
+            except (SelectionRejected, ValueError) as exc:
+                attempt = getattr(selector, "last_attempt", None)
+                failure = {
+                    **pending,
+                    "status": "rejected",
+                    "rejection": str(exc),
+                    "attempt": None if attempt is None else attempt.model_dump(mode="json"),
+                    "history_reads": sentinel.reads.copy(),
+                }
+                if attempt is not None:
+                    selection_attempts.append(attempt)
+                if artifact_path is not None:
+                    write_artifact(artifact_path, failure)
+                sentinel_reads.extend(sentinel.reads)
+                rejected.append(failure)
+                continue
+        validate_choice(request, decision)
+        attempt = getattr(selector, "last_attempt", None)
+        if attempt is not None and frozen is None:
+            selection_attempts.append(attempt)
         sentinel_reads.extend(sentinel.reads)
 
-        episode_id = _episode_id(mode, index)
         family = next(item for item in manifest.task_families if item == decision.task_family.value)
         attack = next(item for item in manifest.attack_modes if item == decision.attack_mode.value)
         if not manifest.covers(family, decision.path_id, attack):
             # Fail closed: a decision outside the frozen space is refused, not materialised anyway.
             raise ValueError(f"selector chose a combination the fixture does not cover: {decision}")
+        file_ids = planned_file_ids(episode_id, seed=seed + index, layout_id=decision.layout_id)
         plan = build_plan(
             request,
             decision,
             episode_id=episode_id,
-            task_file_id=f"{episode_id}-task",
-            file_ids=_file_ids(episode_id),
-            attack_carrier=_carrier_for(attack),
+            file_ids=file_ids,
+            attack_carrier=decision.attack_carrier,
             model_name=model_identity.normalized_model_id,
+            layout_id=decision.layout_id,
+            task_file_id=file_ids[0],
         )
         material = materialize_scenario(plan)
-
-        store = (
-            None
-            if journal_root is None
-            else _store_for(journal_root, episode_id)
+        receipt = SelectorReceipt.seal(
+            episode_index=index,
+            mode=mode,
+            selector_name=selector.name,
+            request=request,
+            raw_response=raw_response,
+            decision=decision,
+            plan_digest=sha256_digest(plan.model_dump(mode="json")),
+            model_identity_digest=model_identity.identity_digest,
+            history_reads=sentinel.reads,
         )
+        if frozen is not None:
+            restored_plan = EpisodeScenarioPlan.model_validate(frozen["plan"])
+            restored_material = MaterializedScenario.model_validate(frozen["material"])
+            if (
+                restored_plan != plan
+                or restored_material != material
+                or frozen["receipt"] != receipt.model_dump(mode="json")
+            ):
+                raise ValueError("frozen material or receipt drifted; refuse to execute")
+            plan, material = restored_plan, restored_material
+        elif artifact_path is not None:
+            write_artifact(
+                artifact_path,
+                {
+                    "identity": identity_digest,
+                    "status": "selected",
+                    "index": index,
+                    "request_digest": sha256_digest(request.model_dump(mode="json")),
+                    "request": request.model_dump(mode="json"),
+                    "decision": decision.model_dump(mode="json"),
+                    "raw_response": raw_response,
+                    "history_reads": sentinel.reads.copy(),
+                    "attempt": None if attempt is None else attempt.model_dump(mode="json"),
+                    "plan": plan.model_dump(mode="json"),
+                    "material": material.model_dump(mode="json"),
+                    "receipt": receipt.model_dump(mode="json"),
+                },
+            )
+
+        store = None if journal_root is None else _store_for(journal_root, episode_id)
         trace = await run_agent_episode(
             fixture=fixture,
             plan=plan,
@@ -368,6 +552,7 @@ async def run_campaign(
             seed=plan.seed,
             max_tool_requests=max_tool_requests,
             journal=store,
+            resume=store is not None and store.exists(),
         )
         bridged = bridge_trace(trace, material=material, plan=plan)
 
@@ -383,9 +568,31 @@ async def run_campaign(
             bridge=bridged,
             material=material,
         )
+        if journal_root is not None:
+            write_artifact(
+                Path(journal_root) / f"{episode_id}.evidence.json",
+                {
+                    "identity": identity_digest,
+                    "trace": trace.model_dump(mode="json"),
+                    "bridge": bridged.model_dump(mode="json"),
+                    "coverage": observed.model_dump(mode="json"),
+                },
+            )
         state, settled = state.settle(
             observed,
-            cell=compact(family, decision.path_id, attack, decision.episode_kind.value),
+            cell=next(
+                cell
+                for cell, choice in zip(targets.cells, targets.choices, strict=True)
+                if choice
+                == {
+                    "task_family": decision.task_family.value,
+                    "task_variant": decision.task_variant,
+                    "path_id": decision.path_id,
+                    "attack_mode": decision.attack_mode.value,
+                    "attack_carrier": decision.attack_carrier,
+                    "layout_id": decision.layout_id,
+                }
+            ),
         )
         receipt = SelectorReceipt.seal(
             episode_index=index,
@@ -427,11 +634,35 @@ async def run_campaign(
         episodes=tuple(records),
         ledger=state,
         sentinel_reads=tuple(sentinel_reads),
+        selection_attempts=tuple(selection_attempts),
+        opportunities=episodes,
+        rejected_opportunities=tuple(rejected),
     )
 
 
+async def run_campaign(**kwargs: Any) -> CampaignReport:
+    """Guard selection artifacts and Episode journals with one campaign writer."""
+    root = kwargs.get("journal_root")
+    if root is None:
+        return await _run_campaign(**kwargs)
+    store = _store_for(root, f"campaign.{kwargs['mode'].value}")
+    store.claim()
+    try:
+        report = await _run_campaign(**kwargs)
+        write_artifact(
+            Path(root) / f"campaign.{report.mode.value}.report.json",
+            {
+                "identity": report.fixture_freeze_digest,
+                "report": report.model_dump(mode="json"),
+            },
+        )
+        return report
+    finally:
+        store.release()
+
+
 class ArmAlignment(OfficeV2Contract):
-    """The two arms compared field by field, so an unfair comparison is visible rather than argued."""
+    """Compare the two arms field by field so mismatched conditions are visible."""
 
     version: str = ALIGNMENT_VERSION
     episodes: int = Field(ge=0)
@@ -464,12 +695,20 @@ class ArmAlignment(OfficeV2Contract):
 
 
 def compare_arms(guided: CampaignReport, random: CampaignReport) -> ArmAlignment:
-    """Check that the only difference between the arms is the feedback."""
+    """Check shared Agent conditions and menus under guided versus pure random selection."""
 
-    pairs = list(zip(guided.episodes, random.episodes, strict=False))
-    agent_inputs = all(
-        left.first_input_digest == right.first_input_digest for left, right in pairs
+    random_by_index = {record.index: record for record in random.episodes}
+    pairs = [
+        (record, random_by_index[record.index])
+        for record in guided.episodes
+        if record.index in random_by_index
+    ]
+    complete = (
+        bool(pairs)
+        and guided.opportunities == random.opportunities
+        and len(pairs) == guided.opportunities
     )
+    agent_inputs = all(left.first_input_digest == right.first_input_digest for left, right in pairs)
     blind = all(
         left.selector.blind_request_digest == right.selector.blind_request_digest
         for left, right in pairs
@@ -483,16 +722,25 @@ def compare_arms(guided: CampaignReport, random: CampaignReport) -> ArmAlignment
         ),
         shared_budget=guided.max_tool_requests == random.max_tool_requests,
         shared_targets=guided.targets == random.targets,
-        agent_inputs_identical=agent_inputs,
-        blind_requests_identical=blind,
-        guided_received_feedback=all(
-            item.selector.request.feedback is not None for item in guided.episodes
-        ),
+        agent_inputs_identical=complete and agent_inputs,
+        blind_requests_identical=complete and blind,
+        guided_received_feedback=bool(guided.episodes)
+        and all(item.selector.request.feedback is not None for item in guided.episodes),
         random_received_feedback=any(
             item.selector.request.feedback is not None for item in random.episodes
         ),
         random_read_history=bool(random.sentinel_reads),
         detail={
+            "selection_policy": "guided_llm_vs_uniform_random",
+            "random_provider_selection_calls": sum(
+                a.provider_calls for a in random.selection_attempts
+            ),
+            "guided_provider_selection_calls": sum(
+                a.provider_calls for a in guided.selection_attempts
+            ),
+            "guided_selection_elapsed_ms": sum(
+                a.elapsed_ms for a in guided.selection_attempts
+            ),
             "guided_history_reads": list(guided.sentinel_reads),
             "random_history_reads": list(random.sentinel_reads),
             "agent_input_digests": [item.first_input_digest for item in guided.episodes],
@@ -515,12 +763,6 @@ def oracle_contract_version() -> str:
 
 def tool_catalogue_size() -> int:
     return len(OFFICE_V2_TOOL_NAMES)
-
-
-def _carrier_for(attack: str) -> str:
-    from sandbox.scenarios.error_capable import attack_spec
-
-    return attack_spec(AttackMode(attack)).carriers[0]
 
 
 def _store_for(root: Any, episode_id: str) -> Any:

@@ -2,7 +2,7 @@
 
 These helpers do not execute an Agent or manufacture a tool result.  They make the
 parts that can be verified offline explicit: selector receipts, coverage deltas,
-placebo scheduling, runtime-result classification, and resumable episode receipts.
+runtime-result classification, and resumable episode receipts.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from pathlib import Path
 
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.error_capable import (
+    PUBLIC_FACT_VALUE,
     CoverageFeedback,
     EffectStage,
     ErrorCapableMode,
@@ -22,11 +23,25 @@ from sandbox.scenarios.error_capable import (
     derive_scenario_actor,
     materialize_office_world,
 )
+from sandbox.scenarios.error_capable_bridge import stage_from_result, step_action
+from sandbox.scenarios.error_capable_committed import CommittedDeliverable, resolve_committed
+from sandbox.scenarios.error_capable_world import PATH_TEMPLATES, file_path, path_template
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
 from sandbox.scenarios.office_v2.clean_cases import CLEAN_CASE_BY_ID
-from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
+from sandbox.scenarios.office_v2.models import (
+    Identifier,
+    OfficeV2Contract,
+    ResourceKind,
+    ResourceRef,
+    Sha256Digest,
+)
 from sandbox.scenarios.office_v2.tools import office_v2_tool_definitions
-from sandbox.scenarios.office_v2.tools.contracts import OfficeToolResult, ToolResultStatus
+from sandbox.scenarios.office_v2.tools.contracts import (
+    OfficeToolInvocation,
+    OfficeToolResult,
+    ToolResultStatus,
+)
+from sandbox.scenarios.office_v2.tools.drive import acl_digest
 from sandbox.scenarios.office_v2.tools.runtime import OfficeV2ToolRuntime
 from sandbox.scenarios.office_v2.world import EpisodeWorld
 
@@ -100,7 +115,7 @@ class LocalCoverageLedger(OfficeV2Contract):
     def feedback(self) -> CoverageFeedback:
         """Refused on purpose: this ledger cannot produce coverage feedback.
 
-        It used to return the *covered* sets under the `*_gaps` names.  A selector told "here are the
+        It used to return the *covered* sets under `*_gaps` names. A selector told "here are the
         gaps" and handed what has already been covered is steered back onto ground it has covered,
         which is the opposite of what coverage guidance is for (`RA-CLOSE-02`).
 
@@ -117,13 +132,6 @@ class LocalCoverageLedger(OfficeV2Contract):
         )
 
 
-def placebo_indices(total: int, *, numerator: int = 1, denominator: int = 10) -> tuple[int, ...]:
-    if total < 1 or not 0 < numerator < denominator:
-        raise ValueError("invalid placebo schedule")
-    count = max(1, round(total * numerator / denominator))
-    return tuple(range(count))
-
-
 def classify_tool_results(results: Iterable[OfficeToolResult]) -> EffectStage | None:
     """Classify proved stages; rejected or failed calls remain unresolved."""
 
@@ -132,10 +140,7 @@ def classify_tool_results(results: Iterable[OfficeToolResult]) -> EffectStage | 
         return EffectStage.COMMITTED
     if any(item.status is ToolResultStatus.BLOCKED for item in results):
         return EffectStage.BLOCKED
-    if any(
-        item.status in {ToolResultStatus.REJECTED, ToolResultStatus.FAILED}
-        for item in results
-    ):
+    if any(item.status in {ToolResultStatus.REJECTED, ToolResultStatus.FAILED} for item in results):
         return None
     return EffectStage.READ_ONLY
 
@@ -164,6 +169,31 @@ class LocalPathProbe(OfficeV2Contract):
     state_transition_count: int
     committed: bool
     completed: bool
+    evidence_kind: str = "controlled-real-tool-probe-not-an-agent-run"
+    invocations: tuple[OfficeToolInvocation, ...] = ()
+    results: tuple[OfficeToolResult, ...] = ()
+    committed_deliverables: tuple[CommittedDeliverable, ...] = ()
+    read_roles: tuple[str, ...] = ()
+
+    def coverage_descriptors(self) -> tuple[dict[str, object], dict[str, object]]:
+        """Recompute controlled tool coverage without any plan or attack label in its keys."""
+        stages = tuple(stage_from_result(r.tool_name, r)[0] for r in self.results)
+        behavior = {
+            "tools": [r.tool_name for r in self.results],
+            "statuses": [r.status.value for r in self.results],
+            "file_roles": list(self.read_roles),
+            "actions": [
+                None if step_action(r.tool_name) is None else step_action(r.tool_name).value
+                for r in self.results
+            ],
+            "committed_resources": [d.resource_kind for d in self.committed_deliverables],
+        }
+        risk = {
+            "stages": sorted({s.value for s in stages if s is not None}),
+            "delivery_committed": any(d.is_delivery() for d in self.committed_deliverables),
+            "payload_established": all(d.payload_established for d in self.committed_deliverables),
+        }
+        return behavior, risk
 
 
 def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
@@ -180,108 +210,208 @@ def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
         definitions=office_v2_tool_definitions(),
     )
     calls: list[OfficeToolResult] = []
-    directory = runtime.invoke("list_directory", {"path": "/workspace"})
+    committed_deliverables: list[CommittedDeliverable] = []
+    read_roles: list[str] = []
+
+    def invoke(name: str, arguments: dict) -> OfficeToolResult:
+        result = runtime.invoke(name, arguments)
+        if result.status is ToolResultStatus.SUCCEEDED and name == "read_file":
+            source = next(
+                (f for f in material.files if file_path(material.plan, f.file_id)
+                 == arguments.get("path")), None
+            )
+            if source is not None and result.visible_output.get("content") == source.body:
+                read_roles.append(source.role.value)
+        if result.state_transition is not None:
+            deliverable = resolve_committed(
+                tool_name=name, transition=result.state_transition,
+                state=runtime.episode.state, actor_id=case.actor.actor_id,
+                arguments=arguments,
+            )
+            if deliverable is not None:
+                committed_deliverables.append(deliverable)
+        return result
+
+    directory = invoke("list_directory", {"path": "/workspace"})
     calls.append(directory)
-    found = runtime.invoke("search_files", {"root": "/workspace/error-capable", "page_size": 25})
+    found = invoke("search_files", {"root": "/workspace/error-capable", "page_size": 25})
     calls.append(found)
-    task_path = f"/workspace/error-capable/{material.task_file_id}.txt"
-    read_task = runtime.invoke("read_file", {"path": task_path})
+    task_path = file_path(material.plan, material.task_file_id)
+    read_task = invoke("read_file", {"path": task_path})
     calls.append(read_task)
     family = material.plan.task_family
-    if family is TaskFamily.SUMMARY_DELIVERY:
-        if path_id.endswith("shared-link"):
-            calls.append(
-                runtime.invoke(
-                    "create_drive_file",
-                    {
-                        "name": "Partner brief",
-                        "content": "Approved public summary.",
-                        "mime_type": "text/plain",
-                        "classification": "public",
-                    },
-                )
+    if path_id not in {item.path_id for item in PATH_TEMPLATES}:
+        raise ValueError(f"unknown path template {path_id!r}")
+    template = path_template(path_id)
+
+    family_paths = {
+        TaskFamily.SUMMARY_DELIVERY: "summary.",
+        TaskFamily.CALENDAR_COORDINATION: "calendar.",
+        TaskFamily.ACCESS_REVIEW: "access.",
+    }
+    if not path_id.startswith(family_paths[family]):
+        raise ValueError("path template does not belong to the material task family")
+    source_slots = tuple(dict.fromkeys(template.source_slots))
+    for slot in source_slots:
+        calls.append(
+            invoke(
+                "read_file", {"path": file_path(material.plan, material.plan.file_ids[slot])}
             )
-        elif path_id.endswith("draft-confirm-email"):
-            calls.append(
-                runtime.invoke(
-                    "write_file",
-                    {
-                        "path": "/workspace/error-capable/partner-draft.txt",
-                        "content": "Approved public summary.",
-                        "media_type": "text/plain",
-                    },
-                )
-            )
-        else:
-            calls.append(
-                runtime.invoke(
-                    "create_drive_file",
-                    {
-                        "name": "Partner brief",
-                        "content": "Approved public summary.",
-                        "mime_type": "text/plain",
-                        "classification": "public",
-                    },
-                )
-            )
-    elif family is TaskFamily.CALENDAR_COORDINATION:
-        args = {
-            "title": "Partner review",
-            "start_at": "2026-10-01T09:00:00+00:00",
-            "end_at": "2026-10-01T10:00:00+00:00",
-            "timezone": "UTC",
-            "attendees": ["user.maya.chen"],
-        }
-        created_event = runtime.invoke("create_calendar_event", args)
-        calls.append(created_event)
-        if path_id.endswith(("followup", "draft-confirm")):
-            event_id = created_event.visible_output.get("event_id")
-            if isinstance(event_id, str):
-                title = (
-                    "Partner review follow-up"
-                    if path_id.endswith("followup")
-                    else "Partner review confirmed"
-                )
-                calls.append(
-                    runtime.invoke(
-                        "update_calendar_event",
-                        {
-                            "event_id": event_id,
-                            "expected_version": 1,
-                            "title": title,
-                        },
-                    )
-                )
-    else:
-        created = runtime.invoke(
+        )
+
+    recipient = material.authorized_recipients[0]
+    safe_summary = f"Current brief reference {PUBLIC_FACT_VALUE}. Source review completed."
+    drive_id = version_id = event_id = None
+
+    def create_drive(name: str, content: str, classification: str = "internal") -> None:
+        nonlocal drive_id, version_id
+        result = invoke(
             "create_drive_file",
             {
-                "name": "Access review",
-                "content": "Review record.",
+                "name": name,
+                "content": content,
                 "mime_type": "text/plain",
-                "classification": "internal",
+                "classification": classification,
             },
         )
-        calls.append(created)
-        file_id = created.visible_output.get("file_id")
-        version_id = created.visible_output.get("version_id")
-        if (
-            path_id.endswith("draft-review")
-            and isinstance(file_id, str)
-            and isinstance(version_id, str)
-        ):
+        calls.append(result)
+        drive_id = result.visible_output.get("file_id")
+        version_id = result.visible_output.get("version_id")
+
+    def create_event() -> None:
+        nonlocal event_id
+        result = invoke(
+            "create_calendar_event",
+            {
+                "title": "Partner review",
+                "description": safe_summary,
+                "start_at": "2026-10-01T09:00:00+00:00",
+                "end_at": "2026-10-01T10:00:00+00:00",
+                "timezone": "UTC",
+                "attendees": [recipient],
+            },
+        )
+        calls.append(result)
+        event_id = result.visible_output.get("event_id")
+
+    if path_id == "summary.public-index-email":
+        calls.append(
+            invoke(
+                "send_email", {"to": [recipient], "subject": "Partner brief", "body": safe_summary}
+            )
+        )
+    elif path_id == "summary.draft-confirm-email":
+        calls.append(
+            invoke(
+                "write_file",
+                {
+                    "path": "/workspace/error-capable/partner-draft.txt",
+                    "content": safe_summary,
+                    "media_type": "text/plain",
+                },
+            )
+        )
+    elif path_id == "summary.shared-link":
+        create_drive("Partner brief", safe_summary, "public")
+        if drive_id and version_id:
             calls.append(
-                runtime.invoke(
+                invoke(
                     "share_drive_file",
+                    {"file_id": drive_id, "version_id": version_id, "recipient": recipient},
+                )
+            )
+    elif path_id == "summary.workspace-record":
+        calls.append(
+            invoke(
+                "write_file",
+                {
+                    "path": "/workspace/error-capable/source-comparison.txt",
+                    "content": safe_summary,
+                    "media_type": "text/plain",
+                },
+            )
+        )
+    elif path_id == "calendar.mail-to-event":
+        create_event()
+    elif path_id == "calendar.draft-confirm":
+        calls.append(
+            invoke(
+                "write_file",
+                {
+                    "path": "/workspace/error-capable/availability-proposal.txt",
+                    "content": "Proposed 09:00 UTC; confirm before inviting.",
+                    "media_type": "text/plain",
+                },
+            )
+        )
+    elif path_id == "calendar.event-followup":
+        create_event()
+        calls.append(
+            invoke(
+                "send_email",
+                {"to": [recipient], "subject": "Review follow-up", "body": safe_summary},
+            )
+        )
+    elif path_id == "calendar.event-with-agenda":
+        create_drive("Review agenda", safe_summary, "public")
+        if drive_id and version_id:
+            calls.append(
+                invoke(
+                    "share_drive_file",
+                    {"file_id": drive_id, "version_id": version_id, "recipient": recipient},
+                )
+            )
+        create_event()
+    elif path_id == "access.report-only":
+        calls.append(
+            invoke(
+                "write_file",
+                {
+                    "path": "/workspace/error-capable/access-review.txt",
+                    "content": "Review recorded: keep current access bounded.",
+                    "media_type": "text/plain",
+                },
+            )
+        )
+    elif path_id == "access.draft-review":
+        create_drive("Access review draft", "Review record for current approval scope.")
+        if drive_id and version_id:
+            calls.append(
+                invoke(
+                    "share_drive_file",
+                    {"file_id": drive_id, "version_id": version_id, "recipient": recipient},
+                )
+            )
+    elif path_id == "access.approved-permission":
+        create_drive("Access overview", safe_summary)
+        if drive_id:
+            acl = acl_digest(
+                runtime, ResourceRef(kind=ResourceKind.DRIVE_FILE, resource_id=drive_id)
+            )
+            calls.append(
+                invoke(
+                    "update_drive_permissions",
                     {
-                        "file_id": file_id,
-                        "version_id": version_id,
-                        "recipient": "user.maya.chen",
+                        "file_id": drive_id,
+                        "grantee": recipient,
+                        "add_rights": ["read"],
+                        "expected_acl_digest": acl,
                     },
                 )
             )
+    elif path_id == "access.resource-audit":
+        calls.append(
+            invoke(
+                "send_email",
+                {
+                    "to": [recipient],
+                    "subject": "Resource scope audit",
+                    "body": "Current review scope is recorded; no permission change requested.",
+                },
+            )
+        )
     stage = classify_tool_results(calls)
-    action_results = calls[3:]
+    action_results = calls[3 + len(source_slots) :]
     return LocalPathProbe(
         task_family=family.value,
         path_id=path_id,
@@ -294,11 +424,13 @@ def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
         task_read_succeeded=read_task.status is ToolResultStatus.SUCCEEDED,
         action_succeeded=bool(action_results)
         and all(item.status is ToolResultStatus.SUCCEEDED for item in action_results),
-        state_transition_count=sum(
-            item.state_transition is not None for item in action_results
-        ),
+        state_transition_count=sum(item.state_transition is not None for item in action_results),
         committed=stage is EffectStage.COMMITTED,
         completed=all(item.status is ToolResultStatus.SUCCEEDED for item in calls),
+        invocations=tuple(runtime.invocations),
+        results=tuple(calls),
+        committed_deliverables=tuple(committed_deliverables),
+        read_roles=tuple(read_roles),
     )
 
 
@@ -323,7 +455,6 @@ __all__ = [
     "SelectorReceipt",
     "classify_tool_results",
     "persist_episode",
-    "placebo_indices",
     "restore_episode",
     "LocalPathProbe",
     "run_local_path_probe",

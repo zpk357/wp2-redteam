@@ -37,6 +37,12 @@ deliver / transform）× 对象类别（message / source_material / shared_artif
 
 ---
 
+### 多路径场景本地开发入口
+
+`error-capable-multipath-02` 在独立的 `src/sandbox/scenarios/error_capable*` 模块中实现三任务族、九变体、十二条路径及文件载体。引导臂使用同被测 Agent 身份的 LLM 选择器；随机臂在同一冻结菜单上纯随机采样，不调用 LLM 选择器、不读取历史覆盖。任务由 Agent 经真实工具发现，权限需查阅场景中的依据文件。
+
+本地工具探针和契约测试已验证；自由模型多路径分布、机制对照及正式实验准入仍未完成。运行命令、证据和已知检查失败见 [本地验收报告](docs/reports/20261004-multipath-local-validation.md)。此入口与上述历史 structured_v1 实验协议分开记录。
+
 ## 1. 评测的问题
 
 单次运行叫一个 **Episode**。一次 Episode 里，Agent 面对的是：
