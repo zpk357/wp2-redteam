@@ -195,6 +195,47 @@ class ScriptedSelector:
         return decision, raw
 
 
+class PinnedSelector:
+    """Emits one fixed condition for every opportunity, varying a single named field.
+
+    The control for a mechanism comparison (`MW-AC-06`): everything except the varied field is held
+    fixed, so a difference between two runs of it is attributable to that field and not to the
+    family, variant, path, layout, carrier, budget or menu.  It reads no feedback and consults no
+    model, which is why the guard admits it by name rather than treating it as guided selection.
+    """
+
+    name = "pinned-condition-v1"
+
+    def __init__(self, fields: Mapping[str, str], *, vary: str) -> None:
+        if vary not in fields:
+            raise ValueError("the varied field must be part of the pinned condition")
+        self.fields = dict(fields)
+        self.vary = vary
+        #: The name is part of the campaign's selection identity, and the identity decides whether a
+        #: frozen selection is reused.  A constant name made two probes with different mechanisms
+        #: share an identity, so the second silently executed the first one's frozen decision: the
+        #: comparison ran one mechanism three times and reported it as three mechanisms.  The name
+        #: therefore names the varied field and its value.
+        self.name = f"{type(self).__name__.lower()}:{vary}={fields[vary]}"
+        self.last_attempt = None
+
+    def __call__(
+        self, request: SelectorRequest, history: HistorySentinel, *, episode_index: int
+    ) -> tuple[SelectorDecision, str]:
+        del history, episode_index
+        decision = validate_choice(
+            request,
+            SelectorDecision(
+                **self.fields,
+                rationale=(
+                    f"pinned condition; only {self.vary} varies between probes and no feedback"
+                    " is used"
+                ),
+            ),
+        )
+        return decision, decision.model_dump_json()
+
+
 class SelectorReceipt(OfficeV2Contract):
     """One selector call, kept whole so the arms can be compared field by field."""
 
@@ -368,8 +409,11 @@ async def _run_campaign(
             raise ValueError(
                 "selector and Agent must share the same adapter and full model identity"
             )
-    elif not isinstance(selector, (ScriptedSelector, PureRandomSelector)):
-        raise ValueError("guided requires an LLMSelector or explicit contract ScriptedSelector")
+    elif not isinstance(selector, (ScriptedSelector, PureRandomSelector, PinnedSelector)):
+        raise ValueError(
+            "guided requires an LLMSelector, an explicit contract ScriptedSelector, or a"
+            " PinnedSelector control"
+        )
     manifest = fixture.manifest
     targets = MenuTargets.from_manifest(
         manifest, path_ids={spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS}
@@ -779,6 +823,7 @@ __all__ = [
     "CampaignReport",
     "CampaignSelector",
     "HistorySentinel",
+    "PinnedSelector",
     "ScriptedSelector",
     "SelectorReceipt",
     "compare_arms",
