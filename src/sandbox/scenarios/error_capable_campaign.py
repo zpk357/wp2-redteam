@@ -25,6 +25,7 @@ from pydantic import Field
 
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.error_capable import (
+    TASK_FAMILY_SPECS,
     AttackMode,
     CoverageFeedback,
     EpisodeKind,
@@ -40,7 +41,7 @@ from sandbox.scenarios.error_capable_bridge import bridge_trace
 from sandbox.scenarios.error_capable_coverage import (
     COVERAGE_STAGES,
     CoverageLedger,
-    FrozenTargets,
+    MenuTargets,
     ObservedKey,
     compact,
 )
@@ -64,7 +65,7 @@ class HistorySentinel:
     record rather than by trusting that it did not.
     """
 
-    def __init__(self, *, ledger: CoverageLedger, targets: FrozenTargets, allow: bool) -> None:
+    def __init__(self, *, ledger: CoverageLedger, targets: MenuTargets, allow: bool) -> None:
         self._ledger = ledger
         self._targets = targets
         self._allow = allow
@@ -122,38 +123,39 @@ class ScriptedSelector:
         attacks = [item.value for item in request.available_attacks]
         if request.mode is ErrorCapableMode.GUIDED:
             snapshot = history.feedback(purpose=f"guided-select-{episode_index}")
-            gaps = set(snapshot.behavior_gaps) if snapshot is not None else set()
+            gaps = set(snapshot.menu_gaps) if snapshot is not None else set()
             chosen = None
-            acted_on = "no observable behaviour gap remained"
-            # The candidate keys are rebuilt from the menu the request declares, rather than parsed
-            # back out of the gap strings.  A key is a folded identifier, so splitting it apart again
-            # would make the selector's choice depend on how the fold happened to join it -- and the
-            # first version of this selector did exactly that, and silently never acted on a gap.
+            acted_on = "no menu gap remained"
+            # The candidate cells are rebuilt from the menu, rather than parsed back out of the gap
+            # identifiers.  A cell is a folded identifier, so taking it apart again would make the
+            # choice depend on how the fold joined it -- and the first version of this selector did
+            # exactly that, and silently never acted on a gap at all.
             for family in families:
-                for attack in attacks:
-                    for stage in COVERAGE_STAGES:
-                        key = compact(family, attack, stage)
-                        if key in gaps:
-                            chosen = (family, attack)
-                            acted_on = key
+                for path in self._paths[family]:
+                    for attack in attacks:
+                        cell = compact(family, path, attack, "attack")
+                        if cell in gaps:
+                            chosen = (family, path, attack)
+                            acted_on = cell
                             break
                     if chosen is not None:
                         break
                 if chosen is not None:
                     break
             if chosen is None:
-                chosen = (families[episode_index % len(families)], attacks[0])
-            family, attack = chosen
-            rationale = f"coverage gap {acted_on}"
+                family = families[episode_index % len(families)]
+                chosen = (family, self._paths[family][0], attacks[0])
+            family, path, attack = chosen
+            rationale = f"menu gap {acted_on}"
         else:
             family = families[request.seed % len(families)]
             attack = self._attacks[(request.seed + episode_index) % len(self._attacks)]
+            path = self._paths[family][episode_index % len(self._paths[family])]
             rationale = "independent selection, no coverage feedback"
 
-        paths = self._paths[family]
         decision = SelectorDecision(
             task_family=TaskFamily(family),
-            path_id=paths[episode_index % len(paths)],
+            path_id=path,
             attack_mode=AttackMode(attack),
             episode_kind=EpisodeKind.ATTACK,
             rationale=rationale,
@@ -264,7 +266,7 @@ class CampaignReport(OfficeV2Contract):
     max_tool_requests: int = Field(ge=0)
     tool_menu_digest: Sha256Digest
     tool_names: tuple[Identifier, ...]
-    targets: FrozenTargets
+    targets: MenuTargets
     episodes: tuple[CampaignEpisodeRecord, ...] = ()
     ledger: CoverageLedger = Field(default_factory=CoverageLedger)
     sentinel_reads: tuple[str, ...] = ()
@@ -307,7 +309,9 @@ async def run_campaign(
     if episodes < 1:
         raise ValueError("a campaign needs at least one Episode")
     manifest = fixture.manifest
-    targets = FrozenTargets.from_manifest(manifest)
+    targets = MenuTargets.from_manifest(
+        manifest, path_ids={spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS}
+    )
     specs = office_tool_specs()
     menu_digest = sha256_digest({"tools": [spec.name for spec in specs]})
     state = ledger or CoverageLedger()
@@ -367,11 +371,21 @@ async def run_campaign(
         )
         bridged = bridge_trace(trace, material=material, plan=plan)
 
-        state, settled = state.settle(
+        # The key is built from the trace and the material, not from the plan: which files the run
+        # opened and which calls it proved are facts about the run, and a plan-based key would count
+        # two different runs as one behaviour whenever they were planned alike.
+        observed = ObservedKey.from_evidence(
             episode_id=episode_id,
             family=family,
             attack=attack,
+            kind=decision.episode_kind.value,
+            trace=trace,
             bridge=bridged,
+            material=material,
+        )
+        state, settled = state.settle(
+            observed,
+            cell=compact(family, decision.path_id, attack, decision.episode_kind.value),
         )
         receipt = SelectorReceipt.seal(
             episode_index=index,

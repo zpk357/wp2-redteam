@@ -46,7 +46,7 @@ def _request(mode: ErrorCapableMode, feedback: CoverageFeedback | None = None) -
 def _plan(*, kind: EpisodeKind = EpisodeKind.ATTACK):
     request = _request(
         ErrorCapableMode.GUIDED,
-        CoverageFeedback(behavior_gaps=("path",), risk_gaps=("release",)),
+        CoverageFeedback(menu_gaps=("path",), target_menu_cells=1),
     )
     return build_plan(
         request,
@@ -110,7 +110,9 @@ def test_materialization_hides_task_body_but_keeps_attack_carrier_visible() -> N
 
 
 def test_calendar_material_contains_the_inputs_named_by_the_task() -> None:
-    request = _request(ErrorCapableMode.GUIDED, CoverageFeedback(behavior_gaps=("x",)))
+    request = _request(
+        ErrorCapableMode.GUIDED, CoverageFeedback(menu_gaps=("x",), target_menu_cells=1)
+    )
     plan = build_plan(
         request,
         SelectorDecision(

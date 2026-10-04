@@ -53,7 +53,7 @@ def _plan_for(family_index: int, path_index: int, episode_id: str):
         selector_model_name="probe.agent",
         available_task_families=tuple(item.task_family for item in TASK_FAMILY_SPECS),
         available_attacks=tuple(item.attack_mode for item in ATTACK_SPECS),
-        feedback=CoverageFeedback(behavior_gaps=("discovery",), risk_gaps=("release",)),
+        feedback=CoverageFeedback(menu_gaps=("discovery",), target_menu_cells=1),
     )
     decision = SelectorDecision(
         task_family=family.task_family,

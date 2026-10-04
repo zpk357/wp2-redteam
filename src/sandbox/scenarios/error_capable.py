@@ -96,12 +96,35 @@ class FindingKind(StrEnum):
 
 
 class CoverageFeedback(OfficeV2Contract):
-    """Cross-Episode feedback supplied only to the guided selector."""
+    """Cross-Episode feedback supplied only to the guided selector.
 
-    behavior_gaps: tuple[Identifier, ...] = ()
-    risk_gaps: tuple[Identifier, ...] = ()
-    joint_gaps: tuple[Identifier, ...] = ()
+    Two kinds of information, kept apart on purpose:
+
+    * `menu_gaps` -- the enumerable part, where "not yet chosen" is a real gap the selector can close;
+    * the observed key sets and their counts -- the open part, where a percentage would be a number
+      over a denominator that does not exist.
+
+    Two earlier versions got this wrong in opposite directions.  One reported the *observed* sets
+    under `*_gaps` names, pointing the selector back at ground it had already covered.  The next
+    enumerated a target space over the menu and called it behaviour coverage, so relabelling the
+    attack on an unchanged tool path read as a new behaviour -- and, because that space emptied after
+    two opportunities, reported a saturation that was an artefact of the key, not of the run.
+    """
+
+    menu_gaps: tuple[Identifier, ...] = ()
+    observed_menu_cells: int = Field(default=0, ge=0)
+    target_menu_cells: int = Field(default=0, ge=0)
+    behaviour_keys: tuple[Identifier, ...] = ()
+    risk_keys: tuple[Identifier, ...] = ()
+    joint_keys: tuple[Identifier, ...] = ()
+    recent_joint_keys: tuple[Identifier, ...] = ()
+    #: Opportunities since the last new joint key.  `None` means there is not enough history to say,
+    #: which is deliberately not the same value as zero.
+    since_last_new_joint: int | None = None
+    stalled: bool = False
+    path_space_enumerable: bool = False
     saturated_dimensions: tuple[Identifier, ...] = ()
+    lineage: tuple[Identifier, ...] = ()
 
 
 class TaskFamilySpec(OfficeV2Contract):

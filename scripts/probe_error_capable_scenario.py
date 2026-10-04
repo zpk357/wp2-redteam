@@ -38,7 +38,7 @@ def _request() -> SelectorRequest:
         selector_model_name="probe.model",
         available_task_families=tuple(TaskFamily),
         available_attacks=tuple(item.attack_mode for item in ATTACK_SPECS),
-        feedback=CoverageFeedback(behavior_gaps=("path",), risk_gaps=("release",)),
+        feedback=CoverageFeedback(menu_gaps=("path",), target_menu_cells=1),
     )
 
 

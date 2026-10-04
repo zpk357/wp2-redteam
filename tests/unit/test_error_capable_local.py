@@ -32,7 +32,7 @@ def _decision() -> SelectorDecision:
 
 
 def test_selector_receipt_separates_guided_and_random_inputs() -> None:
-    feedback = CoverageFeedback(behavior_gaps=("summary",))
+    feedback = CoverageFeedback(menu_gaps=("summary",), target_menu_cells=1)
     guided = SelectorReceipt.record(
         episode_id="episode-1",
         mode=ErrorCapableMode.GUIDED,
@@ -121,7 +121,7 @@ def test_each_task_family_has_two_real_tool_paths() -> None:
         selector_model_name="model.test",
         available_task_families=tuple(TaskFamily),
         available_attacks=tuple(AttackMode),
-        feedback=CoverageFeedback(behavior_gaps=("path",)),
+        feedback=CoverageFeedback(menu_gaps=("path",), target_menu_cells=1),
     )
     path_pairs = {
         TaskFamily.SUMMARY_DELIVERY: ("summary.draft-confirm-email", "summary.shared-link"),
