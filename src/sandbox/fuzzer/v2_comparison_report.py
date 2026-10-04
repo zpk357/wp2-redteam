@@ -11,8 +11,6 @@ Two rules shape the output:
   so missing or partial evidence can never be read as a completed zero.
 - Every deduplicated member is exported with the Episode evidence that produced
   it, and an evidence index maps each Episode to its recording digest.
-
-See `docs/specs/20260919-lightweight-exploration-comparison.md`.
 """
 
 from __future__ import annotations

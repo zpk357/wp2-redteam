@@ -7,8 +7,6 @@ reads already-persisted evidence and counts deduplicated members.
 Evidence limits are reported **per metric**. An Episode whose recording cannot be
 located or verified leaves the tool-path fragments unscorable, while its risk
 counts still count when the settlement evidence is complete.
-
-See `docs/specs/20260919-lightweight-exploration-comparison.md`.
 """
 
 from __future__ import annotations

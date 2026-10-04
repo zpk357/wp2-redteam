@@ -1,8 +1,4 @@
-"""Metric-definition tests for the shared comparison scoring.
-
-See `docs/specs/20260919-lightweight-exploration-comparison.md` and the matching
-TASK `L02`.
-"""
+"""Metric-definition tests for the shared comparison scoring."""
 
 from __future__ import annotations
 

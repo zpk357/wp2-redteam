@@ -1,7 +1,7 @@
 """Fairness tests for the independent baseline and the guided arm.
 
 The design requires the two arms to differ only in whether they consume results of
-previous Episodes.  See `docs/specs/20260917-dual-coverage-evaluation-design.md` §3.
+previous Episodes.
 """
 
 from __future__ import annotations

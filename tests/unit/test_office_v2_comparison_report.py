@@ -1,12 +1,9 @@
 """Report-layer tests for the two-arm comparison export.
 
-See `docs/specs/20260919-lightweight-exploration-comparison.md` and the matching
-TASK `L03`.
-
 Local Coverage limit: no test in this repository can yet persist a real Episode
 settlement without Docker and a real model, so the metric payloads here are
 checked for their reporting semantics. The end-to-end sample that must drive real
-persistence is tracked separately in the TASK.
+persistence requires a real run.
 """
 
 from __future__ import annotations

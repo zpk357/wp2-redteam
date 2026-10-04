@@ -53,8 +53,7 @@ def build_v2_generation_series(
 ) -> list[dict[str, object]]:
     """Return one row per recorded generation, in generation order.
 
-    Metric definitions (frozen before any comparison run; see
-    `docs/specs/20260919-lightweight-exploration-comparison.md` and its TASK):
+    Metric definitions (frozen before any comparison run):
 
     - ``coverage_counts``, ``corpus_entries``, ``used_episodes`` and ``consumed``
       describe the state the generation started from, so a row shows what the

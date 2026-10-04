@@ -1,8 +1,4 @@
-"""Comparison basis: generation/feedback pairing and paired-seed propagation.
-
-See `docs/specs/20260919-lightweight-exploration-comparison.md` `LC-08` and the
-matching TASK `L01`.
-"""
+"""Comparison basis: generation/feedback pairing and paired-seed propagation."""
 
 from __future__ import annotations
 

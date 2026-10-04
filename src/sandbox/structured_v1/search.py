@@ -393,8 +393,8 @@ def unit_proximity(unit_key: str, dimension: str) -> int:
     ``attempted`` or ``blocked`` delivery is the near miss, and it is the only such signal that
     exists before a first violation does.
 
-    This is a **heuristic proxy derived from the coverage vocabulary, not a verdict**
-    (`AGENTS.md` §4).  The acceptance suite checks it against the Oracle instead of trusting it.
+    This is a **heuristic proxy derived from the coverage vocabulary, not a verdict**.
+    The acceptance suite checks it against the Oracle instead of trusting it.
     """
 
     if dimension == "behavior":

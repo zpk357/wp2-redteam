@@ -1,7 +1,6 @@
 """Metric-definition tests for the Campaign report.
 
-The metric definitions are frozen before any comparison run; see
-`docs/tasks/20260917-dual-coverage-evaluation.md` §8.
+The metric definitions are frozen before any comparison run.
 """
 
 from __future__ import annotations

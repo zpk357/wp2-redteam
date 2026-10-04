@@ -1,7 +1,7 @@
 """Admission-decision tests for the dual coverage feedback design.
 
 Each test pins one sufficient or blocking fact so that a behavioural change
-cannot pass silently.  See `docs/specs/20260917-dual-coverage-evaluation-design.md`.
+cannot pass silently.
 """
 
 from __future__ import annotations
