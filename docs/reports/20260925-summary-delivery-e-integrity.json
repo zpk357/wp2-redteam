@@ -1,0 +1,21 @@
+{
+  "history": [
+    {
+      "archive": "D:\\hxjh\\runs\\c01-20260925\\dev-precheck-c01-20260925.tar.gz",
+      "sha256": "60258d38f505f0a56c22d05c672db86b54f7ef6ce66bf9171778f7f62769e9cf",
+      "finalized_verified": 29,
+      "payload_unchanged": true
+    },
+    {
+      "archive": "D:\\hxjh\\runs\\mat-d-01-20260925\\mat-d-01-20260925.tar.gz",
+      "sha256": "90436e3216c1818afeeca1acc26011a650b971cfafbce134d5f5186f30ffc5f3",
+      "finalized_verified": 28,
+      "payload_unchanged": true
+    }
+  ],
+  "old_fixture_code_unchanged": true,
+  "fixture_id": "summary-delivery-e",
+  "manifest_digest": "sha256:7ad59e862934b7be7bce25a77994c39a6e824de6f95acae7eb3f53b41b99ed77",
+  "overlay_digest": "sha256:c44aa0e5873396977f99d98df5034a0b1f18ca32e3e8b8a02fb8dde0cac9d8fd",
+  "freeze_digest": "sha256:9b9f6dec54b998ffe7bc838b71ac3fee1822312c4d52bef28e87c3452a8029da"
+}
