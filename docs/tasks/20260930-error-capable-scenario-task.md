@@ -2,6 +2,7 @@
 
 - 任务 ID：`TASK-SCENARIO-ERROR-20260930`
 - 状态：`IN_PROGRESS`
+- 适用范围说明：本任务的历史选择器/安慰剂方案不适用于 `error-capable-multipath-02`；当前口径以 [TASK-MULTIPATH-WORLD-20261004](20261004-multi-path-world-and-llm-selection-task.md) 为准。该修订规定 LLM 只服务 guided，random 只做有种子纯随机采样，并且本阶段不实现安慰剂。
 - 对应 SPEC：[`SPEC-SCENARIO-ERROR-20260930`](../specs/20260930-error-capable-scenario-and-oracle.md)
 - 日期：2026-09-30
 - 目的：实现一个可产生真实判断分支、多个合法完成路径和多种攻击载体的新独立 fixture，并完成服务器前的离线准入证据。

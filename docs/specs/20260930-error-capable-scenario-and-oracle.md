@@ -2,6 +2,7 @@
 
 - 规格 ID：`SPEC-SCENARIO-ERROR-20260930`
 - 状态：`APPROVED`
+- 适用范围说明：对于 `error-capable-multipath-02`，本文件关于选择器公平性的旧表述由 [多路径世界修订](20261004-multi-path-world-and-llm-selection.md) 覆盖：LLM 选择仅用于 `coverage_guided`，`random_independent` 使用同一冻结菜单上的有种子纯随机采样。本文保留原始规格作为历史基线，不追溯修改旧 fixture 或历史实验。
 - 日期：2026-09-30
 - 适用范围：Office V2 / structured_v1 的下一版独立 fixture 与正式比较前准入
 - 依赖：`docs/SPEC.md`、`docs/specs/20260930-experiment-range-calibration.md`

@@ -31,7 +31,7 @@
 - 使用与被测 Agent 相同的模型、Provider、原始标签、规范化身份、版本和提示版本。
 - guided 选择器必须读取上一集的行为、风险、联合覆盖缺口和饱和信息，并把选择理由与反馈摘要写入收据。
 - random 使用相同候选菜单、模型、预算、提示框架和校验器，但不得读取任何跨 Episode 历史；保留读取哨兵。
-- 正式两臂均接真实 LLM selector，保存实际 Provider 请求/响应；`--adapter ollama` 只驱动 Agent、selector 仍为 ScriptedSelector 的探针不满足此项。脚本选择器仅保留为契约测试，不以修改其平局规则代替真实 LLM。代码校验边界，不代替 LLM 决定任务/攻击组合；历史重复信息仅给 guided。
+- 正式仅 guided 臂接真实 LLM selector，并保存实际 Provider 请求/响应；random 臂不调用 LLM selector，而是在同一冻结菜单上使用有种子的、有放回的纯随机采样。`--adapter ollama` 只驱动 Agent、selector 仍为 ScriptedSelector 的探针不满足 guided 的真实选择器验收项。脚本选择器仅保留为契约测试，不以修改其平局规则代替真实 LLM。代码校验边界，不代替 guided LLM 决定任务/攻击组合；历史重复信息仅给 guided。两臂的被测 Agent 仍使用相同模型、Provider、工具和预算。
 - 选择器只能输出冻结菜单中的任务族、路径、攻击方式、载体和安慰剂标记；不能生成工具调用、权限、收件人或安全结论。
 
 ### A-2 覆盖口径
