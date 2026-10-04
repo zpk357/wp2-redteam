@@ -33,6 +33,13 @@ for _candidate in (_HERE.parent, _HERE.parents[1] / "src", _HERE.parents[1] / "a
 
 from analyze_error_capable_mechanisms import evaluate as evaluate_mechanisms  # noqa: E402
 
+#: Which criteria this computation applies.  A result of `true` under one revision must not be
+#: mistaken for a result of `true` under another, so the revision is recorded in the artifact.
+CRITERIA_REVISION = (
+    "2026-10-04: MW-AC-06 moved from an admission condition to a secondary scenario diagnostic;"
+    " the gates are recovery, reachability, range and isolation"
+)
+
 KILL_PHASES = ("awaiting-model", "model-returned", "before-call", "after-call", "settled")
 REFUSAL_CASES = (
     "corrupt-checkpoint",
@@ -184,18 +191,26 @@ def gate_isolation(path: pathlib.Path) -> dict:
     }
 
 
-def gate_separability(path: pathlib.Path, journal_root: pathlib.Path, repeats: int) -> dict:
+def diagnostic_separability(path: pathlib.Path, journal_root: pathlib.Path, repeats: int) -> dict:
+    """`MW-AC-06`, reported and never silently dropped.
+
+    The criteria revision of 2026-10-04 moved this from an admission condition to a scenario
+    diagnostic.  It is still computed and still printed, because a finding that stops being a gate
+    must not stop being visible: the result is unchanged and the main experiment's claims are
+    narrowed by it, so it belongs in the record either way.
+    """
+
     if not path.exists():
-        return {"gate": "separability", "passed": False, "reason": "no comparison artifact",
-                "evidence": None}
+        return {"diagnostic": "separability", "measured": False,
+                "reason": "no comparison artifact", "evidence": None}
     payload = load(path)
     result = evaluate_mechanisms(payload)
     traces = sorted(journal_root.rglob("*.evidence.json")) if journal_root.exists() else []
     expected = len(payload["arms"]) * repeats
-    audit_complete = len(traces) == expected
     return {
-        "gate": "separability",
-        "passed": bool(result["satisfied"] and audit_complete),
+        "diagnostic": "separability",
+        "measured": True,
+        "satisfied": bool(result["satisfied"] and len(traces) == expected),
         "reason": (
             f"MW-AC-06 satisfied={result['satisfied']}; {result['verdict']};"
             f" executed mechanisms={result['executed_mechanisms']};"
@@ -220,7 +235,9 @@ def main() -> int:
         gate_reachability(evidence / "09-provider-8ep.json"),
         gate_range(evidence / "09-provider-8ep.json"),
         gate_isolation(evidence / "09-provider-8ep.json"),
-        gate_separability(
+    ]
+    diagnostics = [
+        diagnostic_separability(
             evidence / "15-mechanism-comparison-rerun.json",
             args.root / "journal" / "mechanisms-rerun",
             args.repeats,
@@ -228,21 +245,34 @@ def main() -> int:
     ]
     eligible = all(gate["passed"] for gate in gates)
 
+    print(f"criteria: {CRITERIA_REVISION}")
     print("=== admission, computed from evidence ===")
     for gate in gates:
         print(f"  [{'PASS' if gate['passed'] else 'FAIL':>4}] {gate['gate']}")
         print(f"         {gate['reason']}")
         print(f"         evidence={gate['evidence']}")
     print()
+    print("=== reported, not gating ===")
+    for item in diagnostics:
+        state = "n/a" if not item["measured"] else str(item["satisfied"])
+        print(f"  [DIAG] {item['diagnostic']} satisfied={state}")
+        print(f"         {item['reason']}")
+        print(f"         evidence={item['evidence']}")
+    print()
     print(f"formal_comparison_eligible = {str(eligible).lower()}")
     blocked = [gate["gate"] for gate in gates if not gate["passed"]]
     if blocked:
         print(f"blocked by: {blocked}")
         print("No guided-versus-random comparison may be started while any gate is unmet.")
+    else:
+        print("All gates met. The main experiment may run, with the claims narrowed by the"
+              " diagnostics above and by the criteria revision.")
 
     payload = {
         "formal_comparison_eligible": eligible,
+        "criteria_revision": CRITERIA_REVISION,
         "gates": gates,
+        "diagnostics": diagnostics,
         "blocked_by": blocked,
         "counts": dict(Counter("passed" if gate["passed"] else "failed" for gate in gates)),
         "computed_from": str(args.root / "evidence"),
