@@ -1,0 +1,223 @@
+"""One paired repeat of the neighborhood-priority experiment: both arms, one base seed.
+
+`TASK-NEIGHBORHOOD-PRIORITY-20261006` §3 fixes the arms, the seeds, the order and the layout of the
+run root. This entry point takes all four explicitly and refuses to guess any of them, because a run
+whose seed or arm order was chosen by a default is a run nobody can re-check.
+
+It runs **one repeat**, not the whole experiment: the specification requires the pairs to be run in
+order and looked at between pairs without the settings changing, and a wrapper that can run all of
+them is also a wrapper that can be restarted with a different seed by accident.
+
+The default adapter is `fake`.  A real run needs `--adapter ollama` *and* a `--model` and an
+`--endpoint` that answer, so nothing starts a paid or model-backed run by being invoked without
+arguments.
+
+Usage:
+  python scripts/run_neighborhood_campaign.py --stage pilot --repeat 1 --root <dir>
+  python scripts/run_neighborhood_campaign.py --stage main --repeat 1 --adapter ollama --root <dir>
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import sys
+from pathlib import Path
+
+_HERE = Path(__file__).resolve()
+for _candidate in (_HERE.parent, _HERE.parents[1] / "src", _HERE.parents[1] / "agent_image"):
+    if str(_candidate) not in sys.path:
+        sys.path.insert(0, str(_candidate))
+
+from probe_error_capable_agent import _ollama_adapter  # noqa: E402
+
+from sandbox.scenarios.error_capable import (  # noqa: E402
+    ATTACK_SPECS,
+    TASK_FAMILY_SPECS,
+    ErrorCapableMode,
+)
+from sandbox.scenarios.error_capable_agent import DiscoveryScriptedAgent  # noqa: E402
+from sandbox.scenarios.error_capable_campaign import (  # noqa: E402
+    ScriptedSelector,
+    compare_arms,
+    run_campaign,
+)
+from sandbox.scenarios.error_capable_identity import ModelIdentity  # noqa: E402
+from sandbox.scenarios.error_capable_registry import (  # noqa: E402
+    ERROR_CAPABLE_FIXTURE_ID,
+    load_error_capable_fixture,
+)
+from sandbox.scenarios.error_capable_selector import LLMSelector  # noqa: E402
+
+#: `SPEC-NEIGHBORHOOD-PRIORITY-20261006` §8 and TASK §3.  The pilot and the formal run use disjoint
+#: ranges so a pilot artifact can never be mistaken for a formal one by its seed.
+PILOT_SEEDS = (610610000, 610611000)
+MAIN_SEEDS = (610620000, 610621000, 610622000, 610623000, 610624000, 610625000)
+PILOT_EPISODES = 8
+MAIN_EPISODES = 24
+
+FAKE_ROW = "contract-test-not-a-model-result"
+PROVIDER_ROW = "provider-backed-agent-run"
+
+
+def arm_order(repeat: int) -> tuple[str, str]:
+    """Odd repeats run random first, even repeats guided first (`NP-14`).
+
+    The order alternates so that a service that gets slower, or a cache that fills, does not line up
+    with one arm across all six pairs.
+    """
+
+    return ("random", "guided") if repeat % 2 == 1 else ("guided", "random")
+
+
+def base_seed(stage: str, repeat: int) -> int:
+    table = PILOT_SEEDS if stage == "pilot" else MAIN_SEEDS
+    if not 1 <= repeat <= len(table):
+        raise SystemExit(f"--repeat must be 1..{len(table)} for stage {stage}")
+    return table[repeat - 1]
+
+
+async def _run(args: argparse.Namespace) -> dict[str, object]:
+    fixture = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
+    seed = base_seed(args.stage, args.repeat)
+    episodes = args.episodes or (PILOT_EPISODES if args.stage == "pilot" else MAIN_EPISODES)
+
+    if args.adapter == "fake":
+        adapter = DiscoveryScriptedAgent()
+        identity = ModelIdentity.capture(
+            provider_id="local", raw_model_label="scripted-agent", provider_version=adapter.version
+        )
+        evidence_kind = FAKE_ROW
+        # The contract double, not a model: it exercises the guided path end to end so the loop's
+        # guarantees can be checked without a Provider, and every artifact it produces says so.
+        selector = ScriptedSelector(
+            path_ids={spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS},
+            attacks=[spec.attack_mode.value for spec in ATTACK_SPECS],
+        )
+    else:
+        adapter = _ollama_adapter(args)
+        identity = ModelIdentity.capture(
+            provider_id="ollama",
+            raw_model_label=args.model,
+            provider_version=getattr(adapter, "version", None),
+        )
+        evidence_kind = PROVIDER_ROW
+        # The specification requires the selector to be the same model and the same full identity as
+        # the Agent under test; the campaign checks it again and refuses a mismatch.
+        selector = LLMSelector(adapter, identity)
+
+    stage_root = Path(args.root) / args.stage / f"rep-{args.repeat:02d}"
+    stage_root.mkdir(parents=True, exist_ok=True)
+    order = arm_order(args.repeat)
+
+    reports: dict[str, object] = {}
+    for position, arm in enumerate(order):
+        mode = ErrorCapableMode.GUIDED if arm == "guided" else ErrorCapableMode.RANDOM
+        arm_root = stage_root / arm
+        arm_root.mkdir(parents=True, exist_ok=True)
+        (stage_root / "running.json").write_text(
+            json.dumps(
+                {
+                    "stage": args.stage,
+                    "repeat": args.repeat,
+                    "base_seed": seed,
+                    "order": list(order),
+                    "position": position,
+                    "arm": arm,
+                    "episodes": episodes,
+                    "adapter": args.adapter,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        report = await run_campaign(
+            fixture=fixture,
+            mode=mode,
+            episodes=episodes,
+            adapter=adapter,
+            selector=selector,
+            model_identity=identity,
+            seed=seed,
+            max_tool_requests=args.max_tool_requests,
+            journal_root=arm_root,
+        )
+        reports[arm] = report
+        (stage_root / f"{arm}-campaign.json").write_text(
+            json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True, ensure_ascii=False)
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        print(
+            f"  {arm:<7} episodes={len(report.episodes)} opportunities={report.opportunities}"
+            f" rejected={len(report.rejected_opportunities)}"
+        )
+
+    alignment = compare_arms(reports["guided"], reports["random"])
+    payload = {
+        "experiment": "neighborhood-priority-paired-repeat",
+        "stage": args.stage,
+        "repeat": args.repeat,
+        "base_seed": seed,
+        "episodes_per_arm": episodes,
+        "arm_order": list(order),
+        "adapter": args.adapter,
+        "adapter_version": adapter.version,
+        "evidence_kind": evidence_kind,
+        "model_identity": identity.model_dump(mode="json"),
+        "fixture_id": fixture.fixture_id,
+        "fixture_freeze_digest": fixture.freeze_digest,
+        "max_tool_requests": args.max_tool_requests,
+        "aligned": alignment.model_dump(mode="json"),
+        "arms": {
+            arm: {
+                "opportunities": report.opportunities,
+                "episodes": len(report.episodes),
+                "rejected": len(report.rejected_opportunities),
+                "sentinel_reads": list(report.sentinel_reads),
+                "selection_provider_calls": report.selection_cost()["provider_calls"],
+                "priority_digest": None if report.priority is None else report.priority.digest(),
+            }
+            for arm, report in reports.items()
+        },
+    }
+    (stage_root / "pair.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    (stage_root / "running.json").unlink(missing_ok=True)
+    print(f"  aligned={alignment.aligned}  written {stage_root / 'pair.json'}")
+    return payload
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stage", choices=("pilot", "main"), required=True)
+    parser.add_argument("--repeat", type=int, required=True)
+    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--adapter", choices=("fake", "ollama"), default="fake")
+    parser.add_argument("--episodes", type=int, default=0)
+    parser.add_argument("--max-tool-requests", type=int, default=24)
+    parser.add_argument("--endpoint", default="http://127.0.0.1:11434")
+    parser.add_argument("--model", default="qwen3.5:27b-q4_K_M")
+    parser.add_argument("--timeout", type=int, default=600)
+    parser.add_argument("--num-ctx", type=int, default=12288)
+    parser.add_argument("--num-predict", type=int, default=1024)
+    args = parser.parse_args()
+
+    payload = asyncio.run(_run(args))
+    print(
+        f"stage={payload['stage']} repeat={payload['repeat']} seed={payload['base_seed']}"
+        f" order={payload['arm_order']} kind={payload['evidence_kind']}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

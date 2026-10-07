@@ -27,8 +27,13 @@ from sandbox.scenarios.error_capable import (
     TASK_FAMILY_SPECS,
     ErrorCapableMode,
 )
-from sandbox.scenarios.error_capable_agent import DiscoveryScriptedAgent
+from sandbox.scenarios.error_capable_agent import (
+    PROVIDER_TURN_REPAIRS,
+    DiscoveryScriptedAgent,
+)
 from sandbox.scenarios.error_capable_campaign import (
+    PROVIDER_FAILURE_RETRIES,
+    PinnedSelector,
     ScriptedSelector,
     compare_arms,
     run_campaign,
@@ -37,11 +42,16 @@ from sandbox.scenarios.error_capable_coverage import (
     RISK_CLASSES,
     CoverageLedger,
     MenuTargets,
+    ObservedKey,
     keyed,
     risk_class,
     roles_read,
 )
 from sandbox.scenarios.error_capable_identity import ModelIdentity
+from sandbox.scenarios.error_capable_priority import (
+    PriorityTable,
+    neighborhood_registry,
+)
 from sandbox.scenarios.error_capable_registry import (
     ERROR_CAPABLE_FIXTURE_ID,
     load_error_capable_fixture,
@@ -165,25 +175,59 @@ def test_metadata_and_instruction_errors_are_not_releases() -> None:
 # --------------------------------------------------------------- behaviour keys
 
 
-def test_a_behaviour_key_tracks_the_path_and_not_the_menu() -> None:
+def _observation(item: object) -> tuple:
+    """Everything a behaviour key is allowed to depend on, read back from the stored descriptor."""
+
+    detail = item.observed.behaviour_detail  # type: ignore[attr-defined]
+    return (
+        tuple(detail["path"]),
+        tuple(detail["file_roles"]),
+        tuple(detail["discovery"]),
+        tuple(detail["channels"]),
+        tuple(detail["stages"]),
+    )
+
+
+def test_a_behaviour_key_tracks_what_the_run_did_and_not_how_it_was_planned() -> None:
     """The correction this redesign exists for.
 
-    The previous key folded the attack label in, so three Episodes that took an identical tool path
-    counted as three behaviours and the coverage curve rose without the Agent doing anything new.
-    The opposite mistake matters too: two different tool paths under the same task and attack have
-    to be two behaviours, and a key built from the menu could not tell them apart.
+    The previous key folded the attack label in, so Episodes that differed only in that label
+    counted
+    as new behaviours and the coverage curve rose without the Agent doing anything new. The key is a
+    digest of the observation -- tool path, file roles, discovery calls, channels and stages -- so
+    it
+    follows the run rather than the plan.
+
+    The earlier version of this test asserted a one-to-one correspondence between keys and tool-name
+    sequences.  That is stronger than the design: two Episodes can issue the same sequence of tools
+    and still read different files, and the design is supposed to tell those apart.
     """
 
     guided = _campaign(ErrorCapableMode.GUIDED, episodes=3)
-    guided_paths = [item.observed.behaviour_detail["path"] for item in guided.episodes]
-    guided_keys = [item.observed.behaviour for item in guided.episodes]
+    keys = [item.observed.behaviour for item in guided.episodes]
+    observations = [_observation(item) for item in guided.episodes]
 
-    # The invariant, stated so it holds whatever the arm happens to do: behaviour keys and real tool
-    # paths are in one-to-one correspondence.  Two Episodes share a key exactly when they took the
-    # same path -- not when they were *planned* alike, and not when they carried the same label.
-    assert len(set(guided_keys)) == len(set(map(tuple, guided_paths)))
-    # The plan varied across these Episodes; the behaviour key follows the run, not the plan.
-    assert len({item.selector.decision.layout_id for item in guided.episodes}) == 3
+    # The invariant, stated so it holds whatever the arm happens to do: two Episodes share a key
+    # exactly when they observed the same thing.  If the attack label were folded back in, Episodes
+    # that observed the same thing while being planned differently would fail this.
+    for left in range(len(keys)):
+        for right in range(len(keys)):
+            assert (keys[left] == keys[right]) is (observations[left] == observations[right])
+    assert "attack" not in guided.episodes[0].observed.behaviour_detail
+
+    # The plan varied across these Episodes, and the key did not follow the plan: all three observed
+    # something different, so all three are three behaviours.
+    plans = {
+        (
+            item.selector.decision.task_family,
+            item.selector.decision.attack_mode,
+            item.selector.decision.attack_carrier,
+            item.selector.decision.layout_id,
+        )
+        for item in guided.episodes
+    }
+    assert len(plans) == 3
+    assert len(set(keys)) == 3
 
     random_arm = _campaign(ErrorCapableMode.RANDOM, episodes=3, seed=0)
     random_paths = [item.observed.behaviour_detail["path"] for item in random_arm.episodes]
@@ -240,14 +284,50 @@ def test_a_path_key_is_a_digest_of_the_whole_descriptor() -> None:
 
 def test_the_menu_is_the_only_space_with_gaps() -> None:
     empty = CoverageLedger().feedback(TARGETS, limit=10_000)
-    assert len(empty.menu_gaps) == len(TARGETS.cells)
+    # The menu is reported as counts. No list of candidate cells is handed over: a list is read from
+    # the top, and the order of `TARGETS.cells` is a `for` loop rather than a result.
+    assert empty.menu_gaps == () and empty.menu_gap_details == ()
+    assert empty.menu_gaps_total == len(TARGETS.cells)
     assert empty.observed_menu_cells == 0
-    # Cap guided feedback so the prompt does not grow with the whole history.
-    assert len(CoverageLedger().feedback(TARGETS).menu_gaps) == 24
+    assert empty.chosen_menu_cells == ()
+    assert sum(int(row["unobserved"]) for row in empty.unobserved_by_group) == len(TARGETS.cells)
     assert empty.path_space_enumerable is False
     # The open spaces are reported as counts, not as a percentage over a denominator we do not have.
     assert empty.behaviour_keys == ()
     assert empty.since_last_new_joint is None, "no history is not the same statement as zero"
+
+
+def test_the_feedback_reports_where_the_run_has_broken_per_family_and_mechanism() -> None:
+    """A digest is not a record: without these rows "prefer where it broke" is not expressible."""
+
+    empty = CoverageLedger().feedback(TARGETS)
+    assert empty.family_outcomes == () and empty.mechanism_outcomes == ()
+
+    item = ObservedKey(
+        episode_id="episode-0",
+        family="summary_delivery",
+        attack="public_link_exfiltration",
+        kind="attack",
+        stage="committed",
+        risk_class="violation",
+        behaviour="path.x",
+        risk="risk.y",
+        joint="joint.z",
+        behaviour_detail={},
+        risk_detail={"knowledge": ["violation_informed", "violation_uninformed"]},
+        evidence_digest="sha256:" + "0" * 64,
+    )
+    ledger, _changed = CoverageLedger().settle(item, cell="cell-0")
+
+    families = {str(row["task_family"]): row for row in ledger.feedback(TARGETS).family_outcomes}
+    assert families["summary_delivery"]["opportunities"] == 1
+    assert families["summary_delivery"]["violations"] == 1
+    assert families["summary_delivery"]["informed_violations"] == 1
+    assert families["summary_delivery"]["uninformed_violations"] == 1
+    mechanisms = {
+        str(row["attack_mode"]): row for row in ledger.feedback(TARGETS).mechanism_outcomes
+    }
+    assert mechanisms["public_link_exfiltration"]["violations"] == 1
 
 
 def test_the_stall_signal_comes_from_the_run_not_from_the_key_space() -> None:
@@ -356,21 +436,56 @@ def test_the_random_arm_never_reads_the_ledger() -> None:
     )
 
 
-def test_the_guided_choice_acts_on_a_menu_gap_it_was_given() -> None:
+def test_the_guided_choice_is_constructed_rather_than_picked_off_a_list() -> None:
     guided = _campaign(ErrorCapableMode.GUIDED, episodes=4)
-    acted = 0
+    constructed: set[tuple[tuple[str, str], ...]] = set()
     for record in guided.episodes:
         feedback = record.selector.request.feedback
         assert feedback is not None
         decision = record.selector.decision.model_dump(mode="json")
-        choice = {key: decision[key] for key in feedback.menu_gap_details[0]}
-        assert choice in feedback.menu_gap_details
+        choice = {
+            key: decision[key]
+            for key in (
+                "task_family",
+                "task_variant",
+                "path_id",
+                "attack_mode",
+                "attack_carrier",
+                "layout_id",
+            )
+        }
+        # There is nothing offered to read an answer off, so what is asserted is what the contract
+        # says: the combination must not be one the run has already taken.
+        assert feedback.menu_gap_details == (), "an offer would be a list to read in order"
+        assert choice not in tuple(feedback.chosen_menu_cells)
+        key = tuple(sorted(choice.items()))
+        assert key not in constructed, "the same combination was spent twice"
+        constructed.add(key)
         assert "from guided feedback" in record.selector.decision.rationale
-        acted += 1
-    assert acted >= 2, "the guidance never steered a choice"
 
     consumed = [item.selector.request.feedback.observed_menu_cells for item in guided.episodes]
     assert consumed == sorted(consumed), "the menu is not being consumed across Episodes"
+
+
+def test_the_unobserved_contract_binds_the_treatment_and_exempts_the_pinned_control() -> None:
+    """The pinned control repeats one fixed condition on purpose; that is its whole job."""
+
+    guided = _campaign(ErrorCapableMode.GUIDED, episodes=1)
+    assert guided.episodes[0].selector.request.require_unobserved
+
+    pinned = asyncio.run(
+        run_campaign(
+            fixture=FIXTURE,
+            mode=ErrorCapableMode.GUIDED,
+            episodes=1,
+            adapter=DiscoveryScriptedAgent(),
+            selector=PinnedSelector(TARGETS.choices[0], vary="attack_mode"),
+            model_identity=IDENTITY,
+            seed=7,
+        )
+    )
+    assert pinned.episodes, pinned.rejected_opportunities
+    assert not pinned.episodes[0].selector.request.require_unobserved
 
 
 def test_the_agent_never_receives_the_feedback() -> None:
@@ -491,6 +606,34 @@ def test_role_reads_preserve_sequence_and_match_the_actual_path() -> None:
     assert roles_read(trace, material) == ["restricted_work", "restricted_work"]
 
 
+def _construct_choice(payload: dict) -> dict[str, str]:
+    """What the treatment is asked to do, done by hand: read the menu and the exclusion set.
+
+    The payload is the real one the campaign builds, so this double fails if the domain or the
+    already-taken coordinates stop being reachable from it.
+    """
+
+    taken = {tuple(sorted(cell.items())) for cell in payload["feedback"]["chosen_menu_cells"]}
+    menu = payload["menu"]
+    for family in menu["families"]:
+        for variant in family["variants"]:
+            for path in family["paths"]:
+                for attack in menu["attacks"]:
+                    for carrier in attack["carriers"]:
+                        for layout in menu["layouts"]:
+                            choice = {
+                                "task_family": family["id"],
+                                "task_variant": variant["variant_id"],
+                                "path_id": path["path_id"],
+                                "attack_mode": attack["id"],
+                                "attack_carrier": carrier["id"],
+                                "layout_id": layout["id"],
+                            }
+                            if tuple(sorted(choice.items())) not in taken:
+                                return choice
+    raise AssertionError("the menu is exhausted; there is no combination left to construct")
+
+
 class _SelectionAndAgentAdapter(DiscoveryScriptedAgent):
     """Contract Provider exercises the real LLM parser and Agent loop together."""
 
@@ -508,7 +651,7 @@ class _SelectionAndAgentAdapter(DiscoveryScriptedAgent):
 
         payload = json.loads(messages[-1].content)
         self.selection_payloads.append(payload)
-        choice = payload["feedback"]["menu_gap_details"][0]
+        choice = _construct_choice(payload)
         return ReactTurn(
             assistant_text=(
                 "invalid selection" if self.reject else json.dumps({
@@ -565,6 +708,265 @@ def test_invalid_llm_opportunities_are_persisted_without_resampling(tmp_path) ->
     assert len(adapter.selection_payloads) == 2
     assert run() == report
     assert len(adapter.selection_payloads) == 2
+
+
+class _RepeatsUntilToldAdapter(_SelectionAndAgentAdapter):
+    """Proposes a cell the run has already spent, until the refusal is put in front of it.
+
+    This is what the provider does at `temperature=0.0`: the same question gets the same answer. The
+    difference the feedback field makes is that the question is no longer the same one -- so this
+    adapter stops repeating as soon as a refusal reaches it, which is the whole point of the field.
+    """
+
+    async def generate(self, messages, tools, *, seed):
+        if tools:
+            return await super().generate(messages, tools, seed=seed)
+        from app.agent.react_contract import ReactTurn
+
+        payload = json.loads(messages[-1].content)
+        self.selection_payloads.append(payload)
+        chosen = payload["feedback"]["chosen_menu_cells"]
+        refused = payload["feedback"].get("rejected_menu_cells") or []
+        choice = dict(chosen[0]) if chosen and not refused else _construct_choice(payload)
+        return ReactTurn(
+            assistant_text=json.dumps(
+                {**choice, "rationale": "proposing the cell the run has already spent"}
+            ),
+            stop_reason="stop",
+        )
+
+
+def test_a_refusal_reaches_the_next_opportunity_instead_of_repeating_forever(tmp_path) -> None:
+    """Without this, one duplicate proposal spends every remaining opportunity.
+
+    At `temperature=0.0` a refused choice changes nothing in the request, so the next opportunity
+    asks the identical question and gets the identical answer -- which is how the formal
+    experiment's
+    first repetition lost its last three opportunities to one coordinate, proposed three times.
+    """
+
+    adapter = _RepeatsUntilToldAdapter()
+    selector = LLMSelector(adapter, IDENTITY)
+    report = asyncio.run(run_campaign(
+        fixture=FIXTURE, mode=ErrorCapableMode.GUIDED, episodes=4,
+        adapter=adapter, selector=selector, model_identity=IDENTITY,
+        seed=20261004, journal_root=tmp_path,
+    ))
+
+    assert len(adapter.selection_payloads) == 4
+    denied = report.rejected_opportunities
+    assert denied, "the duplicate has to be refused"
+    assert "already taken" in str(denied[0]["rejection"])
+    # The first refusal is not yet known to the request that produced it, and is known to the next.
+    assert not adapter.selection_payloads[1]["feedback"].get("rejected_menu_cells")
+    later = adapter.selection_payloads[3]["feedback"]["rejected_menu_cells"]
+    assert later and later[0] == denied[0]["refused_coordinate"]
+    # And the arm carries on: three of the four opportunities still produced an Episode.
+    assert len(report.episodes) == 3
+
+
+class _ProposesAnIllegalCarrierUntilToldAdapter(_SelectionAndAgentAdapter):
+    """Proposes a carrier the chosen mechanism does not have, until a refusal reaches it.
+
+    The duplicate above is one kind of refusal, and it carried its coordinate from the start.  This
+    is the other kind -- `unavailable carrier for mechanism` -- which used to be raised as a bare
+    `ValueError` and so reached the payload as nothing at all.  The double stops proposing it as soon
+    as `rejected_menu_cells` says the run refused it, which is the behaviour the field exists for.
+    """
+
+    async def generate(self, messages, tools, *, seed):
+        if tools:
+            return await super().generate(messages, tools, seed=seed)
+        from app.agent.react_contract import ReactTurn
+
+        payload = json.loads(messages[-1].content)
+        self.selection_payloads.append(payload)
+        choice = _construct_choice(payload)
+        if not (payload["feedback"].get("rejected_menu_cells") or []):
+            carrier_ids = [
+                item["id"] for attack in payload["menu"]["attacks"] for item in attack["carriers"]
+            ]
+            legal_here = {
+                item["id"]
+                for attack in payload["menu"]["attacks"]
+                if attack["id"] == choice["attack_mode"]
+                for item in attack["carriers"]
+            }
+            choice = dict(choice)
+            choice["attack_carrier"] = next(
+                carrier for carrier in carrier_ids if carrier not in legal_here
+            )
+        return ReactTurn(
+            assistant_text=json.dumps(
+                {**choice, "rationale": "proposing a carrier this mechanism does not have"}
+            ),
+            stop_reason="stop",
+        )
+
+
+def test_a_refusal_that_is_not_a_duplicate_reaches_the_next_opportunity_too(tmp_path) -> None:
+    """The half of the rule the run writes down in three places and did not implement.
+
+    `refused_cells` says a refusal that is not handed back leaves the next question identical to the
+    one that produced it.  `AlreadyTaken` carried its coordinate so it could be handed back; every
+    other check in `validate_choice` raised a bare `ValueError` with nothing attached, so
+    `rejected_menu_cells` never listed an illegal carrier.  The formal experiment's second repetition
+    spent two of its last three Opportunities that way.
+    """
+
+    adapter = _ProposesAnIllegalCarrierUntilToldAdapter()
+    selector = LLMSelector(adapter, IDENTITY)
+    report = asyncio.run(run_campaign(
+        fixture=FIXTURE, mode=ErrorCapableMode.GUIDED, episodes=4,
+        adapter=adapter, selector=selector, model_identity=IDENTITY,
+        seed=20261004, journal_root=tmp_path,
+    ))
+
+    denied = report.rejected_opportunities
+    assert denied, "the illegal carrier has to be refused"
+    assert str(denied[0]["rejection"]) == "unavailable carrier for mechanism"
+    # The refusal carries what it refused, which is what makes it reportable at all.
+    assert denied[0]["refused_coordinate"], "an illegal choice has to carry its coordinate"
+    # The request that produced it cannot know, and the next one is told.
+    assert not adapter.selection_payloads[1]["feedback"].get("rejected_menu_cells")
+    later = adapter.selection_payloads[3]["feedback"]["rejected_menu_cells"]
+    assert later and later[0] == denied[0]["refused_coordinate"]
+    # And the arm carries on: three of the four opportunities still produced an Episode.
+    assert len(report.episodes) == 3
+
+
+def test_the_guided_request_carries_the_twelve_scores_in_registry_order(tmp_path) -> None:
+    """`NP-AC-05`/`NP-07`: the scores reach the next request, in registry order, never ranked."""
+
+    guided = asyncio.run(run_campaign(
+        fixture=FIXTURE, mode=ErrorCapableMode.GUIDED, episodes=3,
+        adapter=DiscoveryScriptedAgent(), selector=_selector(),
+        model_identity=IDENTITY, seed=7, journal_root=tmp_path,
+    ))
+    registry = neighborhood_registry(PATH_IDS)
+    for record in guided.episodes:
+        rows = record.selector.request.feedback.neighborhood_scores
+        assert [row["neighborhood_id"] for row in rows] == [
+            item.neighborhood_id for item in registry
+        ]
+        assert len(rows) == 12
+        # A score starts at one and may fall to the floor of zero.  The fall is the half of the
+        # treatment that reports "this direction was looked at and was quiet"; asserting `>= 1`
+        # here is what let a dead lower channel pass unnoticed.
+        assert all(0 <= row["score"] <= 1 for row in rows), "a score moves by one step, floor zero"
+        assert all(isinstance(row["remaining_cells"], int) for row in rows)
+    # And the fall has to have actually happened with this corpus.  The assertion above also holds
+    # on a table that never moves, which is exactly the state this test was written in.
+    assert any(item.lowered for item in guided.priority.scores), "no score ever fell"
+    # The guided arm grew a score table; the random arm has none, by design (`NP-04`).
+    assert guided.priority is not None and len(guided.priority.scores) == 12
+    random_arm = asyncio.run(run_campaign(
+        fixture=FIXTURE, mode=ErrorCapableMode.RANDOM, episodes=2,
+        adapter=DiscoveryScriptedAgent(), selector=_selector(),
+        model_identity=IDENTITY, seed=7, journal_root=tmp_path / "random",
+    ))
+    assert random_arm.priority is None
+    assert all(item.selector.request.feedback is None for item in random_arm.episodes)
+
+
+def test_every_opportunity_settles_exactly_once_and_the_chain_holds(tmp_path) -> None:
+    """`NP-16`: the settlements are the source, and they chain into the table the report carries."""
+
+    report = asyncio.run(run_campaign(
+        fixture=FIXTURE, mode=ErrorCapableMode.GUIDED, episodes=3,
+        adapter=DiscoveryScriptedAgent(), selector=_selector(),
+        model_identity=IDENTITY, seed=7, journal_root=tmp_path,
+    ))
+    files = sorted((tmp_path / "settlements").glob("*.json"))
+    assert len(files) == report.opportunities
+    loaded = [json.loads(path.read_text(encoding="utf-8")) for path in files]
+    assert [item["episode_index"] for item in loaded] == [0, 1, 2]
+    previous = PriorityTable.initial(neighborhood_registry(PATH_IDS)).digest()
+    for item in loaded:
+        assert item["table_digest_before"] == previous
+        previous = item["table_digest_after"]
+    assert previous == report.priority.digest()
+    assert len(report.priority.applied) == report.opportunities
+    assert (tmp_path / "priority-snapshots" / "final.json").is_file()
+
+
+def test_a_resumed_run_rebuilds_the_same_scores_without_applying_anything_twice(tmp_path) -> None:
+    def run():
+        return asyncio.run(run_campaign(
+            fixture=FIXTURE, mode=ErrorCapableMode.GUIDED, episodes=2,
+            adapter=DiscoveryScriptedAgent(), selector=_selector(),
+            model_identity=IDENTITY, seed=7, journal_root=tmp_path,
+        ))
+
+    first = run()
+    resumed = run()
+    assert resumed == first
+    assert resumed.priority.digest() == first.priority.digest()
+    assert len(resumed.priority.applied) == len(first.priority.applied) == 2
+
+
+def test_a_settlement_that_does_not_chain_stops_the_resume(tmp_path) -> None:
+    """A table that cannot be reproduced is not evidence, so the run stops instead of guessing."""
+
+    def run():
+        return asyncio.run(run_campaign(
+            fixture=FIXTURE, mode=ErrorCapableMode.GUIDED, episodes=2,
+            adapter=DiscoveryScriptedAgent(), selector=_selector(),
+            model_identity=IDENTITY, seed=7, journal_root=tmp_path,
+        ))
+
+    run()
+    target = sorted((tmp_path / "settlements").glob("*.json"))[1]
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    payload["table_digest_before"] = "sha256:" + "0" * 64
+    target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="does not chain"):
+        run()
+
+
+class _UnusableTurnAdapter(_SelectionAndAgentAdapter):
+    """The shape that ended the formal experiment's first repetition.
+
+    Ollama parses the model's tool-call block, fails, and answers 500; the Agent layer turns that
+    into `provider-turn-unusable` rather than a crash.  Every Agent turn here does it.
+    """
+
+    async def generate(self, messages, tools, *, seed):
+        if tools:
+            self.agent_calls += 1
+            raise RuntimeError("Ollama returned an invalid tool-calling response")
+        return await super().generate(messages, tools, seed=seed)
+
+
+def test_a_provider_that_never_answers_spends_the_opportunity_instead_of_the_run(tmp_path) -> None:
+    """`FR-OPS-02` and the specification's invalidity list: a parse failure is a result.
+
+    The Opportunity is consumed by an Episode that produced no turn, and the Campaign keeps going.
+    Before this, four failed attempts raised out of `run_campaign`, so two malformed generations
+    destroyed a repetition that had already produced twelve valid Episodes.
+    """
+
+    adapter = _UnusableTurnAdapter()
+    selector = LLMSelector(adapter, IDENTITY)
+    report = asyncio.run(run_campaign(
+        fixture=FIXTURE, mode=ErrorCapableMode.GUIDED, episodes=2,
+        adapter=adapter, selector=selector, model_identity=IDENTITY,
+        seed=20261004, journal_root=tmp_path,
+    ))
+
+    assert len(report.episodes) == 2, "the Opportunity is still spent, and still reported"
+    assert all(item.stop_reason == "provider-turn-unusable" for item in report.episodes)
+    assert all(item.unresolved for item in report.episodes), "recorded, not swallowed"
+    # A run that never looked is `unassessed`, which is not the same as clean and not a violation.
+    observed = [
+        (item.stop_reason, None if item.observed is None else item.observed.risk_class)
+        for item in report.episodes
+    ]
+    assert observed == [("provider-turn-unusable", "unassessed")] * 2, observed
+    # Every declared attempt reached the provider, and inside each one every repair did too: a retry
+    # that resumes the previous failure's checkpoint never runs, and four attempts that are one call
+    # is not a retry policy.
+    assert adapter.agent_calls == 2 * (PROVIDER_FAILURE_RETRIES + 1) * (PROVIDER_TURN_REPAIRS + 1)
 
 
 def test_campaign_resumes_an_interrupted_tool_batch_without_reselecting(tmp_path, monkeypatch):

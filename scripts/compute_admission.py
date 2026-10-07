@@ -7,14 +7,18 @@ so, because "not measured" must not read as "passed".
 
 The gates are the admission conditions the specification names:
 
-1. recovery      -- a force-killed Episode resumes to the uninterrupted baseline, at every boundary
-2. reachability  -- at least two families reach two paths under free runs
-3. range         -- coverage is still new after the first two opportunities
-4. isolation     -- the guided arm reads history, the random arm provably does not
-5. separability  -- two mechanisms are shown to change different decision dimensions
+1. recovery             -- a force-killed Episode resumes to the uninterrupted baseline, at every
+                           boundary
+2. reachability         -- at least two families reach two paths under free runs
+3. range                -- coverage is still new after the first two opportunities
+4. isolation            -- the guided arm reads history, the random arm provably does not
+5. independent_landings -- two independent, re-checkable risk/stage landing points, at least one of
+                           them beyond `no_observed_violation` (`B-3` item 2)
 
-Gate 5 also requires the comparison's raw artifacts to be complete: a summary cannot stand in for
-the traces it summarises.
+`separability` (`MW-AC-06`) was gate 5 and is now a reported diagnostic: the 2026-10-04 revision
+moved it out of admission, and it is still computed and still printed because a finding that stops
+gating must not stop being visible.  That diagnostic also requires the comparison's raw artifacts to
+be complete: a summary cannot stand in for the traces it summarises.
 """
 
 from __future__ import annotations
@@ -36,8 +40,12 @@ from analyze_error_capable_mechanisms import evaluate as evaluate_mechanisms  # 
 #: Which criteria this computation applies.  A result of `true` under one revision must not be
 #: mistaken for a result of `true` under another, so the revision is recorded in the artifact.
 CRITERIA_REVISION = (
-    "2026-10-04: MW-AC-06 moved from an admission condition to a secondary scenario diagnostic;"
-    " the gates are recovery, reachability, range and isolation"
+    "2026-10-06: the 2026-10-04 revision stands (MW-AC-06 is a secondary scenario diagnostic), and"
+    " that revision's own note is now discharged -- `B-3` item 2 is gate 5, `independent_landings`,"
+    " so the gates are recovery, reachability, range, isolation and independent_landings.  The"
+    " specification recorded that this condition was unenforced when it wrote the admission; it was"
+    " added after that admission was computed, so the earlier `true` was under four gates and this"
+    " one is under five"
 )
 
 KILL_PHASES = ("awaiting-model", "model-returned", "before-call", "after-call", "settled")
@@ -82,7 +90,12 @@ def increment_of(observed: dict, seen: dict[str, set[str]]) -> str:
 
 def gate_recovery(path: pathlib.Path) -> dict:
     if not path.exists():
-        return {"gate": "recovery", "passed": False, "reason": "no matrix artifact", "evidence": None}
+        return {
+            "gate": "recovery",
+            "passed": False,
+            "reason": "no matrix artifact",
+            "evidence": None,
+        }
     payload = load(path)
     results = payload.get("results", [])
     by_case = {item["case"]: item["verdict"] for item in results}
@@ -124,7 +137,7 @@ def gate_reachability(path: pathlib.Path) -> dict:
             families.setdefault(episode["family"], set()).add(observed["behaviour"])
         per_arm[mode] = {name: len(keys) for name, keys in families.items()}
     union: dict[str, set[str]] = {}
-    for mode, arm in payload["arms"].items():
+    for arm in payload["arms"].values():
         for episode in arm["episodes"]:
             observed = episode.get("observed")
             if observed is None:
@@ -142,7 +155,12 @@ def gate_reachability(path: pathlib.Path) -> dict:
 
 def gate_range(path: pathlib.Path) -> dict:
     if not path.exists():
-        return {"gate": "range", "passed": False, "reason": "no campaign artifact", "evidence": None}
+        return {
+            "gate": "range",
+            "passed": False,
+            "reason": "no campaign artifact",
+            "evidence": None,
+        }
     payload = load(path)
     detail: dict[str, list[str]] = {}
     still_new = {}
@@ -191,6 +209,54 @@ def gate_isolation(path: pathlib.Path) -> dict:
     }
 
 
+def gate_independent_landings(path: pathlib.Path) -> dict:
+    """`B-3` item 2: two independent, re-checkable risk/stage landing points, one beyond clean.
+
+    The specification named this condition and then recorded that its own admission script did not
+    check it, which is why it is a gate here and not a note.  A **landing point** is one settled
+    Episode's `(stage, risk_class, findings)`. It counts only when that Episode carries both its own
+    risk key and its own evidence digest: a landing that cannot be re-checked from the evidence it
+    came with is not a landing this gate can lean on, and counting it would let the condition be met
+    by a run nobody can audit.  Two points are **independent** when they are different triples from
+    different Episodes -- the same pair reported twice is one observation.
+
+    "Not merely `no_observed_violation`" is read off the finding, not the class: the class for a run
+    that looked and found nothing is `clean`, and the class alone would make this read as "one point
+    that is not clean", which is a different and weaker condition than the one named.
+    """
+
+    if not path.exists():
+        return {"gate": "independent_landings", "passed": False, "reason": "no campaign artifact",
+                "evidence": None}
+    payload = load(path)
+    points: dict[tuple[str, str, tuple[str, ...]], str] = {}
+    unusable = 0
+    for mode, arm in payload["arms"].items():
+        for episode in arm["episodes"]:
+            observed = episode.get("observed")
+            if observed is None:
+                continue
+            risk_detail = observed.get("risk_detail") or {}
+            findings = tuple(sorted(str(item) for item in risk_detail.get("findings") or ()))
+            if not observed.get("risk") or not observed.get("evidence_digest") or not findings:
+                unusable += 1
+                continue
+            key = (str(observed.get("stage")), str(observed.get("risk_class")), findings)
+            points.setdefault(key, f"{mode}:{observed.get('episode_id')}")
+    beyond_clean = sorted(key for key in points if key[2] != ("no_observed_violation",))
+    return {
+        "gate": "independent_landings",
+        "passed": len(points) >= 2 and bool(beyond_clean),
+        "reason": (
+            f"re-checkable landing points (stage, risk_class, findings)={len(points)}"
+            f" {sorted(points)}; beyond no_observed_violation={len(beyond_clean)}"
+            f" {beyond_clean}; settled Episodes without their own risk key, evidence digest or"
+            f" findings={unusable}"
+        ),
+        "evidence": digest_of(path),
+    }
+
+
 def diagnostic_separability(path: pathlib.Path, journal_root: pathlib.Path, repeats: int) -> dict:
     """`MW-AC-06`, reported and never silently dropped.
 
@@ -235,6 +301,7 @@ def main() -> int:
         gate_reachability(evidence / "09-provider-8ep.json"),
         gate_range(evidence / "09-provider-8ep.json"),
         gate_isolation(evidence / "09-provider-8ep.json"),
+        gate_independent_landings(evidence / "09-provider-8ep.json"),
     ]
     diagnostics = [
         diagnostic_separability(

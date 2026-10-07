@@ -19,6 +19,7 @@ Three things are deliberately structural rather than asserted in prose:
 from __future__ import annotations
 
 import inspect
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
@@ -27,6 +28,7 @@ from pydantic import Field
 
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.error_capable import (
+    PROVIDER_FAILURE_STOP_REASON,
     TASK_FAMILY_SPECS,
     AttackMode,
     CoverageFeedback,
@@ -51,6 +53,18 @@ from sandbox.scenarios.error_capable_coverage import (
     ObservedKey,
 )
 from sandbox.scenarios.error_capable_identity import ModelIdentity
+from sandbox.scenarios.error_capable_priority import (
+    PRIORITY_RULES_VERSION,
+    CoverageIncrement,
+    PriorityEvent,
+    PriorityTable,
+    UpdateClass,
+    classify_opportunity,
+    neighborhood_of,
+    neighborhood_registry,
+    score_for_event,
+    score_rows,
+)
 from sandbox.scenarios.error_capable_registry import (
     ERROR_CAPABLE_ORACLE_CONTRACT_VERSION,
     ErrorCapableFixture,
@@ -60,14 +74,39 @@ from sandbox.scenarios.error_capable_selector import (
     PureRandomSelector,
     SelectionRejected,
     SelectorAttempt,
+    legal_combinations,
+    refusable_cell,
     validate_choice,
 )
 from sandbox.scenarios.error_capable_world import planned_file_ids
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 
-CAMPAIGN_VERSION = "error-capable-campaign-v3"
+CAMPAIGN_VERSION = "error-capable-campaign-v5"
 ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
+
+#: Selection attempts per Opportunity before its Episode is forfeited.
+#:
+#: A refused selection used to consume the Opportunity outright -- `NP-08`'s frozen rule, and the
+#: `Y_t = 0` of `NP-10`.  That rule assumes the selector can reliably name a fresh legal
+#: combination.  A selector that cannot turns it into budget destruction rather than a treatment
+#: cost: the v9 launch spent fourteen of the guided arm's sixteen Opportunities on refusals and
+#: produced two Episodes, most of them lost to defects in the payload rather than to anything the arm
+#: decided.
+#:
+#: A refusal is a rejected proposal, not a finished Episode, so it now costs an attempt instead of
+#: the Episode.  It is still recorded, still fed forward into the next attempt's feedback, and still
+#: counted as `refused` in the report.  The bound exists because at `temperature=0.0` an unanswered
+#: question gets an unchanged answer: without a bound a wedged selector would call the provider for
+#: ever, and the arm would never end.  When the attempts run out the Episode is forfeited and the arm
+#: moves on.
+#:
+#: This revises the frozen selection rule at the operator's direction, and it changes what the
+#: Opportunity denominator means, so `W / opportunities` and `W / |E|` have to be read beside the
+#: attempt counts and a pair run under the old rule is not comparable with one run under this.
+#: `CAMPAIGN_VERSION` moves with it, so a receipt written under the old rule cannot be restored into
+#: a run using this one.
+SELECTION_ATTEMPTS = 4
 
 
 class HistorySentinel:
@@ -109,9 +148,11 @@ class CampaignSelector(Protocol):
 class ScriptedSelector:
     """A deterministic selector, so the loop's guarantees can be tested without a provider.
 
-    Guided reads the feedback and acts on the first behaviour gap it names, which it repeats in its
-    rationale -- a selector whose rationale does not move when the feedback moves would be feedback
-    used for reporting rather than for steering. Campaign random mode bypasses this selector.
+    Guided reads the feedback the way the treatment is asked to: the combinations already taken
+    decide what is left, and the recorded violation counts decide which of what is left is worth
+    spending an opportunity on.  Its rationale moves with the feedback, because a selector whose
+    rationale does not move when the feedback moves would be feedback used for reporting rather than
+    for steering.  Campaign random mode bypasses this selector.
     """
 
     name = "error-capable-scripted-selector-v1"
@@ -127,6 +168,64 @@ class ScriptedSelector:
         self._attacks = tuple(attacks)
         self._carriers = tuple(carriers)
 
+    @staticmethod
+    def _construct_from_feedback(
+        request: SelectorRequest, snapshot: CoverageFeedback | None, episode_index: int
+    ) -> dict[str, str] | None:
+        """Build a legal combination the ledger has not taken, preferring where it has broken.
+
+        Groups are ordered by recorded violations and then by the frozen menu's own order, and the
+        tie is broken by rotating over the surviving groups with the Episode index.  The rotation is
+        what carries the property that matters: with an empty history -- every group level at zero
+        violations -- taking the first group every time would send the whole run into whichever
+        family the menu enumerates first, which is the failure the treatment's prompt was rewritten
+        to avoid.  This is a contract double, not the treatment: the treatment is the model.
+        """
+
+        if snapshot is None:
+            return None
+        taken = {tuple(sorted(cell.items())) for cell in snapshot.chosen_menu_cells}
+        remaining = [
+            choice
+            for choice in legal_combinations(request)
+            if tuple(sorted(choice.items())) not in taken
+        ]
+        if not remaining:
+            return None
+        by_family = {
+            str(row["task_family"]): int(row["violations"])  # type: ignore[call-overload]
+            for row in snapshot.family_outcomes
+        }
+        by_mechanism = {
+            str(row["attack_mode"]): int(row["violations"])  # type: ignore[call-overload]
+            for row in snapshot.mechanism_outcomes
+        }
+        groups: dict[tuple[str, str], list[dict[str, str]]] = {}
+        for choice in remaining:
+            key = (choice["task_family"], choice["attack_mode"])
+            groups.setdefault(key, []).append(choice)
+        family_rank = {
+            item.value: index for index, item in enumerate(request.available_task_families)
+        }
+        attack_rank = {item.value: index for index, item in enumerate(request.available_attacks)}
+        order = sorted(
+            groups,
+            key=lambda key: (
+                -(by_family.get(key[0], 0) + by_mechanism.get(key[1], 0)),
+                family_rank.get(key[0], len(family_rank)),
+                attack_rank.get(key[1], len(attack_rank)),
+            ),
+        )
+        best = by_family.get(order[0][0], 0) + by_mechanism.get(order[0][1], 0)
+        tied = [
+            key
+            for key in order
+            if by_family.get(key[0], 0) + by_mechanism.get(key[1], 0) == best
+        ]
+        group = tied[episode_index % len(tied)]
+        cells = groups[group]
+        return cells[(episode_index // len(tied)) % len(cells)]
+
     def __call__(
         self,
         request: SelectorRequest,
@@ -138,16 +237,18 @@ class ScriptedSelector:
         attacks = [item.value for item in request.available_attacks]
         if request.mode is ErrorCapableMode.GUIDED:
             snapshot = history.feedback(purpose=f"guided-select-{episode_index}")
-            remaining = snapshot.menu_gap_details if snapshot is not None else ()
-            if remaining:
-                cell = remaining[0]
+            cell = self._construct_from_feedback(request, snapshot, episode_index)
+            if cell is not None:
                 family, variant, path = cell["task_family"], cell["task_variant"], cell["path_id"]
                 attack, carrier, layout = (
                     cell["attack_mode"],
                     cell["attack_carrier"],
                     cell["layout_id"],
                 )
-                rationale = f"selected unobserved menu combination {cell} from guided feedback"
+                rationale = (
+                    f"constructed unobserved combination {cell} from guided feedback; that"
+                    " direction carries the most recorded violations"
+                )
             else:
                 family = families[episode_index % len(families)]
                 path = self._paths[family][0]
@@ -348,6 +449,10 @@ class CampaignReport(OfficeV2Contract):
     selection_attempts: tuple[SelectorAttempt, ...] = ()
     opportunities: int = Field(default=0, ge=0)
     rejected_opportunities: tuple[dict[str, Any], ...] = ()
+    #: The guided arm's scores at the end of the run, in registry order.  `None` for the random arm,
+    #: which keeps no score state at all, and for records written before this field existed.  The
+    #: settlements on disk remain the source: this is the same table they replay into.
+    priority: PriorityTable | None = None
 
     def feedback_used(self) -> tuple[str, ...]:
         return tuple(
@@ -371,6 +476,26 @@ class CampaignReport(OfficeV2Contract):
             "token_usage_missing_attempts": unknown,
             "tokens_status": "complete" if unknown == 0 else "incomplete",
         }
+
+
+#: How many times an Episode is run again after such a failure.
+#:
+#: A retry only reaches failures that are actually transient.  The provider runs at
+# : `temperature=0.0`, which is greedy decoding: the seed does not steer it, and a malformed
+# generation
+#: is a property of the prompt rather than of the sampling.  A repetition of this exact failure was
+#: observed -- the same prompt produced the same broken tool call twice, twelve seconds apart, with
+#: the same parser error -- so changing the seed on a retry was considered and rejected: it would
+#: have changed the recorded seed of a retried Episode without changing what the retry does.  What
+#: the attempt count is for is the other kind of failure: a timeout, a dropped connection, a service
+#: that is briefly unavailable.
+#:
+#: Each attempt gets **its own journal directory**, because one shared path means the second attempt
+#: finds the first one's settled failure and resumes it instead of running, and then the third and
+# : fourth do the same -- four attempts that are one call. The directory is named for the attempt,
+# so
+#: the discarded attempts stay auditable and none of them can resume another.
+PROVIDER_FAILURE_RETRIES = 3
 
 
 def _episode_id(mode: ErrorCapableMode, index: int) -> str:
@@ -426,6 +551,19 @@ async def _run_campaign(
     selection_attempts: list[SelectorAttempt] = []
     rejected: list[dict[str, Any]] = []
     guided = mode is ErrorCapableMode.GUIDED
+    #: Combinations this arm proposed and the run refused, carried forward into every later feedback
+    # : snapshot. A refusal that is not handed back leaves the next question identical to the one
+    # that
+    #: produced it; at `temperature=0.0` the same question gets the same answer, so the first
+    #: duplicate would spend every remaining opportunity instead of one.
+    refused_cells: list[dict[str, str]] = []
+    registry = neighborhood_registry(
+        {spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS}
+    )
+    settlements_dir = None if journal_root is None else Path(journal_root) / "settlements"
+    #: The guided arm's scores.  Random keeps none: `NP-04` gives it no score state that could
+    #: influence a choice, and keeping an unused table would only be one more thing to drift.
+    table = PriorityTable.initial(registry) if guided else None
 
     for index in range(episodes):
         episode_id = _episode_id(mode, index)
@@ -448,6 +586,16 @@ async def _run_campaign(
         frozen = None
         if artifact_path is not None and artifact_path.exists():
             frozen = read_artifact(artifact_path, identity=identity_digest)
+            # Attempts before the accepted one are on disk under their own names.  Their refusals go
+            # back into the set before the request is rebuilt, or a resumed run would ask a question
+            # the frozen run never asked and the digest check would refuse to continue.
+            for earlier in sorted(
+                artifact_path.parent.glob(f"{episode_id}.selection.attempt-*.json")
+            ):
+                record = read_artifact(earlier, identity=identity_digest)
+                more = refusable_cell(record.get("refused_coordinate"))
+                if more is not None and more not in refused_cells:
+                    refused_cells.append(more)
             if frozen["status"] == "selection_pending":
                 frozen["status"] = "rejected"
                 frozen["rejection"] = (
@@ -459,47 +607,123 @@ async def _run_campaign(
                 if frozen.get("attempt"):
                     selection_attempts.append(SelectorAttempt.model_validate(frozen["attempt"]))
                 sentinel_reads.extend(frozen.get("history_reads", ()))
+                # A resumed refusal is still a refusal the later offers have to know about, or the
+                # resumed run would hand the selector the same question the frozen run did.
+                # Through the gate: a resumed refusal that is not a combination must not reach a
+                # field declared to hold combinations, on this pass either.
+                refused = refusable_cell(frozen.get("refused_coordinate"))
+                if refused is not None:
+                    refused_cells.append(refused)
+                if table is not None:
+                    # A refusal is an opportunity like any other, so a resumed run has to replay its
+                    # settlement too -- the scores are the ordered events, and skipping one would
+                    # put
+                    # every later score one step out.
+                    table = _settle_without_episode(
+                        table=table,
+                        settlements_dir=settlements_dir,
+                        episode_id=episode_id,
+                        index=index,
+                        mode=mode,
+                        identity=identity_digest,
+                        reason=str(frozen.get("rejection") or "refused selection"),
+                    )
                 continue
         # The sentinel is rebuilt per Episode because what must be audited is this Episode's read.
         sentinel = HistorySentinel(ledger=state, targets=targets, allow=guided)
-        feedback = sentinel.feedback(purpose=f"request-{index}") if guided else None
-        request = SelectorRequest(
-            mode=mode,
-            seed=seed + index,
-            agent_model_name=model_identity.normalized_model_id,
-            selector_model_name=model_identity.normalized_model_id if guided else None,
-            available_task_families=tuple(TaskFamily(item) for item in targets.families),
-            available_task_variants=tuple(
-                v.variant_id for family in TaskFamily for v in task_family_spec(family).variants
-            ),
-            available_paths=tuple(path for spec in TASK_FAMILY_SPECS for path in spec.path_ids),
-            available_attacks=tuple(AttackMode(item) for item in targets.attacks),
-            available_carriers=tuple(
-                dict.fromkeys(
-                    c for mode_item in AttackMode for c in attack_spec(mode_item).carriers
+        # Built once and re-cut per attempt: the only thing that moves between attempts is
+        # `rejected_menu_cells`, so re-reading the ledger for each one would record reads the arm
+        # never made.
+        feedback_base = sentinel.feedback(purpose=f"request-{index}") if guided else None
+        feedback_digest: str | None = None
+        if feedback_base is not None:
+            updates: dict[str, Any] = {}
+            if table is not None:
+                # The scores are joined onto the ledger's remaining counts here rather than inside
+                # the ledger, because a score is a history of results and not a coverage count, and
+                # merging them into one number is the mistake `NP-02` names.
+                updates["neighborhood_scores"] = score_rows(
+                    table, feedback_base.unobserved_by_neighborhood
                 )
-            ),
-            available_layouts=("balanced-8", "distributed-10", "nested-12"),
-            feedback=feedback,
-        )
-        if frozen is not None:
-            if frozen["request_digest"] != sha256_digest(request.model_dump(mode="json")):
-                raise ValueError("restored selection feedback or menu differs from frozen request")
-            decision = SelectorDecision.model_validate(frozen["decision"])
-            raw_response = frozen["raw_response"]
-            if frozen.get("attempt"):
-                selection_attempts.append(SelectorAttempt.model_validate(frozen["attempt"]))
-            sentinel.reads = list(frozen["history_reads"])
-        else:
+            if updates:
+                feedback_base = feedback_base.model_copy(update=updates)
+        decision: SelectorDecision | None = None
+        raw_response = ""
+        failure: dict[str, Any] | None = None
+        request: SelectorRequest | None = None
+        # A refusal costs an attempt, not the Episode (`SELECTION_ATTEMPTS`).  Every attempt asks the
+        # question again with the refusal just recorded added to it, because at `temperature=0.0` a
+        # question that does not change gets an answer that does not change either.
+        for attempt_no in range(SELECTION_ATTEMPTS):
+            feedback = feedback_base
+            if feedback is not None and refused_cells:
+                feedback = feedback.model_copy(
+                    update={"rejected_menu_cells": tuple(refused_cells)}
+                )
+            feedback_digest = (
+                None if feedback is None else sha256_digest(feedback.model_dump(mode="json"))
+            )
+            request = SelectorRequest(
+                mode=mode,
+                seed=seed + index,
+                agent_model_name=model_identity.normalized_model_id,
+                selector_model_name=model_identity.normalized_model_id if guided else None,
+                available_task_families=tuple(TaskFamily(item) for item in targets.families),
+                available_task_variants=tuple(
+                    v.variant_id for family in TaskFamily for v in task_family_spec(family).variants
+                ),
+                available_paths=tuple(
+                    path for spec in TASK_FAMILY_SPECS for path in spec.path_ids
+                ),
+                available_attacks=tuple(AttackMode(item) for item in targets.attacks),
+                available_carriers=tuple(
+                    dict.fromkeys(
+                        c for mode_item in AttackMode for c in attack_spec(mode_item).carriers
+                    )
+                ),
+                available_layouts=("balanced-8", "distributed-10", "nested-12"),
+                # The unobserved-combination contract is the guided treatment's, not a property of
+                # every run that happens to be in guided mode.  The pinned control deliberately
+                # repeats one fixed condition to compare mechanisms, so it is exempt rather than the
+                # rule being weakened for the arm the comparison is about.
+                require_unobserved=guided and not isinstance(selector, PinnedSelector),
+                feedback=feedback,
+            )
+            if frozen is not None:
+                # The frozen path is one pass.  The request is rebuilt before the comparison because
+                # the refusals that preceded the accepted attempt are re-collected from the attempt
+                # records above, so the rebuilt request is the one that was accepted.
+                if frozen["request_digest"] != sha256_digest(request.model_dump(mode="json")):
+                    raise ValueError(
+                        "restored selection feedback or menu differs from frozen request"
+                    )
+                decision = SelectorDecision.model_validate(frozen["decision"])
+                raw_response = frozen["raw_response"]
+                if frozen.get("attempt"):
+                    selection_attempts.append(SelectorAttempt.model_validate(frozen["attempt"]))
+                sentinel.reads = list(frozen["history_reads"])
+                break
             pending = {
                 "identity": identity_digest,
                 "status": "selection_pending",
                 "index": index,
+                # Named apart from the `attempt` key a refusal record carries: that one holds the
+                # `SelectorAttempt`, this one says which attempt of the Opportunity it was.
+                "selection_attempt": attempt_no,
                 "request": request.model_dump(mode="json"),
                 "request_digest": sha256_digest(request.model_dump(mode="json")),
                 "history_reads": sentinel.reads.copy(),
             }
-            if artifact_path is not None:
+            attempt_path = (
+                None
+                if artifact_path is None
+                else artifact_path.with_name(f"{episode_id}.selection.attempt-{attempt_no}.json")
+            )
+            if attempt_path is not None:
+                write_artifact(attempt_path, pending)
+            # The canonical name is the crash marker before the first attempt and the verdict after
+            # the last one; the per-attempt names keep every refused attempt auditable.
+            if attempt_no == 0 and artifact_path is not None:
                 write_artifact(artifact_path, pending)
             try:
                 selected = selector(request, sentinel, episode_index=index)
@@ -507,22 +731,60 @@ async def _run_campaign(
                     selected = await selected
                 decision, raw_response = selected
                 validate_choice(request, decision)
+                failure = None
+                break
             except (SelectionRejected, ValueError) as exc:
                 attempt = getattr(selector, "last_attempt", None)
+                coordinate = getattr(exc, "coordinate", None)
+                # The gate, not `isinstance(coordinate, dict)`: a reply that left an axis empty is
+                # refused and recorded, but it is not a combination and must not be appended to a
+                # set of them.  Doing so killed a Campaign with a `ValidationError` on the next
+                # request instead of costing one Opportunity.
+                refused = refusable_cell(coordinate)
+                if refused is not None and refused not in refused_cells:
+                    refused_cells.append(refused)
                 failure = {
                     **pending,
                     "status": "rejected",
                     "rejection": str(exc),
                     "attempt": None if attempt is None else attempt.model_dump(mode="json"),
                     "history_reads": sentinel.reads.copy(),
+                    # Kept so a resumed run still knows what this arm was refused, instead of asking
+                    # the same question again and being refused in the same way.
+                    "refused_coordinate": (
+                        dict(coordinate) if isinstance(coordinate, dict) else None
+                    ),
                 }
                 if attempt is not None:
                     selection_attempts.append(attempt)
-                if artifact_path is not None:
-                    write_artifact(artifact_path, failure)
-                sentinel_reads.extend(sentinel.reads)
+                if attempt_path is not None:
+                    write_artifact(attempt_path, failure)
+                # Every refused attempt is reported.  A refusal is now an attempt rather than an
+                # Opportunity, so this list is a list of refused attempts and each record carries
+                # the `selection_attempt` it belonged to.
                 rejected.append(failure)
-                continue
+                decision = None
+        if decision is None:
+            # Every attempt was refused, so the Episode is forfeited.  The refusal still settles: it
+            # has no direction to score and must not be scored as if it had one, so it takes a `null`
+            # neighborhood and no movement.
+            if artifact_path is not None and failure is not None:
+                write_artifact(artifact_path, failure)
+            sentinel_reads.extend(sentinel.reads)
+            if table is not None:
+                reason = str((failure or {}).get("rejection") or "refused selection")
+                table = _settle_without_episode(
+                    table=table,
+                    settlements_dir=settlements_dir,
+                    episode_id=episode_id,
+                    index=index,
+                    mode=mode,
+                    identity=identity_digest,
+                    reason=reason,
+                    feedback_digest=feedback_digest,
+                    detail={"rejection": reason},
+                )
+            continue
         validate_choice(request, decision)
         attempt = getattr(selector, "last_attempt", None)
         if attempt is not None and frozen is None:
@@ -586,18 +848,45 @@ async def _run_campaign(
                 },
             )
 
-        store = None if journal_root is None else _store_for(journal_root, episode_id)
-        trace = await run_agent_episode(
-            fixture=fixture,
-            plan=plan,
-            material=material,
-            adapter=adapter,
-            model_identity=model_identity,
-            seed=plan.seed,
-            max_tool_requests=max_tool_requests,
-            journal=store,
-            resume=store is not None and store.exists(),
-        )
+        attempts = PROVIDER_FAILURE_RETRIES + 1
+        for attempt in range(attempts):
+            if journal_root is None:
+                store = None
+            elif attempt == 0:
+                store = _store_for(journal_root, episode_id)
+            else:
+                # A discarded attempt must not be resumed, so it gets its own directory, named for
+                # the attempt.  The Episode id has to stay the same: the journal refuses to persist
+                # a checkpoint whose episode_id does not match the store's, so a suffixed id would
+                # fail on the first write instead of recording anything.
+                store = _store_for(
+                    Path(journal_root) / "retries" / f"attempt-{attempt}", episode_id
+                )
+            trace = await run_agent_episode(
+                fixture=fixture,
+                plan=plan,
+                material=material,
+                adapter=adapter,
+                model_identity=model_identity,
+                seed=plan.seed,
+                max_tool_requests=max_tool_requests,
+                journal=store,
+                resume=store is not None and store.exists(),
+            )
+            if trace.stop_reason != PROVIDER_FAILURE_STOP_REASON:
+                break
+        # Falling out of the loop means every attempt failed, and that is an Episode outcome rather
+        # than a reason to abandon the Campaign. The specification says so in as many words: a parse
+        # failure is not an invalidity, it counts in the denominator and is reported separately. The
+        # Opportunity is consumed by an Episode that produced no turn -- identifiable in the
+        # artifact
+        # by this stop reason and by an `unassessed` coverage key, the class for a run that never
+        # looked -- and the discarded attempts stay in `retries/` beside it.
+        #
+        # Aborting here instead, which is what this used to do, throws away every valid Episode the
+        # repetition had already produced. It did exactly that to the first repetition of the formal
+        # experiment, at Episode twelve of sixteen, over two malformed generations.  The denominator
+        # still counts this Opportunity, so nothing is quietly shrunk by carrying on.
         bridged = bridge_trace(trace, material=material, plan=plan)
 
         # The key is built from the trace and the material, not from the plan: which files the run
@@ -622,6 +911,66 @@ async def _run_campaign(
                     "coverage": observed.model_dump(mode="json"),
                 },
             )
+        if table is not None:
+            # The settlement is written after the Episode's own evidence, so an interruption between
+            # the two leaves an Episode that ran with no settlement yet -- which the resume settles
+            # exactly once, from the evidence that is already on disk.
+            settlement_path = (
+                None if settlements_dir is None else settlements_dir / f"{episode_id}.json"
+            )
+            stored = _load_settlement(
+                settlement_path, index=index, identity=identity_digest, table=table
+            )
+            if stored is not None:
+                # An Episode that already settled is replayed, not re-settled: this is the branch
+                # that makes a resumed Campaign agree with the one it resumed.
+                table, _changed = table.with_event(stored)
+            else:
+                before = table.digest()
+                classification, reason = classify_opportunity(
+                    episode_present=True, bridge=bridged, stop_reason=trace.stop_reason
+                )
+                event = score_for_event(
+                    table,
+                    PriorityEvent(
+                        opportunity_id=episode_id,
+                        episode_index=index,
+                        mode=mode.value,
+                        episode_id=episode_id,
+                        neighborhood_id=neighborhood_of(
+                            decision.task_family.value, decision.path_id
+                        ),
+                        cell=_cell_of(decision),
+                        # What this Episode added to the coverage record, asked of the ledger before
+                        # it is settled: after `settle` the profile it brought is in the ledger and
+                        # every class would read `no_increment`.
+                        increment=CoverageIncrement(state.classify_gain(observed)),
+                        update_class=classification,
+                        reason=reason,
+                        evidence={
+                            "trace_digest": trace.trace_digest,
+                            "coverage_digest": observed.evidence_digest,
+                        },
+                    ),
+                )
+                table, _changed = table.with_event(event)
+                _write_settlement(
+                    settlement_path,
+                    opportunity_id=episode_id,
+                    index=index,
+                    mode=mode,
+                    identity=identity_digest,
+                    status="settled",
+                    cell=_cell_of(decision),
+                    event=event,
+                    table_before=before,
+                    table_after=table.digest(),
+                    feedback_digest=feedback_digest,
+                    detail={
+                        "stop_reason": trace.stop_reason,
+                        "classification_reason": event.reason,
+                    },
+                )
         state, settled = state.settle(
             observed,
             cell=next(
@@ -666,6 +1015,24 @@ async def _run_campaign(
             )
         )
 
+    if settlements_dir is not None and table is not None:
+        # A derived view, written for a reader who wants the end state without replaying the events;
+        # the settlements remain the source, and the digest is what says whether the view is
+        # current.
+        snapshots = settlements_dir.parent / "priority-snapshots"
+        snapshots.mkdir(parents=True, exist_ok=True)
+        (snapshots / "final.json").write_text(
+            json.dumps(
+                {"table": table.model_dump(mode="json"), "table_digest": table.digest()},
+                indent=2,
+                sort_keys=True,
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+
     return CampaignReport(
         mode=mode,
         fixture_id=fixture.fixture_id,
@@ -681,6 +1048,7 @@ async def _run_campaign(
         selection_attempts=tuple(selection_attempts),
         opportunities=episodes,
         rejected_opportunities=tuple(rejected),
+        priority=table,
     )
 
 
@@ -815,6 +1183,160 @@ def _store_for(root: Any, episode_id: str) -> Any:
     return JournalStore(root, episode_id)
 
 
+def _cell_of(decision: SelectorDecision) -> dict[str, str]:
+    """The six coordinates, in the order the menu writes them."""
+
+    return {
+        "task_family": decision.task_family.value,
+        "task_variant": decision.task_variant,
+        "path_id": decision.path_id,
+        "attack_mode": decision.attack_mode.value,
+        "attack_carrier": decision.attack_carrier,
+        "layout_id": decision.layout_id,
+    }
+
+
+def _load_settlement(
+    path: Path | None, *, index: int, identity: str, table: PriorityTable
+) -> PriorityEvent | None:
+    """The settlement already on disk for this opportunity, or `None` if there is not one yet.
+
+    The checks are the ones a resumed Campaign must pass before it may carry a score forward, and
+    each
+    one is a way the scores could quietly become a different experiment: settled under other rules,
+    a
+    different identity (so a different seed, fixture or model), or not chaining onto the table as it
+    stands at this point in the order.  Any of those stops the run rather than continuing from a
+    guess, because a score that cannot be reproduced is not evidence of anything.
+    """
+
+    if path is None or not path.is_file():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("version") != PRIORITY_RULES_VERSION:
+        raise ValueError(
+            f"{path.name} was settled under {payload.get('version')!r}, not"
+            f" {PRIORITY_RULES_VERSION!r}; scores cannot be carried across a rule change"
+        )
+    if int(payload.get("episode_index", -1)) != index:
+        raise ValueError(f"{path.name} is filed against a different opportunity index")
+    if payload.get("identity") != identity:
+        raise ValueError(
+            f"{path.name} belongs to a different identity; refusing to carry its score into"
+            " this run"
+        )
+    if payload.get("table_digest_before") != table.digest():
+        raise ValueError(
+            f"{path.name} does not chain onto the table as it stands; the event order or the"
+            " table is wrong"
+        )
+    return PriorityEvent.model_validate(payload["event"])
+
+
+def _settle_without_episode(
+    *,
+    table: PriorityTable,
+    settlements_dir: Path | None,
+    episode_id: str,
+    index: int,
+    mode: ErrorCapableMode,
+    identity: str,
+    reason: str,
+    feedback_digest: str | None = None,
+    status: str = "no_episode",
+    detail: dict[str, Any] | None = None,
+) -> PriorityTable:
+    """Score an opportunity that produced no Episode: neutral, no neighborhood, no movement.
+
+    A settlement already on disk is replayed and left alone; only a missing one is derived and
+    written.  Rewriting a stored settlement would let a later run restate what an earlier one
+    recorded, and the whole point of the record is that it did not change.
+    """
+
+    path = None if settlements_dir is None else settlements_dir / f"{episode_id}.json"
+    stored = _load_settlement(path, index=index, identity=identity, table=table)
+    if stored is not None:
+        settled, _changed = table.with_event(stored)
+        return settled
+    before = table.digest()
+    event = score_for_event(
+        table,
+        PriorityEvent(
+            opportunity_id=episode_id,
+            episode_index=index,
+            mode=mode.value,
+            update_class=UpdateClass.NEUTRAL,
+            reason=reason,
+        ),
+    )
+    settled, _changed = table.with_event(event)
+    _write_settlement(
+        path,
+        opportunity_id=episode_id,
+        index=index,
+        mode=mode,
+        identity=identity,
+        status=status,
+        cell=None,
+        event=event,
+        table_before=before,
+        table_after=settled.digest(),
+        feedback_digest=feedback_digest,
+        detail=detail or {"reason": reason},
+    )
+    return settled
+
+
+def _write_settlement(
+    path: Path | None,
+    *,
+    opportunity_id: str,
+    index: int,
+    mode: ErrorCapableMode,
+    identity: str,
+    status: str,
+    cell: dict[str, str] | None,
+    event: PriorityEvent,
+    table_before: str,
+    table_after: str,
+    feedback_digest: str | None,
+    detail: dict[str, Any],
+) -> None:
+    """Record one opportunity's settlement, including the opportunities that produced no Episode.
+
+    A refused selection and a materialisation failure are still opportunities: they take up a place
+    in
+    the budget, so they take up a place in this record with a `null` neighborhood.  Leaving them out
+    would make the run's score history look like a contiguous sequence of choices, which it is not.
+    """
+
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": PRIORITY_RULES_VERSION,
+        "opportunity_id": opportunity_id,
+        "episode_index": index,
+        "mode": mode.value,
+        "identity": identity,
+        "status": status,
+        "cell": cell,
+        "neighborhood_id": event.neighborhood_id,
+        "update_class": event.update_class.value,
+        "reason": event.reason,
+        "table_digest_before": table_before,
+        "table_digest_after": table_after,
+        "feedback_digest": feedback_digest,
+        "event": event.model_dump(mode="json"),
+        "detail": detail,
+    }
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
 __all__ = [
     "ALIGNMENT_VERSION",
     "CAMPAIGN_VERSION",
@@ -824,9 +1346,15 @@ __all__ = [
     "CampaignSelector",
     "HistorySentinel",
     "PinnedSelector",
+    "PRIORITY_RULES_VERSION",
+    "PriorityEvent",
+    "PriorityTable",
     "ScriptedSelector",
     "SelectorReceipt",
+    "UpdateClass",
     "compare_arms",
+    "neighborhood_of",
+    "neighborhood_registry",
     "oracle_contract_version",
     "run_campaign",
     "tool_catalogue_size",

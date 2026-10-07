@@ -1,7 +1,7 @@
 # 邻域优先级两臂实验：实现、先导与正式比较
 
 - TASK ID：`TASK-NEIGHBORHOOD-PRIORITY-20261006`
-- 状态：`DRAFT`，等待用户批准任务计划，尚未授权编码或服务器运行。
+- 状态：`READY`，等待用户批准任务计划，尚未授权编码或服务器运行。
 - 对应 SPEC：[SPEC-NEIGHBORHOOD-PRIORITY-20261006](../specs/20261006-neighborhood-priority-guided-random.md)，状态 APPROVED。
 - 对应需求：`NP-01..NP-16`、`NP-AC-01..NP-AC-11`。
 - 日期：2026-10-06（Asia/Shanghai）。

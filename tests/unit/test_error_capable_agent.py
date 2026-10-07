@@ -12,6 +12,7 @@ import asyncio
 
 import pytest
 
+from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.error_capable import (
     ATTACK_SPECS,
     RESTRICTED_FACT_VALUE,
@@ -30,6 +31,8 @@ from sandbox.scenarios.error_capable import (
 )
 from sandbox.scenarios.error_capable_agent import (
     DISCOVERY_TASK,
+    PROVIDER_TURN_REPAIR_NOTE,
+    PROVIDER_TURN_REPAIRS,
     DiscoveryScriptedAgent,
     FirstInput,
     audit_first_input,
@@ -384,6 +387,118 @@ class _ExplodingAgent:
 
     async def generate(self, messages, tools, *, seed):  # noqa: ANN001, ANN201, D102
         raise AssertionError("the Agent must not be consulted when the first input leaks")
+
+
+class _UnreadableTurnAgent:
+    """Fails the way the provider does when a turn carries neither text nor a tool call.
+
+    This is the shape that ended a real repetition: the model spent its whole output budget, the
+    provider refused to build a turn from the empty response, and the exception travelled out of the
+    Episode and killed the whole Campaign after ten of thirty-two Opportunities.
+    """
+
+    version = "unreadable-turn"
+
+    async def generate(self, messages, tools, *, seed):  # noqa: ANN001, ANN201, D102
+        raise RuntimeError("Ollama returned an invalid tool-calling response")
+
+
+def test_an_unusable_provider_turn_is_recorded_and_the_episode_still_settles() -> None:
+    """`FR-OPS-02`: a provider failure is classified and saved, not turned into a crash.
+
+    The Opportunity is consumed and reported; the Campaign is entitled to keep going, and the trace
+    still has to satisfy its own digest, because evidence that cannot be re-checked is not evidence.
+    """
+
+    plan, material = _plan()
+    trace = asyncio.run(
+        run_agent_episode(
+            fixture=load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID),
+            plan=plan,
+            material=material,
+            adapter=_UnreadableTurnAgent(),
+            model_identity=PROBE_IDENTITY,
+            seed=1,
+        )
+    )
+    assert trace.stop_reason == "provider-turn-unusable"
+    assert trace.turns == ()
+    assert trace.steps == ()
+    # The refusal and each repair it was asked for are all recorded, so a reader can see that the
+    # provider was given more than one chance and refused all of them.  They are recorded as
+    # `provider_repairs`, not as `unresolved`: they say what the service did, and `unresolved` says
+    # what the evidence cannot answer.  Here the evidence genuinely cannot answer anything, and that
+    # is the single entry it carries.
+    assert len(trace.provider_repairs) == PROVIDER_TURN_REPAIRS + 1
+    assert all("RuntimeError" in item for item in trace.provider_repairs)
+    assert "repair 0 of" in trace.provider_repairs[0]
+    assert len(trace.unresolved) == 1, "one entry: this opportunity observed nothing"
+    assert "no usable turn" in trace.unresolved[0]
+    assert not any("repair 0 of" in item for item in trace.unresolved)
+    assert trace.trace_digest == sha256_digest(trace.digest_payload())
+
+
+class _RefusesOnceThenDiscovers(DiscoveryScriptedAgent):
+    """Refuses the first turn, then behaves like the scripted Agent -- the shape a repair is for."""
+
+    version = "refuses-once"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[tuple[object, ...]] = []
+
+    async def generate(self, messages, tools, *, seed):  # noqa: ANN001, ANN201, D102
+        self.calls.append(tuple(messages))
+        if len(self.calls) == 1:
+            raise RuntimeError("Ollama returned an invalid tool-calling response")
+        return await super().generate(messages, tools, seed=seed)
+
+
+def test_a_refused_turn_is_repaired_by_changing_the_input_not_by_repeating_it() -> None:
+    """Repeating the identical request cannot recover from a deterministic refusal.
+
+    The provider runs at `temperature=0.0`, so the same conversation produces the same bytes --
+    which
+    is what the formal experiment showed: five attempts, five byte-identical checkpoints, each
+    ending
+    in the same unparsable tool call. The repair therefore has to change the input, and the note
+    that
+    does it has to be the thing the provider actually receives.
+    """
+
+    adapter = _RefusesOnceThenDiscovers()
+    plan, material = _plan()
+    trace = asyncio.run(
+        run_agent_episode(
+            fixture=load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID),
+            plan=plan,
+            material=material,
+            adapter=adapter,
+            model_identity=PROBE_IDENTITY,
+            seed=1,
+        )
+    )
+
+    assert len(adapter.calls) >= 2, "the refused turn has to be asked for again"
+    first, second = adapter.calls[0], adapter.calls[1]
+    assert len(second) == len(first) + 1, "the retry is a different question"
+    assert second[-1].content == PROVIDER_TURN_REPAIR_NOTE
+    assert first[-1].content != PROVIDER_TURN_REPAIR_NOTE, "the first attempt was the plain input"
+    # From the repair onward the note stays part of the conversation, and it is added once: a turn
+    # the
+    # provider answered is not offered another note.
+    for later in adapter.calls[1:]:
+        assert sum(message.content == PROVIDER_TURN_REPAIR_NOTE for message in later) == 1
+    assert trace.turns, "the repaired turn is a real turn of the Episode"
+    assert trace.stop_reason != "provider-turn-unusable"
+    assert any("repair 0 of" in item for item in trace.provider_repairs)
+    # And the repair leaves the evidence whole.  This is the assertion that matters: the bridge
+    # reads `unresolved` to decide whether an Episode's evidence is complete, and a repaired call
+    # recorded there made a fully recorded delivery read as partially recorded.  The Oracle then
+    # classified a committed informed violation as `violation_unfalsifiable` -- neutral, outside the
+    # main metric -- so a service hiccup silently cost the run an opportunity it had actually won.
+    assert trace.unresolved == (), "a recovered refusal is not an open question"
+    assert trace.trace_digest == sha256_digest(trace.digest_payload())
 
 
 # --------------------------------------------------------------- RA-AC-05 / RA-AC-04
