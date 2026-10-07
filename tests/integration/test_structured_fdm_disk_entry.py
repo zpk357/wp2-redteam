@@ -10,8 +10,8 @@ from types import SimpleNamespace
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "unit"))
-import test_structured_feedback_mutation as window_helpers  # noqa: E402
-from test_structured_feedback_mutation import _complete_parent  # noqa: E402
+import test_structured_feedback_contract as window_helpers  # noqa: E402
+from test_structured_feedback_contract import _complete_parent  # noqa: E402
 from test_structured_two_arm_search import _at_local_behavior_slot  # noqa: E402
 
 from sandbox.replay.digests import sha256_digest

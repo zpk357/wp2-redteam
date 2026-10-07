@@ -36,6 +36,11 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+# Every test here is a function; no test file defines a class.  The default `python_classes = ["Test"]`
+# therefore only matches the domain contracts that happen to be named `TestCase` and `TestMatrix`, and
+# pytest warns once per imported module that it cannot collect them because they take constructor
+# arguments.  Collecting no classes silences a warning that never described a test.
+python_classes = []
 pythonpath = ["src", "agent_image"]
 asyncio_mode = "auto"
 addopts = "-q --tb=short"

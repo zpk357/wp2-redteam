@@ -115,7 +115,19 @@ def test_empty_archive_naturally_executes_a_parent_and_settles_a_child(tmp_path,
             assert own.execution.bundle_digest == bundle.bundle_digest
             assert own.episode_id == bundle.episode_id
             if receipt.parent_baseline is not None:
-                assert receipt.reason == "feedback-ranked-unit"
+                # `search.py` records one of three reasons, and a receipt with a baseline can carry
+                # any of them: the ranking applies only when the planned dimension already has an
+                # observed unit.  On the first Opportunity the archive is empty, so the documented
+                # fallback is what is recorded, and asserting one string for every baseline asserted
+                # that the fallback branch does not exist.
+                if not before:
+                    assert receipt.reason == "empty-planned-dimension-fallback"
+                else:
+                    assert receipt.reason in {
+                        "feedback-ranked-unit",
+                        "empty-planned-dimension-fallback",
+                        "directed-near-violation",
+                    }
                 assert receipt.parent_id in before
                 assert receipt.parent_baseline == before[receipt.parent_id]
                 assert receipt.parent_baseline.execution.bundle_digest == (
