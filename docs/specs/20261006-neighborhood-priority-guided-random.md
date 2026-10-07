@@ -3,11 +3,11 @@
 - SPEC ID：`SPEC-NEIGHBORHOOD-PRIORITY-20261006`
 - 状态：`APPROVED`，用户于 2026-10-06 明确批准并要求写 TASK。
 - 日期：2026-10-06（Asia/Shanghai）。
-- 来源：[下一实验草案](../../../next-experiment-plan.md)及用户本轮确认的两臂口径。
-- 上位要求：[产品规格](../SPEC.md)的 `G-01..G-05`、`FR-EXP-01..FR-EXP-05` 和执行证据、隔离、恢复要求。
-- 场景基础：[多路径世界规格](20261004-multi-path-world-and-llm-selection.md)，包含其已经记录的机制可分性诊断修订。
+- 来源：内部下一实验草案（不随仓库分发）及用户本轮确认的两臂口径。
+- 上位要求：内部产品规格（不随仓库分发）的 `G-01..G-05`、`FR-EXP-01..FR-EXP-05` 和执行证据、隔离、恢复要求。
+- 场景基础：多路径世界规格（不随仓库分发），包含其已经记录的机制可分性诊断修订。
 - 关系：独立的新实验。不是旧正式实验的补跑，不改旧批次设置、数据或判定。
-- 本文件已批准需求契约，授权生成对应 TASK；TASK 获批准前不修改实现或运行服务器。
+- 本文件是已批准的需求契约，对应 TASK 为 [`docs/tasks/20261006-neighborhood-priority-guided-random-task.md`](../tasks/20261006-neighborhood-priority-guided-random-task.md)。实现与服务器运行的实际状态以该 TASK 的登记为准。
 
 ## 1. 目标、假设与结论边界
 

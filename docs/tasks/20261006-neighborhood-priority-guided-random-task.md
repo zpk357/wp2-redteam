@@ -1,7 +1,7 @@
 # 邻域优先级两臂实验：实现、先导与正式比较
 
 - TASK ID：`TASK-NEIGHBORHOOD-PRIORITY-20261006`
-- 状态：`READY`，等待用户批准任务计划，尚未授权编码或服务器运行。
+- 状态：`IN_PROGRESS`。实现已提交，但本地测试存在已知失败，T5 的服务器准入项与 T6 的正式规模均未完成，因此父任务未达 `DONE`（见 §9 的状态纪律）。
 - 对应 SPEC：[SPEC-NEIGHBORHOOD-PRIORITY-20261006](../specs/20261006-neighborhood-priority-guided-random.md)，状态 APPROVED。
 - 对应需求：`NP-01..NP-16`、`NP-AC-01..NP-AC-11`。
 - 日期：2026-10-06（Asia/Shanghai）。
@@ -283,7 +283,7 @@ git diff --check
 - `recovery/`：硬杀自检、逐边界 baseline/resume 对照及拒绝路径。
 - `diagnostics/`：9 次独立 selector 请求/响应、同输入稳定性与分数输入敏感性，不混主分析。
 - `pilot-report.json/.md`、`admission.json`、`main-pair-01..06.json/.md`、`main-summary.json/.md`。
-- 本地报告 `docs/reports/20261006-neighborhood-priority-local-validation.md`，所有实际执行结果与跳过项；大运行文件不提交。
+- 本地报告 `docs/reports/20261006-neighborhood-priority-local-validation.md`（不随仓库分发，与本 TASK 同目录的 `docs/` 内只有本文件与 SPEC），记录所有实际执行结果与跳过项；大运行文件不提交。
 
 ## 8. 风险、失败信号和回滚
 

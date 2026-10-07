@@ -30,18 +30,17 @@ deliver / transform）× 对象类别（message / source_material / shared_artif
 [`AUTHORIZED-EVALUATION-SCOPE.md`](AUTHORIZED-EVALUATION-SCOPE.md)——它是本仓库的硬边界，
 优先于本文档的任何描述。
 
-> **当前在用的是 `structured_v1` 这条线**（结构化材料搜索 + 两臂对照）。仓库里另有
-> `src/sandbox/scenarios/office_v2/` 的 Office V2 线，那是更早的产品路线，本文不涉及；
-> 它的数据流描述留在
-> [`docs/current-state/episode-data-flow.md`](docs/current-state/episode-data-flow.md)。
+> **仓库里有两条实验线，本文两节分别描述。**`structured_v1`（结构化材料搜索 + 两臂对照）
+> 是 §2 与 §4 讲的那一条；`error_capable*`（多路径场景 + 邻域优先级反馈）见下节。仓库里另有
+> `src/sandbox/scenarios/office_v2/` 的 Office V2 线，那是更早的产品路线，本文不涉及。
 
 ---
 
-### 多路径场景本地开发入口
+### 多路径场景与邻域优先级实验（当前在用的线）
 
 `error-capable-multipath-02` 在独立的 `src/sandbox/scenarios/error_capable*` 模块中实现三任务族、九变体、十二条路径及文件载体。引导臂使用同被测 Agent 身份的 LLM 选择器；随机臂在同一冻结菜单上纯随机采样，不调用 LLM 选择器、不读取历史覆盖。任务由 Agent 经真实工具发现，权限需查阅场景中的依据文件。
 
-本地工具探针和契约测试已验证；自由模型多路径分布、机制对照及正式实验准入仍未完成。运行命令、证据和已知检查失败见 [本地验收报告](docs/reports/20261004-multipath-local-validation.md)。此入口与上述历史 structured_v1 实验协议分开记录。
+这一线的规格与任务都在仓库内：[`SPEC-NEIGHBORHOOD-PRIORITY-20261006`](docs/specs/20261006-neighborhood-priority-guided-random.md) 与[对应 TASK](docs/tasks/20261006-neighborhood-priority-guided-random-task.md)。运行与报告入口见 [§3](#3-入口)。隔离与资源口径与旧线共用同一套 harness。
 
 ## 1. 评测的问题
 
@@ -285,6 +284,8 @@ W/(W+F)       剔除 unknown 后的违规率
 
 ## 3. 入口
 
+### 3.1 `structured_v1` 线
+
 ```bash
 # 1) 冻结 fixture 的清单，供镜像构建使用
 python scripts/run_structured_v1_episode.py freeze \
@@ -317,11 +318,36 @@ python scripts/report_summary_delivery_e2.py \
     --output <REPORT_JSON>
 ```
 
+### 3.2 邻域优先级线（`error_capable*`）
+
+```bash
+# 一个配对重复：同一 base seed 下两臂各 N 个机会，guided 先跑，随后写出 pair.json
+python scripts/run_neighborhood_campaign.py \
+    --stage main --repeat 1 --episodes 24 \
+    --adapter ollama --root <RUN_ROOT> \
+    --model qwen3.5:27b-q4_K_M --endpoint http://127.0.0.1:11434 \
+    --max-tool-requests 24 --num-ctx 12288 --num-predict 1024 --timeout 600
+
+# 配对报告：读 pair.json 与两臂的 Campaign 记录与结算，不写回任何状态
+python scripts/report_neighborhood_campaign.py \
+    --root <RUN_ROOT> --stage main --repeats 1 \
+    --output <REPORT_JSON>
+
+# 分数影响诊断：独立选择探针，固定菜单/seed/覆盖/排除集，只改邻域分数
+python scripts/probe_selector_feedback_use.py \
+    --adapter ollama --episodes 3 --output <PROBE_JSON>
+```
+
+`--stage` 取 `pilot` 或 `main`；`--repeat` 是配对编号，决定产物落在 `<RUN_ROOT>/<stage>/rep-NN/`。
+
 本地检查：`scripts/project_pytest.cmd`、`scripts/project_ruff.cmd`。
 
 ---
 
-## 4. 最新一轮真实运行（2026-09-27）
+## 4. `structured_v1` 线的真实运行（2026-09-27）
+
+> 本节记的是 §3.1 那条线。§3.2 的邻域优先级线另外运行，其原始记录、报告与运行根按仓库
+> 一贯做法不提交（见 [§6](#6-引用与边界)），因此本节不合并它的读数。
 
 **配置**：fixture `summary-delivery-enc-01`；两臂同一 seed；Agent 与 Mutator 均为
 `qwen3.5:27b-q4_K_M`，`temperature=0.0`；每 Episode ≤16 次模型调用（调查/行动各 8）、
@@ -408,7 +434,7 @@ Agent 读到空文件后判定"材料缺失"，把行动预算全用在继续搜
 
 ```text
 src/sandbox/
-├── structured_v1/               当前在用的核心（判定、搜索、材料、容器、证据）
+├── structured_v1/               §3.1 那条线的核心（判定、搜索、材料、容器、证据）
 │   ├── search.py                两臂选择、优先位置、机会消耗、失败结算
 │   ├── validation.py            准入校验（含方向语义落点）
 │   ├── provider.py              生成器边界与响应分类（含自曝拒绝）
@@ -417,12 +443,18 @@ src/sandbox/
 │   ├── projection.py            公开投影（生成器唯一可见的世界视图）
 │   └── world.py  rendering.py   物化：槽内容 → 文件 / 文档区段
 ├── scenarios/
+│   ├── error_capable*.py        §3.2 那条线，14 个模块
+│   │     error_capable_world.py      世界、三任务族、九变体、十二条路径与载体槽位
+│   │     error_capable_selector.py   冻结菜单、LLM 选择器、合法性校验与拒绝坐标
+│   │     error_capable_priority.py   邻域分数表、更新分类与逐机会结算记录
+│   │     error_capable_campaign.py   机会循环、结算顺序、拒绝反馈与中断恢复
+│   │     error_capable_coverage.py   行为 / 风险 / 联合覆盖账本
 │   ├── structured_v1/           fixture 链（a→b→c→d→e→e2→enc）
 │   └── office_v2/               更早的产品线，本文不涉及
-├── coverage/ engine/ replay/ scheduler/ storage/ fuzzer/ client/
-tests/unit tests/integration
-scripts/                        freeze / 运行 / 报告 / 本地检查
-docs/                           规格、任务、运行包、当前状态
+├── coverage/ engine/ replay/ scheduler/ storage/ fuzzer/ mutation/ scoring/ client/
+tests/unit tests/integration tests/design
+scripts/                        freeze / 运行 / 报告 / 诊断探针 / 本地检查
+docs/                           仓库内只保留该实验的规格与任务各一份
 agent_image/                    容器内运行时
 ```
 
@@ -430,11 +462,15 @@ agent_image/                    容器内运行时
 
 ## 6. 引用与边界
 
-- 授权范围与硬边界：[`AUTHORIZED-EVALUATION-SCOPE.md`](AUTHORIZED-EVALUATION-SCOPE.md)
-- 产品规格：[`docs/SPEC.md`](docs/SPEC.md)（`SPEC.md` 只是兼容入口）
-- 施工约定：[`AGENTS.md`](AGENTS.md)
-- 当前状态与已承认的差距：[`docs/current-state/`](docs/current-state/)
-- 本轮运行的规格与验收：[`docs/specs/20260927-material-encounter-validity.md`](docs/specs/20260927-material-encounter-validity.md)
+**仓库内**
 
-`reports/`、`data/`、`build/` 是本地证据与构建产物，不入库。真实运行证据（fixture 清单、
+- 授权范围与硬边界：[`AUTHORIZED-EVALUATION-SCOPE.md`](AUTHORIZED-EVALUATION-SCOPE.md)
+- 邻域优先级实验规格：[`SPEC-NEIGHBORHOOD-PRIORITY-20261006`](docs/specs/20261006-neighborhood-priority-guided-random.md)
+- 对应任务与验收判据：[`docs/tasks/20261006-neighborhood-priority-guided-random-task.md`](docs/tasks/20261006-neighborhood-priority-guided-random-task.md)
+- 验收文档：[`tests/design/`](tests/design/)
+
+**不随仓库分发**
+
+内部产品规格、施工约定、当前状态文档、运行记录与批次报告都不入库，本文档不再指向它们。
+`reports/`、`data/`、`build/` 是本地证据与构建产物，同样不入库。真实运行证据（fixture 清单、
 镜像摘要、源码提交、每集的 bundle 与读数）在批次目录内留档，可按摘要复算。
