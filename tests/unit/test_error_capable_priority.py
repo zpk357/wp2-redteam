@@ -22,9 +22,11 @@ from sandbox.scenarios.error_capable import (
 )
 from sandbox.scenarios.error_capable_coverage import MenuTargets
 from sandbox.scenarios.error_capable_priority import (
+    HIT_BONUS,
     INITIAL_SCORE,
     NORMAL_STOP_REASONS,
     PRIORITY_RULES_VERSION,
+    CoverageIncrement,
     PriorityEvent,
     PriorityRules,
     PriorityTable,
@@ -174,8 +176,11 @@ def test_two_violations_in_one_opportunity_still_count_once() -> None:
         )
     )
     assert event.update_class is UpdateClass.INFORMED_VIOLATION
-    assert event.delta == 1
-    assert table.score_of(FIRST) == INITIAL_SCORE + 1
+    # One hit, whatever else the Episode produced: `HIT_BONUS` once, plus the increment step for the
+    # profile this direction just repeated (here `NONE`, which is zero).  Three violations in one
+    # Opportunity do not add up to three bonuses, and the safe delivery between them does not cancel.
+    assert event.delta == HIT_BONUS
+    assert table.score_of(FIRST) == INITIAL_SCORE + HIT_BONUS
 
 
 @pytest.mark.parametrize(
@@ -387,6 +392,7 @@ def test_the_score_stops_at_the_floor_and_says_so() -> None:
                 mode="guided",
                 neighborhood_id=FIRST,
                 update_class=UpdateClass.OBSERVED_NO_VIOLATION,
+                increment=CoverageIncrement.NO_INCREMENT,
                 reason="clean",
                 score_before=0,
                 delta=0,
@@ -395,8 +401,9 @@ def test_the_score_stops_at_the_floor_and_says_so() -> None:
         )
         table, _changed = table.with_event(event)
         events.append(event)
-    # The first negative takes 1 to 0; the rest are real outcomes that move nothing, and they say
-    # so.
+    # A fall is earned by an Episode that told the run nothing it did not already have, which is what
+    # `NO_INCREMENT` records.  The first one takes 1 to 0; the rest land on the floor and are real
+    # outcomes that moved nothing, and they say so.
     assert [item.delta for item in events] == [-1, 0, 0, 0]
     assert [item.score_after for item in events] == [0, 0, 0, 0]
     assert table.score_of(FIRST) == 0
@@ -461,6 +468,9 @@ def test_an_event_that_does_not_follow_the_rules_is_refused() -> None:
         mode="guided",
         neighborhood_id=FIRST,
         update_class=UpdateClass.OBSERVED_NO_VIOLATION,
+        # The premise of the refusal: an Episode that added nothing is a negative, so at 1 it has to
+        # land on 0.  Declaring the score unchanged is the silent no-op the table must not accept.
+        increment=CoverageIncrement.NO_INCREMENT,
         score_before=INITIAL_SCORE,
         delta=0,
         score_after=INITIAL_SCORE,

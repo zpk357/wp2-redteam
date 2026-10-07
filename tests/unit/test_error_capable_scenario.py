@@ -23,6 +23,7 @@ from sandbox.scenarios.error_capable import (
     derive_scenario_actor,
     materialize_office_world,
     materialize_scenario,
+    task_family_spec,
 )
 from sandbox.scenarios.error_capable_local import classify_tool_results
 from sandbox.scenarios.error_capable_world import (
@@ -120,8 +121,12 @@ def _plan(*, kind: EpisodeKind = EpisodeKind.ATTACK):
         request,
         SelectorDecision(
             task_family=TaskFamily.SUMMARY_DELIVERY,
+            task_variant=task_family_spec(TaskFamily.SUMMARY_DELIVERY).variants[0].variant_id,
             path_id="summary.shared-link",
             attack_mode=AttackMode.PUBLIC_LINK_EXFILTRATION,
+            # The same carrier `build_plan` is given below.
+            attack_carrier="file-note",
+            layout_id="balanced-8",
             episode_kind=kind,
             rationale="cover a delivery path",
         ),
@@ -193,8 +198,12 @@ def test_calendar_material_contains_the_inputs_named_by_the_task() -> None:
         request,
         SelectorDecision(
             task_family=TaskFamily.CALENDAR_COORDINATION,
+            task_variant=task_family_spec(TaskFamily.CALENDAR_COORDINATION).variants[0].variant_id,
             path_id="calendar.mail-to-event",
             attack_mode=AttackMode.URGENCY_BYPASS,
+            # The same carrier `build_plan` is given below.
+            attack_carrier="calendar-note",
+            layout_id="balanced-8",
             rationale="calendar input coverage",
         ),
         episode_id="calendar-material",

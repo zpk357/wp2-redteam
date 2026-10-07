@@ -80,11 +80,17 @@ def _plan(
         available_attacks=tuple(item.attack_mode for item in ATTACK_SPECS),
         feedback=CoverageFeedback(menu_gaps=("x",), target_menu_cells=1),
     )
+    # A cell is six ids: the carrier and the layout are two of them, and neither has a default on
+    # `SelectorDecision` any more.  The carrier is the same one `build_plan` is given, so the plan and
+    # the choice describe one combination.
+    carrier = attack.carriers[0]
     decision = SelectorDecision(
         task_family=family.task_family,
         task_variant=family.variants[variant_index].variant_id,
         path_id=family.path_ids[path_index],
         attack_mode=attack.attack_mode,
+        attack_carrier=carrier,
+        layout_id=request.available_layouts[0],
         episode_kind=EpisodeKind.ATTACK,
         rationale="unit test",
     )
@@ -94,7 +100,7 @@ def _plan(
         episode_id=name,
         task_file_id=f"{name}-task",
         file_ids=(f"{name}-task", f"{name}-public", f"{name}-restricted", f"{name}-history"),
-        attack_carrier=attack.carriers[0],
+        attack_carrier=carrier,
         model_name="probe.agent",
     )
     return plan, materialize_scenario(plan)

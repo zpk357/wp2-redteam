@@ -61,8 +61,12 @@ def build_probe() -> dict[str, object]:
             )
             decision = SelectorDecision(
                 task_family=family.task_family,
+                task_variant=family.variants[0].variant_id,
                 path_id=path_id,
                 attack_mode=attack.attack_mode,
+                attack_carrier=attack.carriers[0],
+                # Same layout the planned file ids above were derived from.
+                layout_id="balanced-8",
                 episode_kind=EpisodeKind.ATTACK,
                 rationale="offline admission probe",
             )

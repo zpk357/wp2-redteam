@@ -10,6 +10,8 @@ from sandbox.scenarios.error_capable import (
     ErrorCapableMode,
     SelectorDecision,
     TaskFamily,
+    attack_spec,
+    task_family_spec,
 )
 from sandbox.scenarios.error_capable_local import (
     EpisodeReceipt,
@@ -22,10 +24,16 @@ from sandbox.scenarios.error_capable_local import (
 
 
 def _decision() -> SelectorDecision:
+    # A cell is six ids, and the fixture names all of them.  The carrier is read off the mechanism
+    # rather than written here, so it cannot drift from the menu.
+    attack = attack_spec(AttackMode.PUBLIC_LINK_EXFILTRATION)
     return SelectorDecision(
         task_family=TaskFamily.SUMMARY_DELIVERY,
+        task_variant=task_family_spec(TaskFamily.SUMMARY_DELIVERY).variants[0].variant_id,
         path_id="summary.shared-link",
-        attack_mode=AttackMode.PUBLIC_LINK_EXFILTRATION,
+        attack_mode=attack.attack_mode,
+        attack_carrier=attack.carriers[0],
+        layout_id="balanced-8",
         rationale="cover a registered joint gap",
     )
 
@@ -133,8 +141,12 @@ def test_each_task_family_has_two_real_tool_paths() -> None:
                 request,
                 SelectorDecision(
                     task_family=family,
+                    task_variant=task_family_spec(family).variants[0].variant_id,
                     path_id=path_id,
                     attack_mode=ATTACK_SPECS[index].attack_mode,
+                    # The same carrier `build_plan` is given below.
+                    attack_carrier=ATTACK_SPECS[index].carriers[0],
+                    layout_id="balanced-8",
                     episode_kind=EpisodeKind.ATTACK,
                     rationale="real local path probe",
                 ),

@@ -40,7 +40,7 @@ deliver / transform）× 对象类别（message / source_material / shared_artif
 
 `error-capable-multipath-02` 在独立的 `src/sandbox/scenarios/error_capable*` 模块中实现三任务族、九变体、十二条路径及文件载体。引导臂使用同被测 Agent 身份的 LLM 选择器；随机臂在同一冻结菜单上纯随机采样，不调用 LLM 选择器、不读取历史覆盖。任务由 Agent 经真实工具发现，权限需查阅场景中的依据文件。
 
-这一线的规格与任务都在仓库内：[`SPEC-NEIGHBORHOOD-PRIORITY-20261006`](docs/specs/20261006-neighborhood-priority-guided-random.md) 与[对应 TASK](docs/tasks/20261006-neighborhood-priority-guided-random-task.md)。运行与报告入口见 [§3](#3-入口)。隔离与资源口径与旧线共用同一套 harness。
+运行与报告入口见 [§3](#3-入口)。隔离与资源口径与旧线共用同一套 harness。
 
 ## 1. 评测的问题
 
@@ -454,7 +454,7 @@ src/sandbox/
 ├── coverage/ engine/ replay/ scheduler/ storage/ fuzzer/ mutation/ scoring/ client/
 tests/unit tests/integration tests/design
 scripts/                        freeze / 运行 / 报告 / 诊断探针 / 本地检查
-docs/                           仓库内只保留该实验的规格与任务各一份
+docs/                           内部规格与运行记录，不随仓库分发
 agent_image/                    容器内运行时
 ```
 
@@ -465,12 +465,15 @@ agent_image/                    容器内运行时
 **仓库内**
 
 - 授权范围与硬边界：[`AUTHORIZED-EVALUATION-SCOPE.md`](AUTHORIZED-EVALUATION-SCOPE.md)
-- 邻域优先级实验规格：[`SPEC-NEIGHBORHOOD-PRIORITY-20261006`](docs/specs/20261006-neighborhood-priority-guided-random.md)
-- 对应任务与验收判据：[`docs/tasks/20261006-neighborhood-priority-guided-random-task.md`](docs/tasks/20261006-neighborhood-priority-guided-random-task.md)
 - 验收文档：[`tests/design/`](tests/design/)
 
 **不随仓库分发**
 
 内部产品规格、施工约定、当前状态文档、运行记录与批次报告都不入库，本文档不再指向它们。
+两条线各自的实验契约与运行记录同属此类；行为的权威描述是 `src/` 与 `tests/` 里的代码。
+
+代码与测试里出现的 `NP-01`..`NP-16`、`NP-AC-*` 是这套实验的契约条款编号，用来在注释、测试名和
+报告字段之间互相指向。契约文档本身不随仓库分发，因此这些编号在这里是标签而不是可打开的引用：它们
+所指的行为以 `src/` 与 `tests/` 中的实现和断言为准。
 `reports/`、`data/`、`build/` 是本地证据与构建产物，同样不入库。真实运行证据（fixture 清单、
 镜像摘要、源码提交、每集的 bundle 与读数）在批次目录内留档，可按摘要复算。

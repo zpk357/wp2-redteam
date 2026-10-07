@@ -159,6 +159,7 @@ def test_invalid_llm_choice_consumes_one_call_without_retry(response: str) -> No
     assert len(adapter.calls) == 1
     assert selector.last_attempt.raw_response == response
     assert selector.last_attempt.rejection
+    assert selector.last_attempt.provider_calls == 1
 
 
 def test_a_refusal_that_is_not_a_duplicate_carries_its_coordinate_too() -> None:
@@ -210,7 +211,6 @@ def test_the_duplicate_refusal_still_carries_the_same_coordinate_shape() -> None
         )
     assert str(refused.value) == "guided choice is a combination the run has already taken"
     assert refused.value.coordinate == coordinate_of(good)
-    assert selector.last_attempt.provider_calls == 1
 
 
 def test_the_guided_payload_carries_outcomes_and_no_candidate_list() -> None:

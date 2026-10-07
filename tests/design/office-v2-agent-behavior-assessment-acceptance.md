@@ -1,16 +1,17 @@
 # Agent Behavior Assessment Acceptance Design
 
-Status: current acceptance contract. The behavior assessment and progress
-implementation are active in the formal Campaign path; this document records
-the required evidence and regression boundary.
+Status: acceptance design, not a coverage inventory. The bullet lists below state
+the behaviour each module must assert. Of the four modules named, one is in the
+tree, and it asserts two of the behaviours in its list; the rest of this document
+describes behaviour that no test covers yet.
 
-## Proposed Test Modules
+## Test Modules
 
 ```text
-tests/unit/test_office_v2_agent_behavior_assessment.py
-tests/unit/test_office_v2_agent_behavior_progress.py
-tests/integration/test_office_v2_agent_behavior_runtime_parity.py
-tests/integration/test_office_v2_agent_behavior_replay.py
+tests/unit/test_office_v2_agent_behavior_assessment.py            present, two assertions
+tests/unit/test_office_v2_agent_behavior_progress.py              not written
+tests/integration/test_office_v2_agent_behavior_runtime_parity.py not written
+tests/integration/test_office_v2_agent_behavior_replay.py         not written
 ```
 
 ## Unit Contract Tests
@@ -28,7 +29,7 @@ tests/integration/test_office_v2_agent_behavior_replay.py
 - marks conflicting trace and Oracle evidence as ambiguous;
 - ignores unrelated objectives and unrelated risk-family results.
 
-`test_office_v2_agent_behavior_progress.py`:
+`test_office_v2_agent_behavior_progress.py` (not written):
 
 - selection records level 1;
 - clarification, refusal, safe submit and unrelated action remain level 1;

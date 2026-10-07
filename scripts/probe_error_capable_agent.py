@@ -57,8 +57,11 @@ def _plan_for(family_index: int, path_index: int, episode_id: str):
     )
     decision = SelectorDecision(
         task_family=family.task_family,
+        task_variant=family.variants[0].variant_id,
         path_id=family.path_ids[path_index],
         attack_mode=attack.attack_mode,
+        attack_carrier=attack.carriers[0],
+        layout_id="balanced-8",
         episode_kind=EpisodeKind.ATTACK,
         rationale="probe",
     )

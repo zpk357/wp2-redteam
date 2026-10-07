@@ -33,6 +33,7 @@ from sandbox.scenarios.error_capable_agent import (
 )
 from sandbox.scenarios.error_capable_campaign import (
     PROVIDER_FAILURE_RETRIES,
+    SELECTION_ATTEMPTS,
     PinnedSelector,
     ScriptedSelector,
     compare_arms,
@@ -49,6 +50,8 @@ from sandbox.scenarios.error_capable_coverage import (
 )
 from sandbox.scenarios.error_capable_identity import ModelIdentity
 from sandbox.scenarios.error_capable_priority import (
+    HIT_BONUS,
+    INITIAL_SCORE,
     PriorityTable,
     neighborhood_registry,
 )
@@ -553,6 +556,12 @@ def test_a_decision_outside_the_frozen_menu_fails_closed() -> None:
         TaskFamily,
     )
 
+    # A carrier `note_rewrite` really has, so the refusal the test asserts is the variant's and not
+    # an artefact of some unrelated axis being wrong as well.
+    legal_carrier = next(
+        item for item in ATTACK_SPECS if item.attack_mode is AttackMode.NOTE_REWRITE
+    ).carriers[0]
+
     class _Rogue(ScriptedSelector):
         name = "rogue-selector"
 
@@ -560,10 +569,16 @@ def test_a_decision_outside_the_frozen_menu_fails_closed() -> None:
             super().__init__(path_ids=PATH_IDS, attacks=ATTACKS)
 
         def __call__(self, request, history, *, episode_index):  # noqa: ANN001
+            # Every axis is filled in now that `SelectorDecision` declares all six of them, and the
+            # variant is one that is not registered: `validate_choice` walks the axes in order, so
+            # that is the refusal the run records.
             decision = SelectorDecision(
                 task_family=TaskFamily.ACCESS_REVIEW,
+                task_variant="not-a-registered-variant",
                 path_id="not-a-registered-path",
                 attack_mode=AttackMode.NOTE_REWRITE,
+                attack_carrier=legal_carrier,
+                layout_id="balanced-8",
                 episode_kind=EpisodeKind.ATTACK,
                 rationale="outside the menu",
             )
@@ -582,7 +597,11 @@ def test_a_decision_outside_the_frozen_menu_fails_closed() -> None:
     )
     assert report.opportunities == 1
     assert not report.episodes
-    assert len(report.rejected_opportunities) == 1
+    # A refusal costs an attempt, not the Episode: the selector is asked again inside the same
+    # Opportunity, and each refused attempt is recorded.  The Opportunity itself is forfeited only
+    # once the attempts run out, so one unusable menu on the arm's side leaves `SELECTION_ATTEMPTS`
+    # refusals and no Episode.
+    assert len(report.rejected_opportunities) == SELECTION_ATTEMPTS
     assert "unavailable task variant" in report.rejected_opportunities[0]["rejection"]
 
 
@@ -703,11 +722,15 @@ def test_invalid_llm_opportunities_are_persisted_without_resampling(tmp_path) ->
         ))
 
     report = run()
-    assert report.opportunities == 2 and len(report.rejected_opportunities) == 2
+    assert report.opportunities == 2
+    # A selector that always refuses spends both Opportunities' attempt budgets and produces no
+    # Episode.  Nothing is redrawn: the two Opportunities stay two, and every refused attempt is
+    # persisted with its own payload and its own entry.
+    assert len(report.rejected_opportunities) == 2 * SELECTION_ATTEMPTS
     assert not report.episodes and adapter.agent_calls == 0
-    assert len(adapter.selection_payloads) == 2
+    assert len(adapter.selection_payloads) == 2 * SELECTION_ATTEMPTS
     assert run() == report
-    assert len(adapter.selection_payloads) == 2
+    assert len(adapter.selection_payloads) == 2 * SELECTION_ATTEMPTS
 
 
 class _RepeatsUntilToldAdapter(_SelectionAndAgentAdapter):
@@ -753,16 +776,26 @@ def test_a_refusal_reaches_the_next_opportunity_instead_of_repeating_forever(tmp
         seed=20261004, journal_root=tmp_path,
     ))
 
-    assert len(adapter.selection_payloads) == 4
+    # Every attempt asks the selector once, and each attempt either produced an Episode or was
+    # refused: that accounting is the invariant, and the exact split is a property of the double.
+    assert len(adapter.selection_payloads) == len(report.episodes) + len(
+        report.rejected_opportunities
+    )
     denied = report.rejected_opportunities
     assert denied, "the duplicate has to be refused"
     assert "already taken" in str(denied[0]["rejection"])
-    # The first refusal is not yet known to the request that produced it, and is known to the next.
-    assert not adapter.selection_payloads[1]["feedback"].get("rejected_menu_cells")
-    later = adapter.selection_payloads[3]["feedback"]["rejected_menu_cells"]
-    assert later and later[0] == denied[0]["refused_coordinate"]
-    # And the arm carries on: three of the four opportunities still produced an Episode.
-    assert len(report.episodes) == 3
+    # The request that produced the refusal cannot know it yet; the next attempt is told, and so is
+    # every request after that, which is why the double stops repeating.
+    assert not adapter.selection_payloads[0]["feedback"].get("rejected_menu_cells")
+    carried = [
+        payload["feedback"]["rejected_menu_cells"]
+        for payload in adapter.selection_payloads
+        if payload["feedback"].get("rejected_menu_cells")
+    ]
+    assert carried and carried[0][0] == denied[0]["refused_coordinate"]
+    # And the arm carries on: the Opportunity that was refused still produced an Episode, because the
+    # refusal reaches the next attempt instead of consuming the Opportunity outright.
+    assert len(report.episodes) == 4
 
 
 class _ProposesAnIllegalCarrierUntilToldAdapter(_SelectionAndAgentAdapter):
@@ -822,17 +855,24 @@ def test_a_refusal_that_is_not_a_duplicate_reaches_the_next_opportunity_too(tmp_
         seed=20261004, journal_root=tmp_path,
     ))
 
+    assert len(adapter.selection_payloads) == len(report.episodes) + len(
+        report.rejected_opportunities
+    )
     denied = report.rejected_opportunities
     assert denied, "the illegal carrier has to be refused"
     assert str(denied[0]["rejection"]) == "unavailable carrier for mechanism"
     # The refusal carries what it refused, which is what makes it reportable at all.
     assert denied[0]["refused_coordinate"], "an illegal choice has to carry its coordinate"
-    # The request that produced it cannot know, and the next one is told.
-    assert not adapter.selection_payloads[1]["feedback"].get("rejected_menu_cells")
-    later = adapter.selection_payloads[3]["feedback"]["rejected_menu_cells"]
-    assert later and later[0] == denied[0]["refused_coordinate"]
-    # And the arm carries on: three of the four opportunities still produced an Episode.
-    assert len(report.episodes) == 3
+    # The request that produced it cannot know, and the next attempt is told.
+    assert not adapter.selection_payloads[0]["feedback"].get("rejected_menu_cells")
+    carried = [
+        payload["feedback"]["rejected_menu_cells"]
+        for payload in adapter.selection_payloads
+        if payload["feedback"].get("rejected_menu_cells")
+    ]
+    assert carried and carried[0][0] == denied[0]["refused_coordinate"]
+    # And the arm carries on: every Opportunity still produced an Episode.
+    assert len(report.episodes) == 4
 
 
 def test_the_guided_request_carries_the_twelve_scores_in_registry_order(tmp_path) -> None:
@@ -850,14 +890,19 @@ def test_the_guided_request_carries_the_twelve_scores_in_registry_order(tmp_path
             item.neighborhood_id for item in registry
         ]
         assert len(rows) == 12
-        # A score starts at one and may fall to the floor of zero.  The fall is the half of the
-        # treatment that reports "this direction was looked at and was quiet"; asserting `>= 1`
-        # here is what let a dead lower channel pass unnoticed.
-        assert all(0 <= row["score"] <= 1 for row in rows), "a score moves by one step, floor zero"
+        # The floor holds, and no direction can gain more than one hit's worth per Episode: the step
+        # is the coverage increment (zero, or minus one when the Episode repeated a profile) plus
+        # `HIT_BONUS` when the Episode proved an informed violation.
+        assert all(
+            0 <= row["score"] <= INITIAL_SCORE + len(guided.episodes) * HIT_BONUS for row in rows
+        ), "a score never falls below zero and never gains more than one hit per Opportunity"
         assert all(isinstance(row["remaining_cells"], int) for row in rows)
-    # And the fall has to have actually happened with this corpus.  The assertion above also holds
-    # on a table that never moves, which is exactly the state this test was written in.
-    assert any(item.lowered for item in guided.priority.scores), "no score ever fell"
+    # The counters account for every settled Episode, whichever way each one moved.  A fall is not
+    # asserted here because this corpus does not guarantee one: a direction only falls when an
+    # Episode repeats a profile the run already had.  The floor behaviour itself is covered by
+    # `test_the_score_stops_at_the_floor_and_says_so` in the priority tests.
+    counted = sum(item.raised + item.lowered + item.neutral for item in guided.priority.scores)
+    assert counted == len(guided.episodes)
     # The guided arm grew a score table; the random arm has none, by design (`NP-04`).
     assert guided.priority is not None and len(guided.priority.scores) == 12
     random_arm = asyncio.run(run_campaign(

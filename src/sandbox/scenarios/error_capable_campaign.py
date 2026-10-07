@@ -589,10 +589,13 @@ async def _run_campaign(
             # Attempts before the accepted one are on disk under their own names.  Their refusals go
             # back into the set before the request is rebuilt, or a resumed run would ask a question
             # the frozen run never asked and the digest check would refuse to continue.
+            refused_attempts: list[dict[str, Any]] = []
             for earlier in sorted(
                 artifact_path.parent.glob(f"{episode_id}.selection.attempt-*.json")
             ):
                 record = read_artifact(earlier, identity=identity_digest)
+                if record.get("status") == "rejected":
+                    refused_attempts.append(record)
                 more = refusable_cell(record.get("refused_coordinate"))
                 if more is not None and more not in refused_cells:
                     refused_cells.append(more)
@@ -603,10 +606,21 @@ async def _run_campaign(
                 )
                 write_artifact(artifact_path, frozen)
             if frozen["status"] == "rejected":
-                rejected.append(frozen)
-                if frozen.get("attempt"):
-                    selection_attempts.append(SelectorAttempt.model_validate(frozen["attempt"]))
-                sentinel_reads.extend(frozen.get("history_reads", ()))
+                # Every refused attempt is replayed, not only the one that forfeited the Opportunity.
+                # A refusal is an attempt now, the run stores one record per attempt, and a resume
+                # that collapsed them into a single entry would report a different Campaign from the
+                # one it resumed -- fewer refusals, fewer attempts, and a denominator it cannot be
+                # compared with.  The canonical receipt holds the last of them, so the attempt files
+                # are the list; it falls back to the canonical one only when there are none, which is
+                # the shape a receipt interrupted before its first attempt has.
+                replayed = refused_attempts or [frozen]
+                for record in replayed:
+                    rejected.append(record)
+                    if record.get("attempt"):
+                        selection_attempts.append(
+                            SelectorAttempt.model_validate(record["attempt"])
+                        )
+                sentinel_reads.extend(replayed[-1].get("history_reads", ()))
                 # A resumed refusal is still a refusal the later offers have to know about, or the
                 # resumed run would hand the selector the same question the frozen run did.
                 # Through the gate: a resumed refusal that is not a combination must not reach a
