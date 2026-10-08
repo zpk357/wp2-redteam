@@ -112,6 +112,22 @@ def _build_executor(args: argparse.Namespace, *, adapter: object, identity: Mode
         if args.adapter == "fake"
         else ollama_model_options(args)
     )
+    # How the container reaches the model server.  Two shapes, and they are not interchangeable.
+    #
+    # `--model-network-name` is the stricter one.  It makes `SandboxConfig` require an internal
+    # bridge network carrying the `ollama-only` policy label and an endpoint of
+    # `http://ollama:11434`, which is the form that class was written to enforce: the container
+    # is on a network with no egress except the model server, and the model server is attached to
+    # the same network.  It also needs the *host* to resolve `ollama`, because the selector runs
+    # here and the Agent runs there and both have to name the same model.
+    #
+    # Without it, the container shares the host's network namespace, which is how the
+    # structured-scenario line ran its real-model episodes: the same `http://127.0.0.1:11434`
+    # works from both sides and nothing has to resolve anything.  The container can then reach
+    # whatever the host can -- a real weakening of the sandbox, and one this experiment accepts
+    # because the Agent has no tool that could use it: the frozen menu is office tools, with no
+    # shell and no HTTP client.  What the network is there for is the Agent's own model calls.
+    model_network = args.model_network_name
     config = SandboxConfig(
         image=args.image,
         # `none` for the fake provider: a contract run has no reason to reach a network, and a
@@ -126,7 +142,8 @@ def _build_executor(args: argparse.Namespace, *, adapter: object, identity: Mode
             tmpfs_size=args.tmpfs_size,
         ),
         gpu_device=args.gpu_device,
-        ollama_endpoint=args.endpoint if args.adapter == "ollama" else None,
+        ollama_endpoint=MODEL_NETWORK_ENDPOINT if model_network else None,
+        model_network_name=model_network,
     )
     return ErrorCapableContainerRunner(
         scheduler=DockerSandboxScheduler(config),
@@ -167,6 +184,10 @@ def _container_run_root(args: argparse.Namespace) -> tuple[Path, str] | None:
 
 #: Where the bound run root appears inside the container.
 CONTAINER_RUN_ROOT = "/run-root"
+
+#: The only endpoint `SandboxConfig` accepts when a model network is named.  Spelled once because
+#: it is a value that class validates against, not a default anybody may vary.
+MODEL_NETWORK_ENDPOINT = "http://ollama:11434"
 
 
 async def _run(args: argparse.Namespace) -> dict[str, object]:
@@ -310,7 +331,14 @@ def main() -> int:
     #: and reads it back, which is how a host run is put on the same terms as a container one.
     parser.add_argument("--workspace", choices=("memory", "directory"), default="memory")
     parser.add_argument("--image", default="error-capable:local")
-    parser.add_argument("--network-mode", default="bridge")
+    #: `none` by default: a container that reaches nothing is the shape a contract run wants and
+    #: the shape that needs no explanation.  A model-backed run needs `host` (so the container
+    #: sees the host's `127.0.0.1:11434`) or a `--model-network-name`.
+    parser.add_argument("--network-mode", default="none")
+    #: Name of an internal bridge network labelled `trace-g.network-policy=ollama-only` with the
+    #: model server attached.  When given, the endpoint is forced to `http://ollama:11434` on both
+    #: sides and the container has no egress except the model server.
+    parser.add_argument("--model-network-name", default=None)
     parser.add_argument("--gpu-device", default=None)
     parser.add_argument("--startup-timeout-seconds", type=float, default=60.0)
     parser.add_argument("--memory-limit", default="512m")
