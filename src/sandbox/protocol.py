@@ -376,10 +376,46 @@ class ExecutionRequest(ContractModel):
     # kept opaque here: the new package validates it, and this module imports nothing from
     # that package.  A request carrying this field never takes the Office V2 path.
     structured_case_execution: dict[str, Any] | None = None
+    # error-capable execution carries its own protocol identity for the same reason the field
+    # above does: the payload stays opaque here, the scenario package validates it, and this
+    # module imports nothing from that package.  A request carrying this field never takes the
+    # Office V2 or the structured path.
+    error_capable_execution: dict[str, Any] | None = None
     execution_backend: ExecutionBackend = ExecutionBackend.TRACE_REACT_V2
 
     @model_validator(mode="after")
     def validate_office_v2_binding(self) -> ExecutionRequest:
+        error_capable = self.error_capable_execution
+        if error_capable is not None:
+            if (
+                self.office_v2_execution is not None
+                or self.scenario_initialization is not None
+                or self.structured_case_execution is not None
+            ):
+                raise ValueError(
+                    "error_capable_configuration_error: error-capable execution cannot use "
+                    "another scenario envelope"
+                )
+            plan = error_capable.get("plan")
+            if not isinstance(plan, dict):
+                raise ValueError(
+                    "error_capable_configuration_error: error-capable execution requires a plan"
+                )
+            for name in ("fixture_freeze_digest", "plan_digest", "materialization_digest"):
+                if not error_capable.get(name):
+                    raise ValueError(
+                        f"error_capable_data_integrity_error: execution payload requires {name}"
+                    )
+            if plan.get("episode_id") != self.execution_id:
+                raise ValueError(
+                    "error_capable_data_integrity_error: execution id does not match plan"
+                )
+            if self.model is None:
+                raise ValueError(
+                    "error_capable_configuration_error: error-capable execution requires "
+                    "model options"
+                )
+            return self
         structured = self.structured_case_execution
         if structured is not None:
             if self.office_v2_execution is not None or self.scenario_initialization is not None:

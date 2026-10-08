@@ -23,6 +23,12 @@ class AdapterFactory:
                 from app.adapter.structured_v1_adapter import StructuredV1Adapter
 
                 return StructuredV1Adapter()
+            # The two payload kinds are mutually exclusive by validation in `protocol.py`,
+            # so the order of these branches cannot decide between them.
+            if request.error_capable_execution is not None:
+                from app.adapter.error_capable_adapter import ErrorCapableAdapter
+
+                return ErrorCapableAdapter()
             return self._create_trace_adapter(request)
         raise AdapterConfigurationError(
             "unknown_execution_backend",

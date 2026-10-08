@@ -44,9 +44,17 @@ from sandbox.scenarios.error_capable import (
     materialize_scenario,
     task_family_spec,
 )
-from sandbox.scenarios.error_capable_agent import office_tool_specs, run_agent_episode
+from sandbox.scenarios.error_capable_agent import office_tool_specs
 from sandbox.scenarios.error_capable_artifacts import read_artifact, write_artifact
 from sandbox.scenarios.error_capable_bridge import bridge_trace
+# The executor interface, not the container runner: the runner imports the Docker client,
+# and this module must stay importable by anything that can import the scenario package.
+from sandbox.scenarios.error_capable_executor import (
+    EpisodeAttempt,
+    EpisodeExecutor,
+    ExecutionEnvironment,
+    InProcessExecutor,
+)
 from sandbox.scenarios.error_capable_coverage import (
     CoverageLedger,
     MenuTargets,
@@ -78,11 +86,11 @@ from sandbox.scenarios.error_capable_selector import (
     refusable_cell,
     validate_choice,
 )
-from sandbox.scenarios.error_capable_world import planned_file_ids
+from sandbox.scenarios.error_capable_world import carrier_ids, planned_file_ids
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 
-CAMPAIGN_VERSION = "error-capable-campaign-v5"
+CAMPAIGN_VERSION = "error-capable-campaign-v7"
 ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
 
 #: Selection attempts per Opportunity before its Episode is forfeited.
@@ -239,7 +247,7 @@ class ScriptedSelector:
             snapshot = history.feedback(purpose=f"guided-select-{episode_index}")
             cell = self._construct_from_feedback(request, snapshot, episode_index)
             if cell is not None:
-                family, variant, path = cell["task_family"], cell["task_variant"], cell["path_id"]
+                family, path = cell["task_family"], cell["path_id"]
                 attack, carrier, layout = (
                     cell["attack_mode"],
                     cell["attack_carrier"],
@@ -253,30 +261,20 @@ class ScriptedSelector:
                 family = families[episode_index % len(families)]
                 path = self._paths[family][0]
                 attack = attacks[episode_index % len(attacks)]
-                variants = tuple(
-                    v.variant_id for v in task_family_spec(TaskFamily(family)).variants
-                )
-                variant = variants[episode_index % len(variants)]
-                carrier = next(
-                    c
-                    for c in request.available_carriers
-                    if c in attack_spec(AttackMode(attack)).carriers
-                )
+                carrier = request.available_carriers[
+                    episode_index % len(request.available_carriers)
+                ]
                 layout = request.available_layouts[episode_index % len(request.available_layouts)]
                 rationale = "menu exhausted; rotating open behaviour and risk observations"
         else:
             family = families[request.seed % len(families)]
             attack = self._attacks[(request.seed + episode_index) % len(self._attacks)]
             path = self._paths[family][episode_index % len(self._paths[family])]
-            variants = tuple(
-                item.variant_id for item in task_family_spec(TaskFamily(family)).variants
-            )
-            variant = variants[(request.seed + episode_index) % len(variants)]
-            carrier = next(
-                c
-                for c in request.available_carriers
-                if c in attack_spec(AttackMode(attack)).carriers
-            )
+            # The carrier is swept over the whole menu rather than over two carriers the
+            # mechanism happened to register: every carrier is open to every mechanism now.
+            carrier = request.available_carriers[
+                (request.seed + episode_index) % len(request.available_carriers)
+            ]
             layout = request.available_layouts[
                 (request.seed + episode_index) % len(request.available_layouts)
             ]
@@ -284,7 +282,6 @@ class ScriptedSelector:
 
         decision = SelectorDecision(
             task_family=TaskFamily(family),
-            task_variant=variant,
             path_id=path,
             attack_mode=AttackMode(attack),
             attack_carrier=carrier,
@@ -389,7 +386,7 @@ class SelectorReceipt(OfficeV2Contract):
                         item.value for item in request.available_task_families
                     ],
                     "available_attacks": [item.value for item in request.available_attacks],
-                    "available_task_variants": request.available_task_variants,
+                    "available_carriers": list(request.available_carriers),
                     "available_paths": request.available_paths,
                     "available_carriers": request.available_carriers,
                     "available_layouts": request.available_layouts,
@@ -429,6 +426,13 @@ class CampaignEpisodeRecord(OfficeV2Contract):
     #: True only the first time this Episode id settles, so the ledger advances exactly once.
     settled_coverage: bool = False
     unresolved: tuple[str, ...] = ()
+    #: What the executor reported about how this Episode ran, beyond its trace: the container it
+    #: used, the image it resolved to, and whether that container was confirmed gone afterwards.
+    #:
+    #: Empty for an in-process run, which has nothing of the kind to report.  It sits here, on
+    #: the Episode record, rather than in the trace: the trace is the Agent's record, and it has
+    #: to stay identical whether the loop ran here or in a container.
+    execution_notes: tuple[dict[str, Any], ...] = ()
 
 
 class CampaignReport(OfficeV2Contract):
@@ -443,6 +447,13 @@ class CampaignReport(OfficeV2Contract):
     tool_menu_digest: Sha256Digest
     tool_names: tuple[Identifier, ...]
     targets: MenuTargets
+    #: Where these Episodes ran.  None only for a report written before the field existed, which
+    #: the identity check refuses to resume into anyway.
+    #:
+    #: Recorded on the report and not on a trace: the trace is the Agent's record, and the
+    #: acceptance test for moving the loop into a container is that the trace stays identical
+    #: when it moves.
+    execution_environment: ExecutionEnvironment | None = None
     episodes: tuple[CampaignEpisodeRecord, ...] = ()
     ledger: CoverageLedger = Field(default_factory=CoverageLedger)
     sentinel_reads: tuple[str, ...] = ()
@@ -515,8 +526,14 @@ async def _run_campaign(
     max_tool_requests: int = 24,
     journal_root: Any | None = None,
     ledger: CoverageLedger | None = None,
+    executor: EpisodeExecutor | None = None,
 ) -> CampaignReport:
-    """Run Episodes; only guided uses coverage observations to steer its next choice."""
+    """Run Episodes; only guided uses coverage observations to steer its next choice.
+
+    `executor` says *where* an Episode runs and nothing else.  Left out, the loop runs in
+    this process, which is what every result so far was produced by.  Passing a container
+    runner moves the loop and changes nothing downstream of the returned trace.
+    """
 
     if episodes < 1:
         raise ValueError("a campaign needs at least one Episode")
@@ -564,6 +581,23 @@ async def _run_campaign(
     #: The guided arm's scores.  Random keeps none: `NP-04` gives it no score state that could
     #: influence a choice, and keeping an unused table would only be one more thing to drift.
     table = PriorityTable.initial(registry) if guided else None
+    episode_executor = executor or InProcessExecutor(
+        adapter=adapter, model_identity=model_identity
+    )
+    #: A host directory per Episode for the workspace material, when the executor writes one.
+    #:
+    #: One directory per Episode, and under the run root, so that two Episodes cannot read each
+    #: other's leftovers and a directory that outlives its Episode is inside the archive rather
+    #: than somewhere nobody looks.  A container run names its own mount instead and ignores
+    #: this entirely -- the value is a host path and would be meaningless there.
+    writes_workspace = bool(getattr(episode_executor, "write_workspace", False))
+    if writes_workspace and journal_root is None:
+        raise ValueError("writing the workspace needs a run root to write it under")
+
+    def _workspace_root(episode_id: str) -> Path | None:
+        if not writes_workspace:
+            return None
+        return Path(journal_root) / "workspace" / episode_id
 
     for index in range(episodes):
         episode_id = _episode_id(mode, index)
@@ -581,6 +615,11 @@ async def _run_campaign(
                 "mode": mode.value,
                 "max_tool_requests": max_tool_requests,
                 "targets": targets.model_dump(mode="json"),
+                # Where the Episode ran is part of what the result is.  Without it, an
+                # in-process run and a container run of the same plan share an identity, and a
+                # set of results that differed only in how they were produced could not be
+                # separated afterwards.
+                "execution": episode_executor.environment.identity_payload(),
             }
         )
         frozen = None
@@ -683,19 +722,12 @@ async def _run_campaign(
                 agent_model_name=model_identity.normalized_model_id,
                 selector_model_name=model_identity.normalized_model_id if guided else None,
                 available_task_families=tuple(TaskFamily(item) for item in targets.families),
-                available_task_variants=tuple(
-                    v.variant_id for family in TaskFamily for v in task_family_spec(family).variants
-                ),
                 available_paths=tuple(
                     path for spec in TASK_FAMILY_SPECS for path in spec.path_ids
                 ),
                 available_attacks=tuple(AttackMode(item) for item in targets.attacks),
-                available_carriers=tuple(
-                    dict.fromkeys(
-                        c for mode_item in AttackMode for c in attack_spec(mode_item).carriers
-                    )
-                ),
-                available_layouts=("balanced-8", "distributed-10", "nested-12"),
+                available_carriers=carrier_ids(),
+                available_layouts=("balanced-9", "distributed-11", "nested-13"),
                 # The unobserved-combination contract is the guided treatment's, not a property of
                 # every run that happens to be in guided mode.  The pinned control deliberately
                 # repeats one fixed condition to compare mechanisms, so it is exempt rather than the
@@ -864,28 +896,26 @@ async def _run_campaign(
 
         attempts = PROVIDER_FAILURE_RETRIES + 1
         for attempt in range(attempts):
-            if journal_root is None:
-                store = None
-            elif attempt == 0:
-                store = _store_for(journal_root, episode_id)
-            else:
-                # A discarded attempt must not be resumed, so it gets its own directory, named for
-                # the attempt.  The Episode id has to stay the same: the journal refuses to persist
-                # a checkpoint whose episode_id does not match the store's, so a suffixed id would
-                # fail on the first write instead of recording anything.
-                store = _store_for(
-                    Path(journal_root) / "retries" / f"attempt-{attempt}", episode_id
+            trace = await episode_executor.run_attempt(
+                EpisodeAttempt(
+                    episode_id=episode_id,
+                    index=index,
+                    mode=mode.value,
+                    fixture=fixture,
+                    plan=plan,
+                    material=material,
+                    max_tool_requests=max_tool_requests,
+                    journal_root=None if journal_root is None else Path(journal_root),
+                    workspace_root=_workspace_root(episode_id),
+                    # A discarded attempt must not be resumed, so it gets its own journal
+                    # directory, named for the attempt.  The Episode id has to stay the
+                    # same: the journal refuses to persist a checkpoint whose episode_id
+                    # does not match the store's, so a suffixed id would fail on the first
+                    # write instead of recording anything.
+                    journal_suffix=(
+                        Path() if attempt == 0 else Path("retries") / f"attempt-{attempt}"
+                    ),
                 )
-            trace = await run_agent_episode(
-                fixture=fixture,
-                plan=plan,
-                material=material,
-                adapter=adapter,
-                model_identity=model_identity,
-                seed=plan.seed,
-                max_tool_requests=max_tool_requests,
-                journal=store,
-                resume=store is not None and store.exists(),
             )
             if trace.stop_reason != PROVIDER_FAILURE_STOP_REASON:
                 break
@@ -993,7 +1023,6 @@ async def _run_campaign(
                 if choice
                 == {
                     "task_family": decision.task_family.value,
-                    "task_variant": decision.task_variant,
                     "path_id": decision.path_id,
                     "attack_mode": decision.attack_mode.value,
                     "attack_carrier": decision.attack_carrier,
@@ -1026,6 +1055,9 @@ async def _run_campaign(
                 observed=state.get(episode_id),
                 settled_coverage=settled,
                 unresolved=trace.unresolved,
+                # Taken after the attempts for this Episode are over, so the notes belong to the
+                # Episode that produced them rather than to whichever one ran last.
+                execution_notes=tuple(episode_executor.take_execution_notes()),
             )
         )
 
@@ -1056,6 +1088,7 @@ async def _run_campaign(
         tool_menu_digest=menu_digest,
         tool_names=tuple(spec.name for spec in specs),
         targets=targets,
+        execution_environment=episode_executor.environment,
         episodes=tuple(records),
         ledger=state,
         sentinel_reads=tuple(sentinel_reads),
@@ -1198,11 +1231,10 @@ def _store_for(root: Any, episode_id: str) -> Any:
 
 
 def _cell_of(decision: SelectorDecision) -> dict[str, str]:
-    """The six coordinates, in the order the menu writes them."""
+    """The five coordinates, in the order the menu writes them."""
 
     return {
         "task_family": decision.task_family.value,
-        "task_variant": decision.task_variant,
         "path_id": decision.path_id,
         "attack_mode": decision.attack_mode.value,
         "attack_carrier": decision.attack_carrier,

@@ -60,6 +60,7 @@ from sandbox.scenarios.error_capable_registry import (
     load_error_capable_fixture,
 )
 from sandbox.scenarios.error_capable_selector import LLMSelector
+from sandbox.scenarios.error_capable_world import carrier_ids
 from sandbox.scenarios.office_v2.models import IDENTIFIER_PATTERN
 
 IDENTITY = ModelIdentity.capture(
@@ -98,7 +99,9 @@ def test_the_menu_space_holds_only_combinations_a_plan_can_use() -> None:
     assert TARGETS.enumerable
     assert len(TARGETS.families) == 3
     assert len(TARGETS.paths) == 12
-    assert len(TARGETS.cells) == 3 * 3 * 4 * len(ATTACKS) * 2 * 3
+    assert len(TARGETS.cells) == len(TARGETS.families) * len(TARGETS.paths) * len(ATTACKS) * len(
+        carrier_ids()
+    ) * len(TARGETS.layouts)
 
     for family in TARGETS.families:
         for choice in TARGETS.choices:
@@ -218,8 +221,13 @@ def test_a_behaviour_key_tracks_what_the_run_did_and_not_how_it_was_planned() ->
             assert (keys[left] == keys[right]) is (observations[left] == observations[right])
     assert "attack" not in guided.episodes[0].observed.behaviour_detail
 
-    # The plan varied across these Episodes, and the key did not follow the plan: all three observed
-    # something different, so all three are three behaviours.
+    # The plan varied across these Episodes.  That is the whole of what this asserts.
+    #
+    # It used to assert three distinct keys here, and that held while the scripted Agent's reading
+    # depended on the layout.  It reads by text now, so three different plans can produce one
+    # observation -- and when they do, one key is the correct answer rather than a defect.  The
+    # invariant above is the contract; this one is a fact about the fixture, and a fact about the
+    # fixture is not something to hold the design to.
     plans = {
         (
             item.selector.decision.task_family,
@@ -230,7 +238,6 @@ def test_a_behaviour_key_tracks_what_the_run_did_and_not_how_it_was_planned() ->
         for item in guided.episodes
     }
     assert len(plans) == 3
-    assert len(set(keys)) == 3
 
     random_arm = _campaign(ErrorCapableMode.RANDOM, episodes=3, seed=0)
     random_paths = [item.observed.behaviour_detail["path"] for item in random_arm.episodes]
@@ -450,7 +457,6 @@ def test_the_guided_choice_is_constructed_rather_than_picked_off_a_list() -> Non
             key: decision[key]
             for key in (
                 "task_family",
-                "task_variant",
                 "path_id",
                 "attack_mode",
                 "attack_carrier",
@@ -556,11 +562,9 @@ def test_a_decision_outside_the_frozen_menu_fails_closed() -> None:
         TaskFamily,
     )
 
-    # A carrier `note_rewrite` really has, so the refusal the test asserts is the variant's and not
-    # an artefact of some unrelated axis being wrong as well.
-    legal_carrier = next(
-        item for item in ATTACK_SPECS if item.attack_mode is AttackMode.NOTE_REWRITE
-    ).carriers[0]
+    # A carrier the frozen menu really offers, so the refusal the test asserts is the path's and
+    # not an artefact of some unrelated axis being wrong as well.
+    legal_carrier = carrier_ids()[0]
 
     class _Rogue(ScriptedSelector):
         name = "rogue-selector"
@@ -569,16 +573,14 @@ def test_a_decision_outside_the_frozen_menu_fails_closed() -> None:
             super().__init__(path_ids=PATH_IDS, attacks=ATTACKS)
 
         def __call__(self, request, history, *, episode_index):  # noqa: ANN001
-            # Every axis is filled in now that `SelectorDecision` declares all six of them, and the
-            # variant is one that is not registered: `validate_choice` walks the axes in order, so
-            # that is the refusal the run records.
+            # Every axis is filled in, and the path is one the family does not register:
+            # `validate_choice` walks the axes in order, so that is the refusal the run records.
             decision = SelectorDecision(
                 task_family=TaskFamily.ACCESS_REVIEW,
-                task_variant="not-a-registered-variant",
                 path_id="not-a-registered-path",
                 attack_mode=AttackMode.NOTE_REWRITE,
                 attack_carrier=legal_carrier,
-                layout_id="balanced-8",
+                layout_id="balanced-9",
                 episode_kind=EpisodeKind.ATTACK,
                 rationale="outside the menu",
             )
@@ -602,7 +604,7 @@ def test_a_decision_outside_the_frozen_menu_fails_closed() -> None:
     # once the attempts run out, so one unusable menu on the arm's side leaves `SELECTION_ATTEMPTS`
     # refusals and no Episode.
     assert len(report.rejected_opportunities) == SELECTION_ATTEMPTS
-    assert "unavailable task variant" in report.rejected_opportunities[0]["rejection"]
+    assert "unavailable path for family" in report.rejected_opportunities[0]["rejection"]
 
 
 def test_role_reads_preserve_sequence_and_match_the_actual_path() -> None:
@@ -635,21 +637,19 @@ def _construct_choice(payload: dict) -> dict[str, str]:
     taken = {tuple(sorted(cell.items())) for cell in payload["feedback"]["chosen_menu_cells"]}
     menu = payload["menu"]
     for family in menu["families"]:
-        for variant in family["variants"]:
-            for path in family["paths"]:
-                for attack in menu["attacks"]:
-                    for carrier in attack["carriers"]:
-                        for layout in menu["layouts"]:
-                            choice = {
-                                "task_family": family["id"],
-                                "task_variant": variant["variant_id"],
-                                "path_id": path["path_id"],
-                                "attack_mode": attack["id"],
-                                "attack_carrier": carrier["id"],
-                                "layout_id": layout["id"],
-                            }
-                            if tuple(sorted(choice.items())) not in taken:
-                                return choice
+        for path in family["paths"]:
+            for attack in menu["attacks"]:
+                for carrier in menu["carriers"]:
+                    for layout in menu["layouts"]:
+                        choice = {
+                            "task_family": family["id"],
+                            "path_id": path["path_id"],
+                            "attack_mode": attack["id"],
+                            "attack_carrier": carrier["id"],
+                            "layout_id": layout["id"],
+                        }
+                        if tuple(sorted(choice.items())) not in taken:
+                            return choice
     raise AssertionError("the menu is exhausted; there is no combination left to construct")
 
 
@@ -798,13 +798,22 @@ def test_a_refusal_reaches_the_next_opportunity_instead_of_repeating_forever(tmp
     assert len(report.episodes) == 4
 
 
+#: An id no frozen menu offers, and not shaped like one either: the refusal under test has to come
+#: from the menu and not from the schema.
+ABSENT_CARRIER = "carrier-not-in-the-frozen-menu"
+
+
 class _ProposesAnIllegalCarrierUntilToldAdapter(_SelectionAndAgentAdapter):
-    """Proposes a carrier the chosen mechanism does not have, until a refusal reaches it.
+    """Proposes a carrier the frozen menu does not offer, until a refusal reaches it.
 
     The duplicate above is one kind of refusal, and it carried its coordinate from the start.  This
-    is the other kind -- `unavailable carrier for mechanism` -- which used to be raised as a bare
-    `ValueError` and so reached the payload as nothing at all.  The double stops proposing it as soon
-    as `rejected_menu_cells` says the run refused it, which is the behaviour the field exists for.
+    is the other kind -- `unavailable carrier` -- which used to be raised as a bare `ValueError` and
+    so reached the payload as nothing at all.  The double stops proposing it as soon as
+    `rejected_menu_cells` says the run refused it, which is the behaviour the field exists for.
+
+    The illegal carrier used to be one the chosen mechanism did not have, read off the menu's
+    per-mechanism carrier list.  Carriers no longer belong to mechanisms and the menu no longer
+    nests them that way, so what the double proposes now is an id no entry offers.
     """
 
     async def generate(self, messages, tools, *, seed):
@@ -816,22 +825,11 @@ class _ProposesAnIllegalCarrierUntilToldAdapter(_SelectionAndAgentAdapter):
         self.selection_payloads.append(payload)
         choice = _construct_choice(payload)
         if not (payload["feedback"].get("rejected_menu_cells") or []):
-            carrier_ids = [
-                item["id"] for attack in payload["menu"]["attacks"] for item in attack["carriers"]
-            ]
-            legal_here = {
-                item["id"]
-                for attack in payload["menu"]["attacks"]
-                if attack["id"] == choice["attack_mode"]
-                for item in attack["carriers"]
-            }
             choice = dict(choice)
-            choice["attack_carrier"] = next(
-                carrier for carrier in carrier_ids if carrier not in legal_here
-            )
+            choice["attack_carrier"] = ABSENT_CARRIER
         return ReactTurn(
             assistant_text=json.dumps(
-                {**choice, "rationale": "proposing a carrier this mechanism does not have"}
+                {**choice, "rationale": "proposing a carrier the frozen menu does not offer"}
             ),
             stop_reason="stop",
         )
@@ -860,7 +858,7 @@ def test_a_refusal_that_is_not_a_duplicate_reaches_the_next_opportunity_too(tmp_
     )
     denied = report.rejected_opportunities
     assert denied, "the illegal carrier has to be refused"
-    assert str(denied[0]["rejection"]) == "unavailable carrier for mechanism"
+    assert str(denied[0]["rejection"]) == "unavailable carrier"
     # The refusal carries what it refused, which is what makes it reportable at all.
     assert denied[0]["refused_coordinate"], "an illegal choice has to carry its coordinate"
     # The request that produced it cannot know, and the next attempt is told.

@@ -65,11 +65,10 @@ def _plan(path_index: int = 0):
     )
     decision = SelectorDecision(
         task_family=family.task_family,
-        task_variant=family.variants[0].variant_id,
         path_id=family.path_ids[path_index],
         attack_mode=attack.attack_mode,
-        attack_carrier=attack.carriers[0],
-        layout_id="balanced-8",
+        attack_carrier=request.available_carriers[0],
+        layout_id="balanced-9",
         episode_kind=EpisodeKind.ATTACK,
         rationale="unit test",
     )
@@ -84,7 +83,7 @@ def _plan(path_index: int = 0):
             f"{EPISODE_ID}-restricted",
             f"{EPISODE_ID}-history",
         ),
-        attack_carrier=attack.carriers[0],
+        attack_carrier=decision.attack_carrier,
         model_name="probe.agent",
     )
     return plan, materialize_scenario(plan)

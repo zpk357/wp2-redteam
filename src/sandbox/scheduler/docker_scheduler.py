@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 import time
+from collections.abc import Mapping
 from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -54,6 +55,7 @@ class DockerSandboxScheduler:
         *,
         run_context: SandboxRunContext | None = None,
         execution_mode: Literal["live", "strict_replay"] = "live",
+        extra_volumes: Mapping[str, dict[str, str]] | None = None,
     ) -> SandboxHandle:
         return await asyncio.to_thread(
             self._create_sync,
@@ -62,6 +64,7 @@ class DockerSandboxScheduler:
             limits,
             run_context,
             execution_mode,
+            extra_volumes,
         )
 
     def _create_sync(
@@ -71,6 +74,7 @@ class DockerSandboxScheduler:
         limits: SandboxLimits,
         run_context: SandboxRunContext | None = None,
         execution_mode: Literal["live", "strict_replay"] = "live",
+        extra_volumes: Mapping[str, dict[str, str]] | None = None,
     ) -> SandboxHandle:
         container = None
         workspace_volume = None
@@ -119,6 +123,11 @@ class DockerSandboxScheduler:
                 tmpfs["/workspace"] = (
                     f"rw,noexec,nosuid,size={limits.tmpfs_size},uid=10001,gid=10001,mode=0700"
                 )
+            if extra_volumes:
+                # Additive and defaulted: the mounts a caller asks for are merged beside the
+                # workspace rather than replacing it, and a caller that asks for none gets
+                # exactly the container it got before.
+                volumes = {**(volumes or {}), **dict(extra_volumes)}
             gpu_options = (
                 {
                     "device_requests": [
