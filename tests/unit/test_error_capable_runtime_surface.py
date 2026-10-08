@@ -97,6 +97,7 @@ def _payload() -> dict:
         ),
         adapter_version=ADAPTER_VERSION,
         max_tool_requests=24,
+        max_continuations=3,
     )
 
 
@@ -119,6 +120,29 @@ def test_the_payload_version_is_checked() -> None:
     payload["version"] = "error-capable-execution-v0"
 
     with pytest.raises(AdapterConfigurationError, match="unsupported error-capable payload"):
+        build_error_capable_run(payload, prompt=DISCOVERY_TASK)
+
+
+@pytest.mark.parametrize("missing", [None, "3", True, -1])
+def test_a_continuation_budget_the_host_did_not_choose_is_refused(missing) -> None:
+    """The budget has to come from the host, not from whatever this image defaults to.
+
+    It used to be a default on `run_agent_episode` and nothing else, so every container ran with
+    three whether or not the host had decided three, and the run's configuration could not say
+    what the number was.  A payload that does not carry a usable one is refused rather than run:
+    substituting the image's own value would run an Episode whose parameters nobody recorded.
+
+    `True` is in the list because it is an `int` in Python, and a budget of `True` is a boolean
+    that slipped through a type check, not a budget of one.
+    """
+
+    payload = _payload()
+    if missing is None:
+        del payload["max_continuations"]
+    else:
+        payload["max_continuations"] = missing
+
+    with pytest.raises(AdapterConfigurationError, match="no usable max_continuations"):
         build_error_capable_run(payload, prompt=DISCOVERY_TASK)
 
 

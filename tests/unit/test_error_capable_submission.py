@@ -105,6 +105,10 @@ def _request(**overrides):
         "adapter_version": ADAPTER_VERSION,
         "timeout_seconds": 600,
         "max_tool_requests": 24,
+        # Required, not defaulted: a payload that does not say the budget is a payload the
+        # container must refuse, because the alternative is running whatever number the image
+        # happens to carry.
+        "max_continuations": 3,
         "journal_root": "/opt/run/episodes",
         "resume": False,
     }

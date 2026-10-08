@@ -60,7 +60,7 @@ from sandbox.scenarios.error_capable_registry import (
     load_error_capable_fixture,
 )
 from sandbox.scenarios.error_capable_selector import LLMSelector
-from sandbox.scenarios.error_capable_world import carrier_ids
+from sandbox.scenarios.error_capable_world import LAYOUT_COUNTS, carrier_ids
 from sandbox.scenarios.office_v2.models import IDENTIFIER_PATTERN
 
 IDENTITY = ModelIdentity.capture(
@@ -99,9 +99,13 @@ def test_the_menu_space_holds_only_combinations_a_plan_can_use() -> None:
     assert TARGETS.enumerable
     assert len(TARGETS.families) == 3
     assert len(TARGETS.paths) == 12
-    assert len(TARGETS.cells) == len(TARGETS.families) * len(TARGETS.paths) * len(ATTACKS) * len(
-        carrier_ids()
-    ) * len(TARGETS.layouts)
+    # Five axes, each contributing its own factor.  The path count is per family, not the
+    # flattened union: `MenuTargets` crosses each family only with its own paths, so the union
+    # would count the space as three times what it is.
+    assert {len(spec.path_ids) for spec in TASK_FAMILY_SPECS} == {4}
+    assert len(TARGETS.cells) == (
+        len(TARGETS.families) * 4 * len(TARGETS.attacks) * len(carrier_ids()) * len(LAYOUT_COUNTS)
+    )
 
     for family in TARGETS.families:
         for choice in TARGETS.choices:
