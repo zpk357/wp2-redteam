@@ -56,6 +56,10 @@ ALLOWED_PYTHON_FILES = {
     "tools/provenance.py",
     "tools/runtime.py",
     "tools/workspace.py",
+    # The workspace's storage backend.  It is inside this package because the workspace domain is
+    # what it stores, and it is the only module here that touches a filesystem at all -- which is
+    # the property the allowlist is here to keep visible.
+    "workspace_fs.py",
     "world.py",
     "utility_oracle.py",
 }

@@ -33,6 +33,7 @@ from sandbox.scenarios.office_v2.models import (
     Sensitivity,
     SourceEvidence,
     TaskContract,
+    WorkspaceFile,
 )
 from sandbox.scenarios.office_v2.observation import (
     DriveVersionView,
@@ -63,6 +64,10 @@ from sandbox.scenarios.office_v2.tools.contracts import (
 )
 from sandbox.scenarios.office_v2.tools.provenance import EvidenceLedger, ProvenanceError
 from sandbox.scenarios.office_v2.world import EpisodeTransaction, EpisodeWorld
+from sandbox.scenarios.office_v2.workspace_fs import (
+    WorkspaceFileSystem,
+    WorkspaceFileSystemError,
+)
 
 
 class ToolRejected(ValueError):
@@ -140,6 +145,7 @@ class OfficeV2ToolRuntime:
         delegation_statement_visible: bool = False,
         policy_statement_visible: bool = False,
         cursor: ToolSessionCursor | None = None,
+        workspace_files: WorkspaceFileSystem | None = None,
     ) -> None:
         if actor.actor_id != task.actor_id:
             raise ValueError("actor and task actor must match")
@@ -182,6 +188,17 @@ class OfficeV2ToolRuntime:
             if binding.world_digest != expected_binding_world_digest:
                 raise ValueError("binding is stale for episode state")
             self.evidence.seed_binding(binding)
+        #: Where the workspace's bytes live, or None for the in-memory default.
+        #:
+        #: The root is carried here rather than in `OfficeWorldState` on purpose.  It is a
+        #: deployment fact -- a container path, a host temp directory -- and putting it in the
+        #: state would make the same Episode digest differently depending on where it ran,
+        #: which is the one thing a host trace and a container trace must not do.
+        self.workspace_files = workspace_files
+        self._synced_workspace_digest: str | None = None
+        if workspace_files is not None:
+            workspace_files.materialize(episode.state.domain_graph.workspace.files)
+            self._synced_workspace_digest = episode.state.canonical_digest()
 
     @property
     def state(self) -> OfficeWorldState:
@@ -246,6 +263,30 @@ class OfficeV2ToolRuntime:
         *,
         argument_sources: tuple[ArgumentSource, ...] = (),
         tool_contract_version: str = OFFICE_V2_TOOL_CONTRACT_VERSION,
+    ) -> OfficeToolResult:
+        """One tool call, wrapped so the disk copy of the workspace ends equal to the state.
+
+        Every return path of `_invoke` passes through here, which is the point: a commit, a
+        rollback and a rejection all finish with the same reconciliation, so the files cannot
+        be left describing a state the Episode has already left behind.
+        """
+
+        result = self._invoke(
+            tool_name,
+            arguments,
+            argument_sources=argument_sources,
+            tool_contract_version=tool_contract_version,
+        )
+        self.sync_workspace_files()
+        return result
+
+    def _invoke(
+        self,
+        tool_name: str,
+        arguments: dict[str, JsonValue],
+        *,
+        argument_sources: tuple[ArgumentSource, ...],
+        tool_contract_version: str,
     ) -> OfficeToolResult:
         invocation = self._new_invocation(
             tool_name,
@@ -361,6 +402,14 @@ class OfficeV2ToolRuntime:
                 )
             output = definition.execute(self, parsed, transaction)
             transition = transaction.commit() if transaction is not None else None
+        except WorkspaceFileSystemError:
+            # The bytes the Agent reads and the state the Episode is scored on have come apart.
+            # That is not a failed call to report and move past: from here the Episode is no
+            # longer about the world it is scored in, so it stops.
+            if transaction is not None:
+                with suppress(Exception):
+                    transaction.rollback("workspace-integrity-error")
+            raise
         except ToolRejected as exc:
             if transaction is not None:
                 transition = transaction.rollback(exc.code.value)
@@ -498,6 +547,61 @@ class OfficeV2ToolRuntime:
         self, resources: tuple[ResourceRef, ...]
     ) -> tuple[ObservedResource, ...]:
         return tuple(self.visible_resource(item) for item in resources)
+
+    def workspace_file(self, path: str) -> WorkspaceFile:
+        """The file at `path`, with its bytes proved against the disk copy.
+
+        The state decides what the workspace holds; when a real root is attached, the disk is
+        what the Agent actually reads.  Neither is trusted over the other -- trusting the state
+        would make "the Agent read a file" a figure of speech again, and trusting the disk would
+        allow a run to be scored against a world the Agent never inhabited.
+        """
+
+        file = next(
+            (item for item in self.state.domain_graph.workspace.files if item.path == path),
+            None,
+        )
+        if file is None:
+            raise ToolRejected(
+                ToolFailureCode.RESOURCE_NOT_FOUND_OR_HIDDEN,
+                resource=ResourceRef(kind=ResourceKind.WORKSPACE_FILE, resource_id=path),
+            )
+        if self.workspace_files is not None:
+            on_disk = self.workspace_files.read(path)
+            if on_disk != file.content:
+                raise WorkspaceFileSystemError(
+                    f"the workspace file on disk disagrees with the state: {path!r}"
+                )
+        return file
+
+    def sync_workspace_files(self) -> int:
+        """Bring the disk into line with the state, if anything moved since the last call."""
+
+        if self.workspace_files is None:
+            return 0
+        digest = self.state.canonical_digest()
+        if digest == self._synced_workspace_digest:
+            return 0
+        touched = self.workspace_files.sync(self.state.domain_graph.workspace.files)
+        self._synced_workspace_digest = digest
+        return touched
+
+    def verify_workspace_files(self) -> str | None:
+        """Prove every workspace file on disk still equals the state; return the tree digest.
+
+        The per-read check covers the files the Agent opened.  This covers the ones it did not,
+        and it is what an Episode records about the workspace it left behind.
+        """
+
+        if self.workspace_files is None:
+            return None
+        for file in self.state.domain_graph.workspace.files:
+            on_disk = self.workspace_files.read(file.path)
+            if on_disk != file.content:
+                raise WorkspaceFileSystemError(
+                    f"the workspace file on disk disagrees with the state: {file.path!r}"
+                )
+        return self.workspace_files.tree_digest()
 
     def resolve_principal(self, value: str) -> str:
         normalized = value.casefold()

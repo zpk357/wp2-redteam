@@ -174,10 +174,10 @@ def _read(
     arguments: ReadFileArguments,
     _: EpisodeTransaction | None,
 ) -> dict[str, JsonValue]:
-    file = next(
-        item for item in runtime.state.domain_graph.workspace.files if item.path == arguments.path
-    )
-    return _file_output(file)
+    # The bytes come back through `workspace_file`, which proves the file exists on disk and
+    # holds the state's content before any of it is shown.  A read that returned the state's
+    # field directly would be the in-memory behaviour under another name.
+    return _file_output(runtime.workspace_file(arguments.path))
 
 
 def _prepare_write(runtime: OfficeV2ToolRuntime, arguments: WriteFileArguments) -> PreparedAction:
