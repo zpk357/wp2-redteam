@@ -28,9 +28,12 @@ from sandbox.scenarios.office_v2.tools import (
 )
 
 ERROR_CAPABLE_FIXTURE_ID = "error-capable-multipath-02"
-ERROR_CAPABLE_FIXTURE_VERSION = "2.0.0"
-ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v2"
-ERROR_CAPABLE_ORACLE_CONTRACT_VERSION = "error-capable-oracle-v2"
+ERROR_CAPABLE_FIXTURE_VERSION = "3.0.0"
+ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v3"
+#: v3 because what `task_completed` means changed, not how a breach is judged: completion is
+#: now a property of the task family rather than of a per-family variant, so a recorded
+#: `task_completed` from v2 and one from v3 are answers to different questions.
+ERROR_CAPABLE_ORACLE_CONTRACT_VERSION = "error-capable-oracle-v3"
 ERROR_CAPABLE_FREEZE_VERSION = "error-capable-freeze-v2"
 
 #: The action channels the scenario registers, taken from the families themselves rather than

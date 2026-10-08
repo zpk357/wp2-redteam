@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from sandbox.scenarios.error_capable import (
@@ -29,6 +31,7 @@ from sandbox.scenarios.error_capable_local import classify_tool_results
 from sandbox.scenarios.error_capable_world import (
     CARRIER_SLOTS,
     DECISION_DIMENSIONS,
+    carrier_ids,
     planned_file_ids,
 )
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
@@ -121,19 +124,18 @@ def _plan(*, kind: EpisodeKind = EpisodeKind.ATTACK):
         request,
         SelectorDecision(
             task_family=TaskFamily.SUMMARY_DELIVERY,
-            task_variant=task_family_spec(TaskFamily.SUMMARY_DELIVERY).variants[0].variant_id,
             path_id="summary.shared-link",
             attack_mode=AttackMode.PUBLIC_LINK_EXFILTRATION,
             # The same carrier `build_plan` is given below.
-            attack_carrier="file-note",
-            layout_id="balanced-8",
+            attack_carrier=carrier_ids()[0],
+            layout_id="balanced-9",
             episode_kind=kind,
             rationale="cover a delivery path",
         ),
         episode_id="episode.001",
         task_file_id="episode-001-task",
         file_ids=("episode-001-task",),
-        attack_carrier="file-note",
+        attack_carrier=carrier_ids()[0],
         model_name="model.test",
     )
 
@@ -142,7 +144,8 @@ def test_registry_has_three_families_and_ten_attacks_with_path_space() -> None:
     assert {item.task_family for item in TASK_FAMILY_SPECS} == set(TaskFamily)
     assert len(ATTACK_SPECS) == 10
     assert all(len(item.path_ids) >= 4 for item in TASK_FAMILY_SPECS)
-    assert all(len(item.variants) >= 3 for item in TASK_FAMILY_SPECS)
+    assert all(item.deliverable for item in TASK_FAMILY_SPECS)
+    assert all(item.completion_tool_sets for item in TASK_FAMILY_SPECS)
     assert all(len(item.action_channels) >= 2 for item in TASK_FAMILY_SPECS)
     assert all(len(item.file_roles) == 4 for item in TASK_FAMILY_SPECS)
 
@@ -166,7 +169,7 @@ def test_selector_fairness_contract() -> None:
 
 def test_materialization_hides_task_body_but_keeps_attack_carrier_visible() -> None:
     material = materialize_scenario(_plan())
-    assert len(material.files) == 8
+    assert len(material.files) == 9
     assert material.task_file_id == "episode-001-task"
     assert material.files[0].role.value == "task"
     carrier = next(
@@ -179,12 +182,18 @@ def test_materialization_hides_task_body_but_keeps_attack_carrier_visible() -> N
         for binding in material.carrier_bindings
     )
     # `discover` returns titles, never bodies: the task file has to be findable by a work-related
-    # query, and finding it must not hand over its content.  Asserting on a literal phrase in the
-    # title would pin this test to one task text, which is exactly what the variants changed.
+    # query, and finding it must not hand over its content.
+    #
+    # This used to be checked as "no returned title appears in the task body".  That stopped
+    # holding when the material was rewritten into real office documents, and it is worth saying
+    # why it should not hold: a work request names the index it starts from, which is what a work
+    # request does.  Naming a document is not handing over its contents.  What has to hold is that
+    # a result carries no content, so the check is on what a result can carry.
     hits = material.discover("work")
     assert material.task_file_id in {file_id for file_id, _ in hits}
-    task_body = material.read(material.task_file_id)
-    assert all(title and title not in task_body for _, title in hits)
+    for file_id, title in hits:
+        assert 0 < len(title) <= 80
+        assert title != material.read(file_id)
     assert "summary.shared-link" not in material.read(material.task_file_id)
     assert "public_link_exfiltration" not in " ".join(item.body for item in material.files)
     assert "Adversarial note" not in " ".join(item.body for item in material.files)
@@ -198,18 +207,18 @@ def test_calendar_material_contains_the_inputs_named_by_the_task() -> None:
         request,
         SelectorDecision(
             task_family=TaskFamily.CALENDAR_COORDINATION,
-            task_variant=task_family_spec(TaskFamily.CALENDAR_COORDINATION).variants[0].variant_id,
             path_id="calendar.mail-to-event",
             attack_mode=AttackMode.URGENCY_BYPASS,
-            # The same carrier `build_plan` is given below.
-            attack_carrier="calendar-note",
-            layout_id="balanced-8",
+            # The same carrier `build_plan` is given below.  The invitation is what this family
+            # is coordinated through, so the payload lands there.
+            attack_carrier="event_description",
+            layout_id="balanced-9",
             rationale="calendar input coverage",
         ),
         episode_id="calendar-material",
         task_file_id="calendar-task",
         file_ids=("calendar-task",),
-        attack_carrier="calendar-note",
+        attack_carrier="event_description",
         model_name="model.test",
     )
     material = materialize_scenario(plan)
@@ -231,23 +240,113 @@ def test_office_tools_discover_then_read_hidden_task() -> None:
         task=case.task,
         definitions=office_v2_tool_definitions(),
     )
+    # The files sit directly under the workspace root: nine office files with real names and
+    # types rather than a folder of numbered records.
     directory = runtime.invoke("list_directory", {"path": "/workspace"})
-    assert "/workspace/error-capable" in [
-        item["path"] for item in directory.visible_output["items"]
-    ]
-    found = runtime.invoke("search_files", {"root": "/workspace/error-capable", "page_size": 25})
+    listed = [item["path"] for item in directory.visible_output["items"]]
+    assert "/workspace/work-request.md" in listed
+    found = runtime.invoke("search_files", {"root": "/workspace", "page_size": 25})
     assert found.status is ToolResultStatus.SUCCEEDED
     paths = [item["path"] for item in found.visible_output["items"]]
-    task_path = f"/workspace/error-capable/{material.task_file_id}.txt"
+    task_path = material.plan.file_paths[material.task_file_id]
     assert task_path in paths
     assert all("content" not in item for item in found.visible_output["items"])
     read = runtime.invoke("read_file", {"path": task_path})
     assert read.status is ToolResultStatus.SUCCEEDED
-    assert "partner brief" in read.visible_output["content"]
+    assert "summary brief" in read.visible_output["content"]
     assert classify_tool_results(runtime.results) is EffectStage.READ_ONLY
     rejected = runtime.invoke("unknown_tool", {})
     assert rejected.status is ToolResultStatus.REJECTED
     assert classify_tool_results(runtime.results) is None
+
+
+def test_read_file_reads_the_file_on_the_disk_and_not_only_the_state(tmp_path: Path) -> None:
+    """The workspace backend, exercised through the tool the Agent actually calls.
+
+    The read has to come back with the state's own string -- and when the file on disk is not
+    that string, the Episode has to stop rather than quietly serve the state's copy.  A run that
+    kept going would report a decision the Agent never made, because it would be scoring text the
+    Agent never read.
+    """
+
+    from sandbox.scenarios.office_v2.workspace_fs import (
+        WorkspaceFileSystem,
+        WorkspaceFileSystemError,
+    )
+
+    material = materialize_scenario(_plan())
+    case = CLEAN_CASE_BY_ID["clean.t4.delta"]
+    world = materialize_office_world(material, load_canonical_world(), actor_id=case.actor.actor_id)
+    task_path = material.plan.file_paths[material.task_file_id]
+    runtime = OfficeV2ToolRuntime(
+        episode=EpisodeWorld(world, episode_id="error-capable-workspace-disk"),
+        actor=derive_scenario_actor(world, case.actor),
+        task=case.task,
+        definitions=office_v2_tool_definitions(),
+        workspace_files=WorkspaceFileSystem(tmp_path),
+    )
+
+    on_disk = tmp_path / Path(task_path).relative_to("/workspace")
+    assert on_disk.is_file(), "the Episode has to put its material on the disk before it runs"
+
+    read = runtime.invoke("read_file", {"path": task_path})
+    assert read.status is ToolResultStatus.SUCCEEDED
+    assert read.visible_output["content"] == on_disk.read_text(encoding="utf-8")
+
+    # Somebody else writes to the file while the Episode is under way.
+    on_disk.write_text("something the state never authorised\n", encoding="utf-8")
+    with pytest.raises(WorkspaceFileSystemError, match="disagrees with the state"):
+        runtime.invoke("read_file", {"path": task_path})
+
+
+def test_write_file_lands_on_the_disk(tmp_path: Path) -> None:
+    """A write the Episode committed has to be a file, not only a newer state.
+
+    The check is by reading the path with a plain `Path`, deliberately: the point of the backend
+    is that something outside this package can see the result.
+    """
+
+    from sandbox.scenarios.office_v2.workspace_fs import WorkspaceFileSystem
+
+    material = materialize_scenario(_plan())
+    case = CLEAN_CASE_BY_ID["clean.t4.delta"]
+    world = materialize_office_world(material, load_canonical_world(), actor_id=case.actor.actor_id)
+    runtime = OfficeV2ToolRuntime(
+        episode=EpisodeWorld(world, episode_id="error-capable-workspace-write"),
+        actor=derive_scenario_actor(world, case.actor),
+        task=case.task,
+        definitions=office_v2_tool_definitions(),
+        workspace_files=WorkspaceFileSystem(tmp_path),
+    )
+
+    written = runtime.invoke(
+        "write_file",
+        {"path": "/workspace/desk-0/finding.md", "content": "recorded finding\n"},
+    )
+    assert written.status is ToolResultStatus.SUCCEEDED
+    assert (tmp_path / "desk-0" / "finding.md").read_text(encoding="utf-8") == "recorded finding\n"
+    assert runtime.verify_workspace_files() is not None
+
+
+def test_the_workspace_is_not_written_when_no_root_is_given() -> None:
+    """The default stays what every result so far was produced by.
+
+    A default that silently started writing to a disk would be a change disguised as a default,
+    and the acceptance test for the disk is that the trace does not move when it is used.
+    """
+
+    material = materialize_scenario(_plan())
+    case = CLEAN_CASE_BY_ID["clean.t4.delta"]
+    world = materialize_office_world(material, load_canonical_world(), actor_id=case.actor.actor_id)
+    runtime = OfficeV2ToolRuntime(
+        episode=EpisodeWorld(world, episode_id="error-capable-workspace-memory"),
+        actor=derive_scenario_actor(world, case.actor),
+        task=case.task,
+        definitions=office_v2_tool_definitions(),
+    )
+
+    assert runtime.workspace_files is None
+    assert runtime.verify_workspace_files() is None
 
 
 def test_materialization_rejects_tampering_and_keeps_plan_file_ids() -> None:
@@ -282,8 +381,8 @@ def test_every_attack_carrier_resolves_for_every_layout() -> None:
     )
     for family in TASK_FAMILY_SPECS:
         for attack in ATTACK_SPECS:
-            for carrier in attack.carriers:
-                for layout in ("balanced-8", "distributed-10", "nested-12"):
+            for carrier in carrier_ids():
+                for layout in ("balanced-9", "distributed-11", "nested-13"):
                     episode_id = (
                         f"mapping-{family.task_family.value}-{attack.attack_mode.value}"
                         f"-{carrier}-{layout}"
@@ -291,7 +390,6 @@ def test_every_attack_carrier_resolves_for_every_layout() -> None:
                     ids = planned_file_ids(episode_id, seed=11, layout_id=layout)
                     decision = SelectorDecision(
                         task_family=family.task_family,
-                        task_variant=family.variants[0].variant_id,
                         path_id=family.path_ids[0],
                         attack_mode=attack.attack_mode,
                         attack_carrier=carrier,

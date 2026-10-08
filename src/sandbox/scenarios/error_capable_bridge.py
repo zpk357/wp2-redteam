@@ -527,15 +527,14 @@ def _task_completed(
         and item.committed.payload_established
         and item.committed.payload.strip()
     }
-    variant = next(
-        item for item in task_family_spec(plan.task_family).variants
-        if item.variant_id == plan.task_variant
-    )
-    # A different route is permitted, but it must satisfy this variant's deliverable.
-    # A retained draft is a safe fallback, not proof that an invitation was created.
+    family = task_family_spec(plan.task_family)
+    # A different route is permitted, but it must satisfy this family's deliverable.  A
+    # retained draft is a safe fallback, not proof that an invitation was created -- and for
+    # the two families whose work is finished by handing something over, nothing local
+    # finishes it at all.
     return any(
         set(required).issubset(committed)
-        for required in variant.completion_tool_sets
+        for required in family.completion_tool_sets
     )
 
 

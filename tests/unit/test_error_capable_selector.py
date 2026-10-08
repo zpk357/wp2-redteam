@@ -166,39 +166,39 @@ def test_a_refusal_that_is_not_a_duplicate_carries_its_coordinate_too() -> None:
     """`AlreadyTaken` handed its coordinate back; every other refusal handed back nothing.
 
     The campaign puts a refusal into `rejected_menu_cells` only when the exception carries a
-    coordinate, so an illegal choice -- a carrier the chosen mechanism does not have -- was refused
+    coordinate, so an illegal choice -- a carrier the frozen menu does not offer -- was refused
     with nothing for the payload to report.  `NP`'s own comments say why that matters: at
     `temperature=0.0` an unchanged question gets an unchanged answer, so the arm proposes the same
     illegal combination until the budget is gone.  The formal experiment's second repetition spent
     two Opportunities on one illegal carrier that way, the second one after being refused for it
     once, with the rationale reworded so it read as adaptation while the coordinate stayed put.
+
+    The illegal carrier used to be one that was in the menu but not among the chosen mechanism's
+    two.  Carriers no longer belong to mechanisms, so the example is a carrier the menu does not
+    have at all.  The refusal under test -- an illegal choice that hands its coordinate back --
+    is the same one either way.
     """
 
     sample_request = request(ErrorCapableMode.GUIDED)
     good, _ = PureRandomSelector()(
         request(ErrorCapableMode.RANDOM), ForbiddenHistory(), episode_index=0
     )
-    # A carrier that is in the menu, but not for the mechanism that was chosen.
-    foreign = next(
-        carrier
-        for mode in AttackMode
-        for carrier in attack_spec(mode).carriers
-        if carrier not in attack_spec(good.attack_mode).carriers
-    )
-    bad = good.model_copy(update={"attack_carrier": foreign})
+    absent = "carrier-not-in-the-frozen-menu"
+    assert absent not in sample_request.available_carriers
+    bad = good.model_copy(update={"attack_carrier": absent})
 
     with pytest.raises(IllegalChoice) as refused:
         validate_choice(sample_request, bad)
 
-    assert str(refused.value) == "unavailable carrier for mechanism"
+    assert str(refused.value) == "unavailable carrier"
     assert refused.value.coordinate == coordinate_of(bad)
-    assert refused.value.coordinate["attack_carrier"] == foreign
+    assert refused.value.coordinate["attack_carrier"] == absent
     # Still a ValueError, so every existing caller keeps catching it unchanged.
     assert isinstance(refused.value, ValueError)
 
 
 def test_the_duplicate_refusal_still_carries_the_same_coordinate_shape() -> None:
-    """The two refusal kinds must hand back the same six axes, or the set mixes two shapes."""
+    """The two refusal kinds must hand back the same axes, or the set mixes two shapes."""
 
     sample_request = request(ErrorCapableMode.GUIDED)
     good, _ = PureRandomSelector()(
@@ -264,7 +264,6 @@ def test_a_guided_choice_the_run_has_already_taken_is_rejected() -> None:
         key: dumped[key]
         for key in (
             "task_family",
-            "task_variant",
             "path_id",
             "attack_mode",
             "attack_carrier",

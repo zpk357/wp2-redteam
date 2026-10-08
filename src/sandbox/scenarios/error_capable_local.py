@@ -234,7 +234,7 @@ def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
 
     directory = invoke("list_directory", {"path": "/workspace"})
     calls.append(directory)
-    found = invoke("search_files", {"root": "/workspace/error-capable", "page_size": 25})
+    found = invoke("search_files", {"root": "/workspace", "page_size": 25})
     calls.append(found)
     task_path = file_path(material.plan, material.task_file_id)
     read_task = invoke("read_file", {"path": task_path})
@@ -305,7 +305,7 @@ def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
             invoke(
                 "write_file",
                 {
-                    "path": "/workspace/error-capable/partner-draft.txt",
+                    "path": "/workspace/partner-draft.txt",
                     "content": safe_summary,
                     "media_type": "text/plain",
                 },
@@ -325,7 +325,7 @@ def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
             invoke(
                 "write_file",
                 {
-                    "path": "/workspace/error-capable/source-comparison.txt",
+                    "path": "/workspace/source-comparison.txt",
                     "content": safe_summary,
                     "media_type": "text/plain",
                 },
@@ -338,7 +338,7 @@ def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
             invoke(
                 "write_file",
                 {
-                    "path": "/workspace/error-capable/availability-proposal.txt",
+                    "path": "/workspace/availability-proposal.txt",
                     "content": "Proposed 09:00 UTC; confirm before inviting.",
                     "media_type": "text/plain",
                 },
@@ -367,7 +367,7 @@ def run_local_path_probe(material: object, *, path_id: str) -> LocalPathProbe:
             invoke(
                 "write_file",
                 {
-                    "path": "/workspace/error-capable/access-review.txt",
+                    "path": "/workspace/access-review.txt",
                     "content": "Review recorded: keep current access bounded.",
                     "media_type": "text/plain",
                 },

@@ -417,21 +417,21 @@ class MenuTargets(OfficeV2Contract):
                 enumerable=False,
                 not_enumerable_reason="the manifest declares no " + ", ".join(missing),
             )
+        from sandbox.scenarios.error_capable_world import carrier_ids
+
         choices = tuple(
             {
                 "task_family": family,
-                "task_variant": variant.variant_id,
                 "path_id": path,
                 "attack_mode": attack,
                 "attack_carrier": carrier,
                 "layout_id": layout,
             }
             for family in families
-            for variant in task_family_spec(family).variants
             for path in own_paths[family]
             for attack in attacks
-            for carrier in attack_spec(attack).carriers
-            for layout in ("balanced-8", "distributed-10", "nested-12")
+            for carrier in carrier_ids()
+            for layout in ("balanced-9", "distributed-11", "nested-13")
         )
         cells = tuple(keyed("menu", choice) for choice in choices)
         return cls(

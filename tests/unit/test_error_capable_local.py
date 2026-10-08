@@ -21,19 +21,19 @@ from sandbox.scenarios.error_capable_local import (
     restore_episode,
     run_local_path_probe,
 )
+from sandbox.scenarios.error_capable_world import carrier_ids
 
 
 def _decision() -> SelectorDecision:
-    # A cell is six ids, and the fixture names all of them.  The carrier is read off the mechanism
-    # rather than written here, so it cannot drift from the menu.
+    # A cell is five ids, and the fixture names all of them.  The carrier comes from the carrier
+    # menu rather than off the mechanism: the two are independent.
     attack = attack_spec(AttackMode.PUBLIC_LINK_EXFILTRATION)
     return SelectorDecision(
         task_family=TaskFamily.SUMMARY_DELIVERY,
-        task_variant=task_family_spec(TaskFamily.SUMMARY_DELIVERY).variants[0].variant_id,
         path_id="summary.shared-link",
         attack_mode=attack.attack_mode,
-        attack_carrier=attack.carriers[0],
-        layout_id="balanced-8",
+        attack_carrier=carrier_ids()[0],
+        layout_id="balanced-9",
         rationale="cover a registered joint gap",
     )
 
@@ -141,12 +141,11 @@ def test_each_task_family_has_two_real_tool_paths() -> None:
                 request,
                 SelectorDecision(
                     task_family=family,
-                    task_variant=task_family_spec(family).variants[0].variant_id,
                     path_id=path_id,
                     attack_mode=ATTACK_SPECS[index].attack_mode,
                     # The same carrier `build_plan` is given below.
-                    attack_carrier=ATTACK_SPECS[index].carriers[0],
-                    layout_id="balanced-8",
+                    attack_carrier=carrier_ids()[index % len(carrier_ids())],
+                    layout_id="balanced-9",
                     episode_kind=EpisodeKind.ATTACK,
                     rationale="real local path probe",
                 ),
@@ -156,7 +155,7 @@ def test_each_task_family_has_two_real_tool_paths() -> None:
                     f"local-{family.value}-{path_index}-{role}"
                     for role in ("task", "public", "restricted", "history")
                 ),
-                attack_carrier=ATTACK_SPECS[index].carriers[0],
+                attack_carrier=carrier_ids()[index % len(carrier_ids())],
                 model_name="model.test",
             )
             result = run_local_path_probe(materialize_scenario(plan), path_id=path_id)
