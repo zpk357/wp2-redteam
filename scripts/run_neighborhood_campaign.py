@@ -23,6 +23,7 @@ import argparse
 import asyncio
 import json
 import sys
+from contextlib import suppress
 from pathlib import Path
 
 _HERE = Path(__file__).resolve()
@@ -30,7 +31,7 @@ for _candidate in (_HERE.parent, _HERE.parents[1] / "src", _HERE.parents[1] / "a
     if str(_candidate) not in sys.path:
         sys.path.insert(0, str(_candidate))
 
-from probe_error_capable_agent import _ollama_adapter  # noqa: E402
+from probe_error_capable_agent import _ollama_adapter, ollama_model_options  # noqa: E402
 
 from sandbox.scenarios.error_capable import (  # noqa: E402
     ATTACK_SPECS,
@@ -43,6 +44,7 @@ from sandbox.scenarios.error_capable_campaign import (  # noqa: E402
     compare_arms,
     run_campaign,
 )
+from sandbox.scenarios.error_capable_executor import InProcessExecutor  # noqa: E402
 from sandbox.scenarios.error_capable_identity import ModelIdentity  # noqa: E402
 from sandbox.scenarios.error_capable_registry import (  # noqa: E402
     ERROR_CAPABLE_FIXTURE_ID,
@@ -78,6 +80,95 @@ def base_seed(stage: str, repeat: int) -> int:
     return table[repeat - 1]
 
 
+#: The mount every sandbox container already has: a writable tmpfs owned by the container's own
+#: uid.  Naming it is the whole of what putting the workspace on a disk requires -- no extra
+#: mount, and no privilege the sandbox does not already grant.
+CONTAINER_WORKSPACE_ROOT = "/workspace"
+
+
+def _build_executor(args: argparse.Namespace, *, adapter: object, identity: ModelIdentity) -> object:
+    """Where the Episodes run, as a decision the invocation has to state.
+
+    Defaulted to the in-process, in-memory path so that nothing changes by being invoked without
+    arguments.  A container run has to name an image, because the image is now part of the
+    campaign identity -- a defaulted image would be a run whose environment nobody chose.
+    """
+
+    if args.executor == "in-process":
+        return InProcessExecutor(
+            adapter=adapter,
+            model_identity=identity,
+            write_workspace=args.workspace == "directory",
+        )
+
+    from sandbox.client.runtime_client import RuntimeClient
+    from sandbox.config import SandboxConfig, SandboxLimits, TraceConfig
+    from sandbox.protocol import ModelOptions, ModelProvider
+    from sandbox.scheduler.docker_scheduler import DockerSandboxScheduler
+    from sandbox.scenarios.error_capable_runner import ErrorCapableContainerRunner
+
+    model = (
+        ModelOptions(provider=ModelProvider.FAKE, model_name=args.model)
+        if args.adapter == "fake"
+        else ollama_model_options(args)
+    )
+    config = SandboxConfig(
+        image=args.image,
+        # `none` for the fake provider: a contract run has no reason to reach a network, and a
+        # sandbox that does not open one is a sandbox with less to explain.
+        network_mode="none" if args.adapter == "fake" else args.network_mode,
+        startup_timeout_seconds=args.startup_timeout_seconds,
+        execution_timeout_seconds=args.timeout,
+        limits=SandboxLimits(
+            memory_limit=args.memory_limit,
+            nano_cpus=int(float(args.cpus) * 1_000_000_000),
+            pids_limit=args.pids_limit,
+            tmpfs_size=args.tmpfs_size,
+        ),
+        gpu_device=args.gpu_device,
+        ollama_endpoint=args.endpoint if args.adapter == "ollama" else None,
+    )
+    return ErrorCapableContainerRunner(
+        scheduler=DockerSandboxScheduler(config),
+        runtime=RuntimeClient(TraceConfig(output_dir=Path(args.root) / "container-traces")),
+        image=args.image,
+        model=model,
+        model_identity=identity,
+        adapter_version=getattr(adapter, "version", None) or "unknown",
+        timeout_seconds=args.timeout,
+        limits=config.limits,
+        container_workspace_root=CONTAINER_WORKSPACE_ROOT,
+        run_root=_container_run_root(args),
+    )
+
+
+def _container_run_root(args: argparse.Namespace) -> tuple[Path, str] | None:
+    """The host directory to bind into each container, and where it appears inside.
+
+    `--container-journal none` runs without one.  A journal is what a hard kill is recovered
+    from, and a container's own tmpfs cannot serve: the kill takes the mount with it.  A bind
+    mount of a directory that outlives the container is the whole mechanism, which is why the
+    two are configured together rather than apart.
+
+    The directory has to be writable by uid 10001, which is what the container runs as and is
+    not this process.  The mode is widened here rather than assumed, and the container will
+    still fail loudly on the first checkpoint if the filesystem does not honour it -- a journal
+    that silently never gets written is the failure this whole arrangement exists to avoid.
+    """
+
+    if args.container_journal == "none":
+        return None
+    host_root = Path(args.root) / "container-run-root"
+    host_root.mkdir(parents=True, exist_ok=True)
+    with suppress(OSError):
+        host_root.chmod(0o777)
+    return host_root, CONTAINER_RUN_ROOT
+
+
+#: Where the bound run root appears inside the container.
+CONTAINER_RUN_ROOT = "/run-root"
+
+
 async def _run(args: argparse.Namespace) -> dict[str, object]:
     fixture = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
     seed = base_seed(args.stage, args.repeat)
@@ -110,6 +201,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
     stage_root = Path(args.root) / args.stage / f"rep-{args.repeat:02d}"
     stage_root.mkdir(parents=True, exist_ok=True)
     order = arm_order(args.repeat)
+    executor = _build_executor(args, adapter=adapter, identity=identity)
 
     reports: dict[str, object] = {}
     for position, arm in enumerate(order):
@@ -145,6 +237,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             seed=seed,
             max_tool_requests=args.max_tool_requests,
             journal_root=arm_root,
+            executor=executor,
         )
         reports[arm] = report
         (stage_root / f"{arm}-campaign.json").write_text(
@@ -169,6 +262,9 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
         "adapter": args.adapter,
         "adapter_version": adapter.version,
         "evidence_kind": evidence_kind,
+        # Where these Episodes ran, in the pair summary rather than only inside each report:
+        # a reader comparing two pairs has to be able to see that both were run the same way.
+        "execution_environment": executor.environment.identity_payload(),
         "model_identity": identity.model_dump(mode="json"),
         "fixture_id": fixture.fixture_id,
         "fixture_freeze_digest": fixture.freeze_digest,
@@ -209,6 +305,21 @@ def main() -> int:
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--num-ctx", type=int, default=12288)
     parser.add_argument("--num-predict", type=int, default=1024)
+    parser.add_argument("--executor", choices=("in-process", "container"), default="in-process")
+    #: `memory` is what every result so far was produced by; `directory` writes the workspace out
+    #: and reads it back, which is how a host run is put on the same terms as a container one.
+    parser.add_argument("--workspace", choices=("memory", "directory"), default="memory")
+    parser.add_argument("--image", default="error-capable:local")
+    parser.add_argument("--network-mode", default="bridge")
+    parser.add_argument("--gpu-device", default=None)
+    parser.add_argument("--startup-timeout-seconds", type=float, default=60.0)
+    parser.add_argument("--memory-limit", default="512m")
+    parser.add_argument("--cpus", default="1.0")
+    parser.add_argument("--pids-limit", type=int, default=128)
+    parser.add_argument("--tmpfs-size", default="64m")
+    #: `mount` binds a run root into every container so an Episode's journal survives the
+    #: container; `none` runs without one, which is cheaper and is what a contract run wants.
+    parser.add_argument("--container-journal", choices=("mount", "none"), default="mount")
     args = parser.parse_args()
 
     payload = asyncio.run(_run(args))

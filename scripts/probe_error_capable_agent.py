@@ -82,12 +82,18 @@ def _plan_for(family_index: int, path_index: int, episode_id: str):
     return plan, materialize_scenario(plan)
 
 
-def _ollama_adapter(args: argparse.Namespace):
-    from app.agent.ollama_react_provider import OllamaReactProvider
+def ollama_model_options(args: argparse.Namespace):
+    """The sealed inference options an Ollama run is defined by.
+
+    Public because a container run needs the same options without needing the provider: the
+    host builds the request and the container builds the provider, and both have to be
+    describing the same run.  Two copies of this would be two places to keep `temperature` at
+    zero in.
+    """
 
     from sandbox.protocol import ModelOptions, ModelProvider, seal_model_inference_options
 
-    options = ModelOptions(
+    return ModelOptions(
         provider=ModelProvider.OLLAMA,
         model_name=args.model,
         endpoint=args.endpoint,
@@ -104,7 +110,12 @@ def _ollama_adapter(args: argparse.Namespace):
             source_config_digest="sha256:" + "0" * 64,
         ),
     )
-    return OllamaReactProvider(options)
+
+
+def _ollama_adapter(args: argparse.Namespace):
+    from app.agent.ollama_react_provider import OllamaReactProvider
+
+    return OllamaReactProvider(ollama_model_options(args))
 
 
 async def _run(args: argparse.Namespace) -> dict[str, object]:

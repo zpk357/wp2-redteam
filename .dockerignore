@@ -10,8 +10,23 @@
 **/__pycache__
 *.py[cod]
 *.egg-info
-data
 docs
 reports
 tests
 agent_variants/deepseek_harness/node_modules
+
+# `data/` is mostly baseline worlds the image does not need, but the frozen structured-v1
+# freeze manifest is a build input: `agent_image/Dockerfile` copies it, and the documented
+# build command points at it as `data/structured-v1/freeze-manifest.json`.
+#
+# A single `!data/structured-v1/freeze-manifest.json` would not work.  Docker does not
+# re-include a path inside an excluded directory, so excluding `data` outright makes that file
+# invisible and the documented command fails with "file not found in build context".  The
+# exclusion therefore has to be opened one level at a time, which is what the next four lines
+# do.  It used to be a plain `data`, and the workaround was a second copy of the manifest under
+# `agent_image/` -- two files that had to be kept identical by hand, which is the drift this
+# avoids.
+data/*
+!data/structured-v1
+data/structured-v1/*
+!data/structured-v1/freeze-manifest.json
