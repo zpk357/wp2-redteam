@@ -77,6 +77,9 @@ class ErrorCapableAdapter(AgentAdapter):
                 model_identity=ModelIdentity.model_validate(run.payload["model_identity"]),
                 seed=run.plan.seed,
                 max_tool_requests=int(run.payload["max_tool_requests"]),
+                # The host's number, checked by the surface before the Episode is reached.  Not a
+                # default here: the budget is part of what the run is.
+                max_continuations=run.max_continuations,
                 actor_case=str(run.payload["actor_case"]),
                 drop_capabilities=tuple(str(item) for item in run.payload["drop_capabilities"]),
                 journal=store,

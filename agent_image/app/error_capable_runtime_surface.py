@@ -40,7 +40,7 @@ from app.adapter.base import AdapterConfigurationError
 
 #: The payload shape this image understands.  A host that sends another one is refused
 #: rather than read for whatever fields happen to line up.
-SUPPORTED_PAYLOAD_VERSION = "error-capable-execution-v2"
+SUPPORTED_PAYLOAD_VERSION = "error-capable-execution-v3"
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,9 @@ class ErrorCapableRun:
     #: The directory the workspace material is written to, as this container sees it, or None to
     #: keep the workspace in the state object alone.
     workspace_root: str | None = None
+    #: The Agent's silent-turn budget for this Episode, as the host set it.  Required, so a host
+    #: that did not decide one cannot be run with a value this image happened to default to.
+    max_continuations: int = 0
 
     @property
     def episode_id(self) -> str:
@@ -141,12 +144,23 @@ def build_error_capable_run(
         f"the workspace root is not an absolute container path: {workspace_root!r}",
     )
 
+    # 5. The silent-turn budget.  Checked as a claim about this request, for the reason the
+    # version moved: a container that quietly substituted its own default would run a different
+    # Episode from the one the host recorded, and nothing downstream would say so.
+    continuations = payload.get("max_continuations")
+    _require(
+        isinstance(continuations, int) and not isinstance(continuations, bool) and continuations >= 0,
+        "error_capable_configuration_error",
+        f"the payload carries no usable max_continuations: {continuations!r}",
+    )
+
     return ErrorCapableRun(
         payload=payload,
         fixture=fixture,
         plan=plan,
         material=material,
         workspace_root=workspace_root,
+        max_continuations=continuations,
     )
 
 

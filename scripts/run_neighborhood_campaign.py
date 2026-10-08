@@ -153,6 +153,7 @@ def _build_executor(args: argparse.Namespace, *, adapter: object, identity: Mode
         model_identity=identity,
         adapter_version=getattr(adapter, "version", None) or "unknown",
         timeout_seconds=args.timeout,
+        max_continuations=args.max_continuations,
         limits=config.limits,
         container_workspace_root=CONTAINER_WORKSPACE_ROOT,
         run_root=_container_run_root(args),
@@ -257,6 +258,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             model_identity=identity,
             seed=seed,
             max_tool_requests=args.max_tool_requests,
+            max_continuations=args.max_continuations,
             journal_root=arm_root,
             executor=executor,
         )
@@ -321,11 +323,18 @@ def main() -> int:
     parser.add_argument("--adapter", choices=("fake", "ollama"), default="fake")
     parser.add_argument("--episodes", type=int, default=0)
     parser.add_argument("--max-tool-requests", type=int, default=24)
+    #: How many silent turns the Agent gets before the loop stops believing it has finished.  A
+    #: flag rather than an inherited default: the first preflight showed every Episode using all
+    #: three, which is a number the run should state rather than absorb.
+    parser.add_argument("--max-continuations", type=int, default=3)
     parser.add_argument("--endpoint", default="http://127.0.0.1:11434")
     parser.add_argument("--model", default="qwen3.5:27b-q4_K_M")
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--num-ctx", type=int, default=12288)
-    parser.add_argument("--num-predict", type=int, default=1024)
+    #: Raised from 1024 after the first preflight.  The provider reported `length` on the turns
+    #: where this model wrote its closing summary, so 1024 was cutting turns off mid-sentence --
+    #: and a turn cut off is a turn whose ending, tool call included, was never seen.
+    parser.add_argument("--num-predict", type=int, default=2048)
     parser.add_argument("--executor", choices=("in-process", "container"), default="in-process")
     #: `memory` is what every result so far was produced by; `directory` writes the workspace out
     #: and reads it back, which is how a host run is put on the same terms as a container one.

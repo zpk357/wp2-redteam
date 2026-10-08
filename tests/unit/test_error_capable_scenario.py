@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 
 from sandbox.scenarios.error_capable import (
     ATTACK_SPECS,
+    SCENARIO_ACTOR_ID,
     TASK_FAMILY_SPECS,
     AttackMode,
     ContentFact,
@@ -347,6 +349,80 @@ def test_the_workspace_is_not_written_when_no_root_is_given() -> None:
 
     assert runtime.workspace_files is None
     assert runtime.verify_workspace_files() is None
+
+
+#: Anything shaped like a principal id, so the material can be scanned for the names it uses.
+PRINCIPAL_IN_TEXT = re.compile(r"\b(?:user|partner|team|group|external)\.[a-z0-9][a-z0-9_.-]*[a-z0-9]\b")
+
+#: The two places the material puts a principal where the Agent is meant to *use* it rather than
+#: read about it.  A bare word there is what this test exists to catch.
+ATTENDEE_PREFIXES = ("- Attendees:", "ATTENDEE:")
+
+
+@pytest.mark.parametrize("layout_id", ["balanced-9", "distributed-11", "nested-13"])
+@pytest.mark.parametrize("family_index", [0, 1, 2])
+def test_every_principal_the_material_names_exists_in_the_world(
+    family_index: int, layout_id: str
+) -> None:
+    """A name the Agent can read and cannot use is a defect, not a distractor.
+
+    The calendar roster used to read "Attendees: user.maya.chen, reviewer", and the invitation
+    carried `ATTENDEE:reviewer`.  `reviewer` is a word, not an identity: the Agent invited it,
+    the calendar tool refused it as `recipient_not_resolvable`, and the Agent then spent several
+    turns working out why.  Those turns came out of the task and the thing it was recovering
+    from was the scenario.  A distractor is something to judge; this was something to work
+    around.
+
+    Checked on every family and every layout, because the defect was in one family's branch of a
+    body builder and the family that broke was the one the reader happened to look at.
+    """
+
+    family = TASK_FAMILY_SPECS[family_index]
+    episode_id = f"refs.{family.task_family.value}.{layout_id}"
+    file_ids = planned_file_ids(episode_id, seed=7, layout_id=layout_id)
+    plan = build_plan(
+        _request(ErrorCapableMode.RANDOM),
+        SelectorDecision(
+            task_family=family.task_family,
+            path_id=family.path_ids[0],
+            attack_mode=AttackMode.NOTE_REWRITE,
+            attack_carrier=carrier_ids()[0],
+            layout_id=layout_id,
+            rationale="principal resolution",
+        ),
+        episode_id=episode_id,
+        task_file_id=file_ids[0],
+        file_ids=file_ids,
+        attack_carrier=carrier_ids()[0],
+        model_name="model.test",
+        layout_id=layout_id,
+    )
+    material = materialize_scenario(plan)
+    world = materialize_office_world(
+        material, load_canonical_world(), actor_id=SCENARIO_ACTOR_ID
+    )
+    known = {item.principal_id for item in world.state.domain_graph.directory.principals}
+
+    named: set[str] = set()
+    for item in material.files:
+        named.update(PRINCIPAL_IN_TEXT.findall(item.body))
+    assert named, "the material names nobody, so this test is checking nothing"
+    missing = named - known
+    assert not missing, f"material names principals the world does not have: {sorted(missing)}"
+
+    for item in material.files:
+        for line in item.body.splitlines():
+            stripped = line.strip()
+            for prefix in ATTENDEE_PREFIXES:
+                if not stripped.startswith(prefix):
+                    continue
+                entries = stripped[len(prefix) :].replace(",", " ").split()
+                assert entries, f"{prefix} line names nobody: {stripped!r}"
+                for entry in entries:
+                    assert entry in known, (
+                        f"the material puts {entry!r} where an attendee belongs and the world"
+                        f" has no such principal ({item.file_id})"
+                    )
 
 
 def test_materialization_rejects_tampering_and_keeps_plan_file_ids() -> None:

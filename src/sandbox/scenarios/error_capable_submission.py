@@ -35,7 +35,12 @@ from sandbox.scenarios.error_capable_registry import (
 #: would run the Episode in memory and report no workspace tree, which is exactly the wrong
 #: answer delivered successfully.  An image that predates the real workspace must refuse the
 #: request instead.
-ERROR_CAPABLE_EXECUTION_VERSION = "error-capable-execution-v2"
+#:
+#: v3 added `max_continuations`, for the same reason in the other direction: a v2 reader would
+#: not fail on it either, and would silently run every Episode with its own default of three
+#: while the host believed it had set a budget.  A budget the host did not set and the container
+#: did not report is worse than a refusal.
+ERROR_CAPABLE_EXECUTION_VERSION = "error-capable-execution-v3"
 
 
 def error_capable_payload(
@@ -48,6 +53,7 @@ def error_capable_payload(
     model_identity: ModelIdentity,
     adapter_version: str,
     max_tool_requests: int,
+    max_continuations: int,
     actor_case: str = DEFAULT_ACTOR_CASE,
     drop_capabilities: tuple[str, ...] = (),
     journal_root: str | None = None,
@@ -55,6 +61,11 @@ def error_capable_payload(
     workspace_root: str | None = None,
 ) -> dict[str, Any]:
     """The container-facing payload for one Opportunity.
+
+    Both budgets travel.  `max_continuations` used to be neither here nor on the command line: it
+    was a default on `run_agent_episode`, so a container always ran with three whether or not the
+    host had decided three, and the run's configuration could not say what it was.  A budget the
+    specification requires to be frozen has to be a value somebody chose and a reader can find.
 
     `journal_root` is the **container's** view of the run root, not the host's: the
     directory is mounted at the same path on both sides so the journal a container writes
@@ -82,6 +93,7 @@ def error_capable_payload(
         # The seed is the plan's, and the plan is digested: sending it again would create a
         # second copy that could disagree with the one the container verifies.
         "max_tool_requests": max_tool_requests,
+        "max_continuations": max_continuations,
         "actor_case": actor_case,
         "drop_capabilities": list(drop_capabilities),
         "journal_root": journal_root,
@@ -109,6 +121,7 @@ def build_error_capable_request(
     adapter_version: str,
     timeout_seconds: int,
     max_tool_requests: int,
+    max_continuations: int,
     actor_case: str = DEFAULT_ACTOR_CASE,
     drop_capabilities: tuple[str, ...] = (),
     journal_root: str | None = None,
@@ -140,6 +153,7 @@ def build_error_capable_request(
             model_identity=model_identity,
             adapter_version=adapter_version,
             max_tool_requests=max_tool_requests,
+            max_continuations=max_continuations,
             actor_case=actor_case,
             drop_capabilities=drop_capabilities,
             journal_root=journal_root,

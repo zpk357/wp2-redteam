@@ -53,6 +53,7 @@ class ErrorCapableContainerRunner:
         model_identity: ModelIdentity,
         adapter_version: str,
         timeout_seconds: int,
+        max_continuations: int = 3,
         limits: SandboxLimits | None = None,
         run_root: tuple[Path, str] | None = None,
         container_workspace_root: str | None = None,
@@ -72,6 +73,11 @@ class ErrorCapableContainerRunner:
         self.model_identity = model_identity
         self.adapter_version = adapter_version
         self.timeout_seconds = timeout_seconds
+        #: The Agent's silent-turn budget, sent with every request.  It has to be sent rather than
+        #: left to the image's default: the specification makes the continuation limit part of
+        #: what the run froze, and a value only the image knows is not something a reader of the
+        #: run's configuration could find.
+        self.max_continuations = max_continuations
         self.limits = limits or SandboxLimits()
         #: The path the container sees for the office workspace, or None to keep it in memory.
         #:
@@ -161,6 +167,7 @@ class ErrorCapableContainerRunner:
             adapter_version=self.adapter_version,
             timeout_seconds=self.timeout_seconds,
             max_tool_requests=attempt.max_tool_requests,
+            max_continuations=self.max_continuations,
             journal_root=self.container_journal_root,
             resume=False,
             workspace_root=self.container_workspace_root,

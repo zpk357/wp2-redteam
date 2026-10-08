@@ -90,7 +90,7 @@ from sandbox.scenarios.error_capable_world import carrier_ids, planned_file_ids
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 
-CAMPAIGN_VERSION = "error-capable-campaign-v7"
+CAMPAIGN_VERSION = "error-capable-campaign-v8"
 ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
 
 #: Selection attempts per Opportunity before its Episode is forfeited.
@@ -524,6 +524,10 @@ async def _run_campaign(
     model_identity: ModelIdentity,
     seed: int,
     max_tool_requests: int = 24,
+    #: The Agent's silent-turn budget, passed through to every Episode.  A parameter rather than
+    #: an inherited default, because a budget only the leaf function knows is not a budget the
+    #: run chose -- and the specification makes it part of what the run freezes.
+    max_continuations: int = 3,
     journal_root: Any | None = None,
     ledger: CoverageLedger | None = None,
     executor: EpisodeExecutor | None = None,
@@ -614,6 +618,7 @@ async def _run_campaign(
                 "seed": seed + index,
                 "mode": mode.value,
                 "max_tool_requests": max_tool_requests,
+                "max_continuations": max_continuations,
                 "targets": targets.model_dump(mode="json"),
                 # Where the Episode ran is part of what the result is.  Without it, an
                 # in-process run and a container run of the same plan share an identity, and a
@@ -905,6 +910,7 @@ async def _run_campaign(
                     plan=plan,
                     material=material,
                     max_tool_requests=max_tool_requests,
+                    max_continuations=max_continuations,
                     journal_root=None if journal_root is None else Path(journal_root),
                     workspace_root=_workspace_root(episode_id),
                     # A discarded attempt must not be resumed, so it gets its own journal

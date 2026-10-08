@@ -84,6 +84,11 @@ class EpisodeAttempt:
     plan: EpisodeScenarioPlan
     material: MaterializedScenario
     max_tool_requests: int
+    #: The Agent's silent-turn budget.  Measured before the formal run: every Episode of the
+    #: first preflight used all of its three, because a model that ends by narrating gets
+    #: nudged rather than believed.  It is a field here, and on the payload, so the number the
+    #: run used is a number the run states.
+    max_continuations: int = 3
     journal_root: Path | None = None
     #: Appended under the journal root.  Empty for a first attempt, `retries/attempt-N` for a
     #: repeat, so a discarded attempt is never resumed as if it were the first.
@@ -168,6 +173,7 @@ class InProcessExecutor:
             model_identity=self.model_identity,
             seed=attempt.plan.seed,
             max_tool_requests=attempt.max_tool_requests,
+            max_continuations=attempt.max_continuations,
             journal=store,
             resume=store is not None and store.exists(),
             workspace_root=attempt.workspace_root if self.write_workspace else None,
