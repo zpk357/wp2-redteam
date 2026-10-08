@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from enum import StrEnum
 from typing import Any, Self
 
@@ -26,6 +27,8 @@ from sandbox.scenarios.office_v2.policy import EnterprisePolicyRule
 
 _IDENTIFIER_ADAPTER = TypeAdapter(Identifier)
 _SHA256_ADAPTER = TypeAdapter(Sha256Digest)
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class StateObjectKind(StrEnum):
@@ -552,7 +555,20 @@ class EpisodeTransaction:
             validated = OfficeWorldState.model_validate(
                 self._staged.model_dump(mode="python", exclude_none=False)
             )
-        except Exception:
+        except Exception as exc:
+            # The failure code stays generic on purpose: it is what the record and the Agent both
+            # see, and a state model's internals do not belong in either.  What was wrong was
+            # discarding the *reason* along with it.  A tool whose staged state does not validate
+            # is a defect in the tool, and the only trace of it used to be a failure code that
+            # reads the same as a transaction conflict -- which is how a self-addressed
+            # `send_email` spent a whole Episode looking like a mystery instead of a report that
+            # two deliveries had collided.  Logging it costs nothing and changes no digest,
+            # because a diagnosis belongs in the log and not in an evidence field.
+            _LOGGER.error(
+                "the staged state does not validate, rolling back %s: %s",
+                self.transaction_id,
+                exc,
+            )
             self._rollback_internal("transaction_validation_failed")
             raise
         before_digest = self._before.canonical_digest()

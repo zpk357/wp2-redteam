@@ -590,25 +590,86 @@ def test_a_decision_outside_the_frozen_menu_fails_closed() -> None:
             )
             return decision, decision.model_dump_json()
 
+    # A selector that can never answer stops the Campaign, and that is deliberate.  It used to cost
+    # the Opportunity instead: the Episode was written off, the arm moved on, and the report came out
+    # short with nothing saying it was short.  Two arms measured over different numbers of Episodes
+    # are not comparable, and a shrunken denominator looks exactly like a complete one -- so the
+    # retry bound stays as a guard against a wedged selector, and running out of it is loud.
+    with pytest.raises(ValueError, match="was refused"):
+        asyncio.run(
+            run_campaign(
+                fixture=FIXTURE,
+                mode=ErrorCapableMode.GUIDED,
+                episodes=1,
+                adapter=DiscoveryScriptedAgent(),
+                selector=_Rogue(),
+                model_identity=IDENTITY,
+                seed=1,
+            )
+        )
+
+
+def test_a_refused_selection_costs_a_try_and_not_the_episode() -> None:
+    """The rule the arm is measured under: a refusal does not consume an Opportunity.
+
+    The selector below refuses twice and then answers.  Both refusals are recorded, because they are
+    information about the treatment and the report has to carry them -- and the Opportunity still
+    produces its Episode, because that is what makes the two arms comparable: sixteen Opportunities
+    have to mean sixteen Episodes on both sides.
+    """
+
+    from sandbox.scenarios.error_capable import (
+        AttackMode,
+        EpisodeKind,
+        SelectorDecision,
+        TaskFamily,
+    )
+
+    legal_carrier = carrier_ids()[0]
+
+    class _RefusesThenAnswers(ScriptedSelector):
+        name = "refuse-then-answer"
+
+        def __init__(self, refusals: int):
+            super().__init__(path_ids=PATH_IDS, attacks=ATTACKS)
+            self._left = refusals
+
+        def __call__(self, request, history, *, episode_index):  # noqa: ANN001
+            if self._left > 0:
+                self._left -= 1
+                decision = SelectorDecision(
+                    task_family=TaskFamily.ACCESS_REVIEW,
+                    # A path the family does not register, so the refusal the run records is this
+                    # one rather than an artefact of some other axis being wrong as well.
+                    path_id="not-a-registered-path",
+                    attack_mode=AttackMode.NOTE_REWRITE,
+                    attack_carrier=legal_carrier,
+                    layout_id="balanced-9",
+                    episode_kind=EpisodeKind.ATTACK,
+                    rationale="deliberately outside the menu",
+                )
+                return decision, decision.model_dump_json()
+            return super().__call__(request, history, episode_index=episode_index)
+
     report = asyncio.run(
         run_campaign(
             fixture=FIXTURE,
             mode=ErrorCapableMode.GUIDED,
-            episodes=1,
+            episodes=2,
             adapter=DiscoveryScriptedAgent(),
-            selector=_Rogue(),
+            selector=_RefusesThenAnswers(2),
             model_identity=IDENTITY,
             seed=1,
         )
     )
-    assert report.opportunities == 1
-    assert not report.episodes
-    # A refusal costs an attempt, not the Episode: the selector is asked again inside the same
-    # Opportunity, and each refused attempt is recorded.  The Opportunity itself is forfeited only
-    # once the attempts run out, so one unusable menu on the arm's side leaves `SELECTION_ATTEMPTS`
-    # refusals and no Episode.
-    assert len(report.rejected_opportunities) == SELECTION_ATTEMPTS
-    assert "unavailable path for family" in report.rejected_opportunities[0]["rejection"]
+
+    assert len(report.episodes) == 2, "every Opportunity has to produce its Episode"
+    assert report.opportunities == 2
+    assert len(report.rejected_opportunities) == 2, "the refusals are still on the record"
+    assert all(
+        "unavailable path for family" in item["rejection"]
+        for item in report.rejected_opportunities
+    )
 
 
 def test_role_reads_preserve_sequence_and_match_the_actual_path() -> None:

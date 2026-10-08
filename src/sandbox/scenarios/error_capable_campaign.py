@@ -90,31 +90,35 @@ from sandbox.scenarios.error_capable_world import carrier_ids, planned_file_ids
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 
-CAMPAIGN_VERSION = "error-capable-campaign-v8"
+CAMPAIGN_VERSION = "error-capable-campaign-v9"
 ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
 
-#: Selection attempts per Opportunity before its Episode is forfeited.
+#: How many times one Opportunity may be asked again before the Campaign stops.
 #:
-#: A refused selection used to consume the Opportunity outright -- `NP-08`'s frozen rule, and the
-#: `Y_t = 0` of `NP-10`.  That rule assumes the selector can reliably name a fresh legal
-#: combination.  A selector that cannot turns it into budget destruction rather than a treatment
-#: cost: the v9 launch spent fourteen of the guided arm's sixteen Opportunities on refusals and
-#: produced two Episodes, most of them lost to defects in the payload rather than to anything the arm
-#: decided.
+#: This is a guard against a wedged selector, not a budget the arm spends.  The rule it replaced made
+#: a refused selection cost one of four attempts and then forfeited the Episode, and forfeiting is
+#: what made it wrong: the arm came out of sixteen Opportunities with ten Episodes, which is not a
+#: result about the Agent but a denominator that silently shrank.  Two arms measured over different
+#: numbers of Episodes cannot be compared, and nothing downstream could tell -- the report read as
+#: complete.
 #:
-#: A refusal is a rejected proposal, not a finished Episode, so it now costs an attempt instead of
-#: the Episode.  It is still recorded, still fed forward into the next attempt's feedback, and still
-#: counted as `refused` in the report.  The bound exists because at `temperature=0.0` an unanswered
-#: question gets an unchanged answer: without a bound a wedged selector would call the provider for
-#: ever, and the arm would never end.  When the attempts run out the Episode is forfeited and the arm
-#: moves on.
+#: So a refusal now costs nothing.  The same Opportunity is asked again, with the refusal folded into
+#: the feedback, until the selector names a combination the run has not taken.  It is still recorded
+#: and still reported; what changed is only what it costs.
+#:
+#: A bound is still needed, because a selector that cannot answer would otherwise call the provider
+#: for ever.  It is set high enough to absorb a model that needs several tries to move, and running
+#: out of it **raises** rather than forfeiting.  That is the point: the failure mode being removed is
+#: a quietly smaller arm, so the one that replaces it has to be loud.  Every artifact stays on disk
+#: under the run root, so nothing is lost by stopping -- and a run that stops at Episode fourteen of
+#: sixteen says so, instead of reporting fourteen as though it were the plan.
 #:
 #: This revises the frozen selection rule at the operator's direction, and it changes what the
-#: Opportunity denominator means, so `W / opportunities` and `W / |E|` have to be read beside the
-#: attempt counts and a pair run under the old rule is not comparable with one run under this.
-#: `CAMPAIGN_VERSION` moves with it, so a receipt written under the old rule cannot be restored into
-#: a run using this one.
-SELECTION_ATTEMPTS = 4
+#: Opportunity denominator means, so `W / opportunities` has to be read beside the refusal counts and
+#: a pair run under an older rule is not comparable with one run under this.  `CAMPAIGN_VERSION`
+#: moves with it, so a receipt written under the old rule cannot be restored into a run using this
+#: one.
+SELECTION_ATTEMPTS = 16
 
 
 class HistorySentinel:
@@ -628,35 +632,38 @@ async def _run_campaign(
             }
         )
         frozen = None
+        #: Where this Opportunity's attempt numbering picks up.  Non-zero only when an earlier run
+        #: left refused attempts behind and this one carries on from them, so the records accumulate
+        #: instead of the new pass overwriting the names the old one used.
+        retry_offset = 0
         if artifact_path is not None and artifact_path.exists():
             frozen = read_artifact(artifact_path, identity=identity_digest)
             # Attempts before the accepted one are on disk under their own names.  Their refusals go
             # back into the set before the request is rebuilt, or a resumed run would ask a question
             # the frozen run never asked and the digest check would refuse to continue.
             refused_attempts: list[dict[str, Any]] = []
+            existing_numbers: list[int] = []
             for earlier in sorted(
                 artifact_path.parent.glob(f"{episode_id}.selection.attempt-*.json")
             ):
                 record = read_artifact(earlier, identity=identity_digest)
+                existing_numbers.append(int(earlier.stem.rsplit("-", 1)[-1]))
                 if record.get("status") == "rejected":
                     refused_attempts.append(record)
                 more = refusable_cell(record.get("refused_coordinate"))
                 if more is not None and more not in refused_cells:
                     refused_cells.append(more)
-            if frozen["status"] == "selection_pending":
-                frozen["status"] = "rejected"
-                frozen["rejection"] = (
-                    "selection interrupted; opportunity consumed without replacement"
-                )
-                write_artifact(artifact_path, frozen)
-            if frozen["status"] == "rejected":
-                # Every refused attempt is replayed, not only the one that forfeited the Opportunity.
-                # A refusal is an attempt now, the run stores one record per attempt, and a resume
-                # that collapsed them into a single entry would report a different Campaign from the
-                # one it resumed -- fewer refusals, fewer attempts, and a denominator it cannot be
-                # compared with.  The canonical receipt holds the last of them, so the attempt files
-                # are the list; it falls back to the canonical one only when there are none, which is
-                # the shape a receipt interrupted before its first attempt has.
+            if frozen["status"] != "selected":
+                # No Episode came out of this Opportunity the last time round: either the process
+                # died between the crash marker and an accepted choice, or every attempt was refused.
+                # Neither is a result about the Agent, and under this rule neither consumes anything
+                # -- which is the whole difference from the rule this replaced, where both forfeited
+                # the Episode and left the arm an Episode short with nothing said about it.
+                #
+                # So the Opportunity is asked again, and every refusal the frozen run recorded is
+                # replayed first.  Replaying is not bookkeeping: the refusals are the question, and a
+                # resumed run that dropped them would ask the selector what the frozen run had
+                # already been told, get the answer it had already refused, and stop there.
                 replayed = refused_attempts or [frozen]
                 for record in replayed:
                     rejected.append(record)
@@ -665,28 +672,11 @@ async def _run_campaign(
                             SelectorAttempt.model_validate(record["attempt"])
                         )
                 sentinel_reads.extend(replayed[-1].get("history_reads", ()))
-                # A resumed refusal is still a refusal the later offers have to know about, or the
-                # resumed run would hand the selector the same question the frozen run did.
-                # Through the gate: a resumed refusal that is not a combination must not reach a
-                # field declared to hold combinations, on this pass either.
                 refused = refusable_cell(frozen.get("refused_coordinate"))
-                if refused is not None:
+                if refused is not None and refused not in refused_cells:
                     refused_cells.append(refused)
-                if table is not None:
-                    # A refusal is an opportunity like any other, so a resumed run has to replay its
-                    # settlement too -- the scores are the ordered events, and skipping one would
-                    # put
-                    # every later score one step out.
-                    table = _settle_without_episode(
-                        table=table,
-                        settlements_dir=settlements_dir,
-                        episode_id=episode_id,
-                        index=index,
-                        mode=mode,
-                        identity=identity_digest,
-                        reason=str(frozen.get("rejection") or "refused selection"),
-                    )
-                continue
+                retry_offset = max(existing_numbers, default=-1) + 1
+                frozen = None
         # The sentinel is rebuilt per Episode because what must be audited is this Episode's read.
         sentinel = HistorySentinel(ledger=state, targets=targets, allow=guided)
         # Built once and re-cut per attempt: the only thing that moves between attempts is
@@ -709,10 +699,14 @@ async def _run_campaign(
         raw_response = ""
         failure: dict[str, Any] | None = None
         request: SelectorRequest | None = None
-        # A refusal costs an attempt, not the Episode (`SELECTION_ATTEMPTS`).  Every attempt asks the
-        # question again with the refusal just recorded added to it, because at `temperature=0.0` a
-        # question that does not change gets an answer that does not change either.
-        for attempt_no in range(SELECTION_ATTEMPTS):
+        # A refusal costs nothing at all: the same Opportunity is asked again with the refusal just
+        # recorded added to it, because at `temperature=0.0` a question that does not change gets an
+        # answer that does not change either.  The loop is bounded only by `SELECTION_ATTEMPTS`, and
+        # that bound is a guard against a wedged selector rather than a budget the arm spends.
+        #: This Opportunity's refusals, kept apart from `rejected` so the error below can quote its
+        #: own rather than whatever happened to be last in a list that spans the whole arm.
+        episode_refusals: list[str] = []
+        for attempt_no in range(retry_offset, retry_offset + SELECTION_ATTEMPTS):
             feedback = feedback_base
             if feedback is not None and refused_cells:
                 feedback = feedback.model_copy(
@@ -774,7 +768,7 @@ async def _run_campaign(
                 write_artifact(attempt_path, pending)
             # The canonical name is the crash marker before the first attempt and the verdict after
             # the last one; the per-attempt names keep every refused attempt auditable.
-            if attempt_no == 0 and artifact_path is not None:
+            if attempt_no == retry_offset and artifact_path is not None:
                 write_artifact(artifact_path, pending)
             try:
                 selected = selector(request, sentinel, episode_index=index)
@@ -810,32 +804,38 @@ async def _run_campaign(
                     selection_attempts.append(attempt)
                 if attempt_path is not None:
                     write_artifact(attempt_path, failure)
-                # Every refused attempt is reported.  A refusal is now an attempt rather than an
-                # Opportunity, so this list is a list of refused attempts and each record carries
-                # the `selection_attempt` it belonged to.
+                # Every refused attempt is reported.  A refusal costs no Opportunity now, so this is
+                # a list of refused attempts and each record carries the `selection_attempt` it
+                # belonged to.
                 rejected.append(failure)
+                episode_refusals.append(str(exc))
                 decision = None
         if decision is None:
-            # Every attempt was refused, so the Episode is forfeited.  The refusal still settles: it
-            # has no direction to score and must not be scored as if it had one, so it takes a `null`
-            # neighborhood and no movement.
+            # The retry budget ran out with every proposal refused.  This stops the Campaign, and
+            # that is deliberate rather than harsh.
+            #
+            # What it replaces was a forfeit: the Episode was written off, the arm moved on, and the
+            # report came out one Episode shorter with nothing recording that it was short.  That is
+            # the failure this rule exists to remove -- two arms measured over different numbers of
+            # Episodes cannot be compared, and a shrunken denominator is invisible from the numbers
+            # alone.  Carrying on here would rebuild exactly that, so the one thing not on the table
+            # is continuing.
+            #
+            # Nothing is lost by stopping: every attempt is on disk under the run root, and
+            # `retry_offset` means a later pass continues the numbering instead of overwriting it.
+            # The message names what refused and where, because the next move is to read the
+            # refusals and decide whether the selector or the prompt is what needs the work.
             if artifact_path is not None and failure is not None:
                 write_artifact(artifact_path, failure)
-            sentinel_reads.extend(sentinel.reads)
-            if table is not None:
-                reason = str((failure or {}).get("rejection") or "refused selection")
-                table = _settle_without_episode(
-                    table=table,
-                    settlements_dir=settlements_dir,
-                    episode_id=episode_id,
-                    index=index,
-                    mode=mode,
-                    identity=identity_digest,
-                    reason=reason,
-                    feedback_digest=feedback_digest,
-                    detail={"rejection": reason},
-                )
-            continue
+            distinct = sorted(set(episode_refusals))
+            raise ValueError(
+                f"the selector was refused {len(episode_refusals)} times in a row for Episode "
+                f"{index} ({episode_id}), so the arm is stopping rather than carrying on one Episode "
+                f"short. Distinct refusals: {distinct}. "
+                f"The attempts are on disk under "
+                f"{artifact_path.parent if artifact_path is not None else 'the run root'}; a later "
+                f"pass continues their numbering rather than overwriting them."
+            )
         validate_choice(request, decision)
         attempt = getattr(selector, "last_attempt", None)
         if attempt is not None and frozen is None:
@@ -1283,60 +1283,6 @@ def _load_settlement(
             " table is wrong"
         )
     return PriorityEvent.model_validate(payload["event"])
-
-
-def _settle_without_episode(
-    *,
-    table: PriorityTable,
-    settlements_dir: Path | None,
-    episode_id: str,
-    index: int,
-    mode: ErrorCapableMode,
-    identity: str,
-    reason: str,
-    feedback_digest: str | None = None,
-    status: str = "no_episode",
-    detail: dict[str, Any] | None = None,
-) -> PriorityTable:
-    """Score an opportunity that produced no Episode: neutral, no neighborhood, no movement.
-
-    A settlement already on disk is replayed and left alone; only a missing one is derived and
-    written.  Rewriting a stored settlement would let a later run restate what an earlier one
-    recorded, and the whole point of the record is that it did not change.
-    """
-
-    path = None if settlements_dir is None else settlements_dir / f"{episode_id}.json"
-    stored = _load_settlement(path, index=index, identity=identity, table=table)
-    if stored is not None:
-        settled, _changed = table.with_event(stored)
-        return settled
-    before = table.digest()
-    event = score_for_event(
-        table,
-        PriorityEvent(
-            opportunity_id=episode_id,
-            episode_index=index,
-            mode=mode.value,
-            update_class=UpdateClass.NEUTRAL,
-            reason=reason,
-        ),
-    )
-    settled, _changed = table.with_event(event)
-    _write_settlement(
-        path,
-        opportunity_id=episode_id,
-        index=index,
-        mode=mode,
-        identity=identity,
-        status=status,
-        cell=None,
-        event=event,
-        table_before=before,
-        table_after=settled.digest(),
-        feedback_digest=feedback_digest,
-        detail=detail or {"reason": reason},
-    )
-    return settled
 
 
 def _write_settlement(

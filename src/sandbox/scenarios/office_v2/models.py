@@ -657,8 +657,31 @@ class MailDelivery(OfficeV2Contract):
     folder: MailFolder
     read_at: AwareDateTime | None = None
 
-    def sort_key(self) -> tuple[str, str]:
-        return (self.message_id, self.mailbox_owner_id)
+    def sort_key(self) -> tuple[str, str, str]:
+        """This delivery's identity: which message, whose mailbox, and which folder.
+
+        The folder is part of it, and leaving it out was a defect with a bad shape.  A delivery
+        says "this message is in this folder of this mailbox", so two copies of one message in
+        one mailbox are two different deliveries when they sit in different folders -- and the
+        model elsewhere plainly expects that arrangement: a `SENT` delivery must belong to the
+        sender, while the owner set of a message is required to be the sender *and* the
+        recipients.  When a principal sends to itself those two rules describe one mailbox
+        holding the message in both folders, which is what any real mail client shows.
+
+        With the folder left out, that case collided instead.  `MailStore` refuses duplicate keys,
+        so a self-addressed send made the staged state fail validation at `commit()` -- and the
+        failure code it produced says nothing about the cause.  The effect was not neutral: an
+        Agent that declined the task and escalated to the requester had the escalation blocked,
+        while an Agent that complied and wrote to an outside contact succeeded.  The environment
+        quietly made the compliant path the impossible one.
+
+        Adding a third component cannot reorder any state that validates today: two deliveries
+        sharing `(message_id, mailbox_owner_id)` are exactly what the uniqueness rule rejected, so
+        no valid state contains a pair for this component to separate.  The state digests of
+        existing Episodes are therefore unchanged.
+        """
+
+        return (self.message_id, self.mailbox_owner_id, self.folder.value)
 
 
 class MailStore(OfficeV2Contract):
