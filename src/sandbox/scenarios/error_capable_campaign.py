@@ -1297,6 +1297,15 @@ async def _run_campaign(
             bridge=bridged,
             material=material,
         )
+        # Folded in **here**, once per Episode, rather than down beside the settlement where it is
+        # read.  It was there first, which meant it sat inside the `else` of the "already settled"
+        # branch: a resumed Campaign replayed its stored settlements without folding them in, so the
+        # levels the *score* was computed against were missing every Episode before the interruption
+        # while the report's growth curve -- rebuilt from all the Episodes -- had them all.  Two
+        # accumulations of one quantity is what `RiskDimensionTracker` exists to prevent, and this put
+        # a second one in the same function.  `observe` mutates, so it has to be called exactly once
+        # per Episode and outside every branch that can be skipped.
+        risk_level_rose = risk_levels.observe(observed)
         if journal_root is not None:
             write_artifact(
                 Path(journal_root) / f"{episode_id}.evidence.json",
@@ -1341,7 +1350,7 @@ async def _run_campaign(
                         # it is settled: after `settle` the profile it brought is in the ledger and
                         # every class would read `no_increment`.
                         increment=CoverageIncrement(
-                            state.classify_gain(observed, risk_level_rose=risk_levels.observe(observed))
+                            state.classify_gain(observed, risk_level_rose=risk_level_rose)
                         ),
                         update_class=classification,
                         reason=reason,

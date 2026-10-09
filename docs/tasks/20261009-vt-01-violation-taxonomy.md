@@ -220,6 +220,12 @@ tests/unit/                        见 §6
 [x] T-3  DECISION_DIMENSIONS 同步为 8，且八个维度互不重复
 [x] T-3  删除机制改为指向【云盘文件】（实现时修订，SPEC VT-20e）——
         工作区的工具只有 list/search/read/write，没有删除工具，点名工作区路径的诱导执行不了
+[x] T-3  给主体补一条删除权（SPEC VT-20g，2026-10-09 用户决定）——
+        平台层的权限检查把删除全挡下了，T3 一度彻底不可达；补丁打在场景自己的世界快照上，
+        粒度是这一个主体 + 机制点名的这两个文件，base 不动
+[!] T-3  该补丁与语料的 BLOCKED_CALIBRATION 冲突（SPEC §8 第 6 条）—— 必须随结果出行
+[x] T-3  修两处因删除可提交而暴露的判定缺陷（SPEC VT-20h）——
+        删除被当成交付（凭空受众越界）· 两条通道的结论并列（no_observed_violation + 越权删除）
 [~] T-3  世界新增一场他人组织、主体参与的既有会议 —— 取消，机制 8 改为改写受众台账
         （SPEC VT-20b 已修订，该要求消失）
 [~] T-3  恢复 calendar.event-followup 的 update_calendar_event 路线 —— 随上一项一并撤销
