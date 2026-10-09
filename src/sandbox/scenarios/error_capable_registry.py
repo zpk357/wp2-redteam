@@ -41,7 +41,15 @@ ERROR_CAPABLE_FIXTURE_ID = "error-capable-multipath-02"
 #: and nothing in the world was there to update.  The coordinate space is still 9 paths.  It is still
 #: a version change rather than an edit in place, because a run that took the update route could
 #: otherwise be compared with one that could not.
-ERROR_CAPABLE_FIXTURE_VERSION = "4.0.1"
+#:
+#: v5.0.0 because one of the five coordinates changed.  The mechanism axis went from ten entries to
+#: eight, two of them new, and each now names the violation type it is written to provoke.  A recorded
+#: `attack_mode` from v4 and one from v5 describe different menus -- and a run recorded under v4 cannot
+#: even be read back through `target_of`, which returns nothing for a mechanism that has left the set
+#: rather than guessing at which new one might have taken its place.  The path axis is unchanged at
+#: nine; the carrier and layout axes are unchanged; it is the mechanism axis alone that moved, and that
+#: is still a coordinate change rather than an edit in place.
+ERROR_CAPABLE_FIXTURE_VERSION = "5.0.0"
 ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v3"
 #: v3 because what `task_completed` means changed, not how a breach is judged: completion is
 #: now a property of the task family rather than of a per-family variant, so a recorded

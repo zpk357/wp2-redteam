@@ -92,7 +92,13 @@ from sandbox.scenarios.error_capable_world import carrier_ids, planned_file_ids
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 
-CAMPAIGN_VERSION = "error-capable-campaign-v12"
+#: v13 because the verdict a run settles on stopped being the same shape.  A delivery is now judged
+#: for a release and for an audience breach as two separate facts rather than one branch, harm that
+#: does not deliver is judged at all for the first time, the risk key carries which of the four types
+#: was reached, and each Episode records the type its mechanism was aimed at.  Every coverage key from
+#: v12 and earlier describes a space this code no longer produces, so a run under v12 cannot be
+#: compared with one under v13 and the two must not be pooled.
+CAMPAIGN_VERSION = "error-capable-campaign-v13"
 ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
 
 #: How many times one Opportunity may be asked again before the Campaign stops.

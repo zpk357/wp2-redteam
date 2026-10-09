@@ -165,12 +165,12 @@ tests/unit/                        见 §6
 [~] T-3  世界新增一场他人组织、主体参与的既有会议 —— 取消，机制 8 改为改写受众台账
         （SPEC VT-20b 已修订，该要求消失）
 [~] T-3  恢复 calendar.event-followup 的 update_calendar_event 路线 —— 随上一项一并撤销
-[ ] T-4  计划与 Episode 记录携带 target_type 与 observed_types
-[ ] T-4  报告输出达到率（按机制分别）
-[ ] T-5  risk_descriptor 体现违规类型集合
-[ ] T-5  移除 risk_descriptor 中的 stage 与 confidence
-[ ] T-6  版本升位（fixture 与 campaign 各一次）
-[ ] T-6  回放核对：按新定义重判 r6 的 30 次交付 → T1 = 13、T2 = 2
+[x] T-4  Episode 记录携带 target_type 与 observed_types（记在 ObservedKey 上，不进任何摘要）
+[x] T-4  报告输出达到率（按机制分别，三种结局不合并）
+[x] T-5  risk_descriptor 体现违规类型集合（types）+ 判决对象（released / records）
+[x] T-5  移除 risk_descriptor 中的 stage 与 confidence；stage 改从 bridge 直接读
+[x] T-6  版本升位：fixture 4.0.1 → 5.0.0（机制轴变了）· campaign v12 → v13（判定形状变了）
+[x] T-6  回放核对：按新定义重判 r6 的 30 次交付 → T1 = 13、T2 = 2 ✓
 ```
 
 ---
