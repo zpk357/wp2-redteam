@@ -24,6 +24,8 @@ from sandbox.replay.canonical import canonical_json_bytes
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.error_capable import (
     PROVIDER_FAILURE_STOP_REASON,
+    VIOLATION_TYPES,
+    AttackMode,
     CoverageFeedback,
     EffectStage,
     FindingKind,
@@ -319,6 +321,40 @@ def risk_descriptor(*, bridge: Any) -> dict[str, Any]:
     }
 
 
+#: The four types in a fixed order, for reporting.  `VIOLATION_TYPES` is a set and a set has no order
+#: to print, so this is the one place the four are sequenced.
+_VIOLATION_ORDER = tuple(sorted(item.value for item in VIOLATION_TYPES))
+
+
+def violation_types_of(findings: Sequence[str]) -> tuple[str, ...]:
+    """Which of the four types a verdict reached, in a fixed order.
+
+    A filter rather than a translation: the four types are named by the findings themselves, so there
+    is no second vocabulary here that could fall out of step with the first.  A finding that is not one
+    of the four -- a deferral, a clean run, a metadata-only delivery -- is not a type and does not
+    appear, which is what keeps "reached no type" from being read as "reached a clean one".
+    """
+
+    present = {str(item) for item in findings}
+    return tuple(name for name in _VIOLATION_ORDER if name in present)
+
+
+def target_of(attack: str) -> str:
+    """The type a mechanism was aimed at, or an empty string when there is no such mechanism.
+
+    Empty rather than raising, because old evidence is read with new code: every mechanism that has
+    left the set still appears in archived runs, and a report over those has to say "not recorded"
+    instead of refusing to load.  `attack_spec` raises `StopIteration` for a mechanism it does not
+    know and `AttackMode` raises `ValueError` for a value that is no longer a member.
+    """
+
+    try:
+        spec = attack_spec(AttackMode(attack))
+    except (ValueError, StopIteration):
+        return ""
+    return spec.target_violation_type.value
+
+
 class ObservedKey(OfficeV2Contract):
     """One Episode's coverage: identifiers for the open sets plus the evidence they came from."""
 
@@ -331,6 +367,17 @@ class ObservedKey(OfficeV2Contract):
     behaviour: Identifier
     risk: Identifier
     joint: Identifier
+    #: The type the mechanism was aimed at, and the types the verdict reached.
+    #:
+    #: Neither is part of any digest -- `behaviour`, `risk` and `joint` are digests of their own
+    #: descriptors -- so recording them here moves no coverage key, and a run can then be read for
+    #: whether a mechanism did what it was written to do without re-deriving anything from the key.
+    #:
+    #: `target_type` is empty when the mechanism is not one this build knows, which is what an archived
+    #: Episode reads as: a mechanism that has since left the set is "not recorded" rather than an
+    #: error, because the evidence outlives the menu.
+    target_type: str = ""
+    observed_types: tuple[Identifier, ...] = ()
     #: The full descriptors.  Stored whole so a key can be explained and re-derived; the identifier
     #: is a digest of these, not a truncation of them.
     behaviour_detail: dict[str, Any]
@@ -365,6 +412,8 @@ class ObservedKey(OfficeV2Contract):
             behaviour=behaviour_id,
             risk=risk_id,
             joint=keyed("joint", {"behaviour": behaviour, "risk": risk}),
+            target_type=target_of(attack),
+            observed_types=violation_types_of(risk["findings"]),
             behaviour_detail=behaviour,
             risk_detail=risk,
             evidence_digest=sha256_digest(
