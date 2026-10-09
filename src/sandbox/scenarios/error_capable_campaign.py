@@ -46,7 +46,7 @@ from sandbox.scenarios.error_capable import (
 )
 from sandbox.scenarios.error_capable_agent import office_tool_specs
 from sandbox.scenarios.error_capable_artifacts import read_artifact, write_artifact
-from sandbox.scenarios.error_capable_bridge import bridge_trace
+from sandbox.scenarios.error_capable_bridge import BridgedEvidence, bridge_trace
 # The executor interface, not the container runner: the runner imports the Docker client,
 # and this module must stay importable by anything that can import the scenario package.
 from sandbox.scenarios.error_capable_executor import (
@@ -59,6 +59,8 @@ from sandbox.scenarios.error_capable_coverage import (
     CoverageLedger,
     MenuTargets,
     ObservedKey,
+    findings_of,
+    risk_class,
 )
 from sandbox.scenarios.error_capable_identity import ModelIdentity
 from sandbox.scenarios.error_capable_priority import (
@@ -90,7 +92,7 @@ from sandbox.scenarios.error_capable_world import carrier_ids, planned_file_ids
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 
-CAMPAIGN_VERSION = "error-capable-campaign-v10"
+CAMPAIGN_VERSION = "error-capable-campaign-v11"
 ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
 
 #: How many times one Opportunity may be asked again before the Campaign stops.
@@ -513,6 +515,64 @@ class CampaignReport(OfficeV2Contract):
 PROVIDER_FAILURE_RETRIES = 3
 
 
+#: How many times an Episode is run again while the Oracle reaches no verdict about it.
+#:
+#: An Episode the Oracle cannot judge is not a result about the Agent: it says the committed content
+#: could not be read, or that restricted material left with nobody declared as its readers, or that an
+#: audience mismatch does not meet the approved risk definition.  In every one of those the run did
+#: not answer the question the arm is measured on, so it must not answer it by being counted.  What
+#: it used to do was exactly that: the Episode settled, the arm moved on, and the report came out with
+#: a denominator smaller than the plan and nothing recording that it was smaller.  Two arms measured
+#: over different numbers of Episodes cannot be compared, and a shrunken denominator reads the same as
+#: a complete one -- which is why a pilot that lost seven of sixteen Opportunities to this still
+#: summarised as a finished run.
+#:
+#: So the Episode is re-run and the Opportunity is not consumed.  Each attempt gets its own journal
+#: directory for the same reason `PROVIDER_FAILURE_RETRIES` does, so a discarded attempt can never be
+#: resumed by the next one.
+#:
+#: The bound is a guard against a run that cannot produce a verdict at all, not a budget the arm
+#: spends.  Running out of it **raises** rather than settling the Episode: the failure being removed
+#: is a quietly smaller arm, so the one replacing it has to be loud.  Every attempt stays on disk
+#: under the run root, and the message names the findings, so the next move is to read them.
+UNJUDGED_EPISODE_ATTEMPTS = 4
+
+#: The risk classes that are not verdicts.  Taken from `error_capable_coverage` rather than restated,
+#: because the definition of "the Oracle deferred" belongs in one place and this is a consumer of it.
+_DEFERRED_CLASSES = frozenset({"semantic", "audience_review"})
+
+
+def _verdict_reached(bridge: BridgedEvidence) -> bool:
+    """Whether the Oracle judged the Agent, rather than deferring the judgement.
+
+    An empty findings set is a verdict here: an Episode that delivered to nobody asked the Oracle
+    nothing, and `no_observed_violation` is the right answer to a question nobody posed.  What this
+    separates out is the opposite -- an Episode that *did* present something to judge and got
+    `semantic` or `audience_review` back.  A provider failure is deliberately not covered: it
+    produces no turn at all and is handled by `PROVIDER_FAILURE_RETRIES`, where keeping the Episode is
+    the right call, because an Opportunity the provider never served is still a fact about the arm.
+    """
+
+    findings = findings_of(bridge)
+    return risk_class(findings) not in _DEFERRED_CLASSES
+
+
+def _attempt_suffix(round_no: int, attempt: int) -> Path:
+    """Where one attempt's journal goes.
+
+    Round zero keeps the names the provider retries have always used, so an Episode that needed no
+    re-run produces exactly the artifacts it produced before and no resumed run has to look in a new
+    place.  Later rounds are nested under a directory of their own: a re-run that wrote over an
+    earlier round's journal would make the attempt it replaced unrecoverable, and the reason a re-run
+    happened is the first thing a reader needs.
+    """
+
+    if round_no == 0:
+        return Path() if attempt == 0 else Path("retries") / f"attempt-{attempt}"
+    base = Path("retries") / f"round-{round_no}"
+    return base if attempt == 0 else base / f"attempt-{attempt}"
+
+
 def _episode_id(mode: ErrorCapableMode, index: int) -> str:
     arm = "guided" if mode is ErrorCapableMode.GUIDED else "random"
     return f"campaign.{arm}.{index:03d}"
@@ -609,10 +669,15 @@ async def _run_campaign(
     if writes_workspace and journal_root is None:
         raise ValueError("writing the workspace needs a run root to write it under")
 
-    def _workspace_root(episode_id: str) -> Path | None:
+    def _workspace_root(episode_id: str, round_no: int) -> Path | None:
         if not writes_workspace:
             return None
-        return Path(journal_root) / "workspace" / episode_id
+        root = Path(journal_root) / "workspace" / episode_id
+        # Round zero keeps the path it has always had; a re-run gets its own directory.  The
+        # workspace is re-materialised from the world on every attempt, but the directory is not
+        # emptied, so two rounds sharing one would let the second read files the first wrote --
+        # and a run that inherits state from the attempt it replaces is not a re-run.
+        return root if round_no == 0 else root / f"round-{round_no}"
 
     for index in range(episodes):
         episode_id = _episode_id(mode, index)
@@ -916,45 +981,74 @@ async def _run_campaign(
                 },
             )
 
-        attempts = PROVIDER_FAILURE_RETRIES + 1
-        for attempt in range(attempts):
-            trace = await episode_executor.run_attempt(
-                EpisodeAttempt(
-                    episode_id=episode_id,
-                    index=index,
-                    mode=mode.value,
-                    fixture=fixture,
-                    plan=plan,
-                    material=material,
-                    max_tool_requests=max_tool_requests,
-                    max_continuations=max_continuations,
-                    journal_root=None if journal_root is None else Path(journal_root),
-                    workspace_root=_workspace_root(episode_id),
-                    # A discarded attempt must not be resumed, so it gets its own journal
-                    # directory, named for the attempt.  The Episode id has to stay the
-                    # same: the journal refuses to persist a checkpoint whose episode_id
-                    # does not match the store's, so a suffixed id would fail on the first
-                    # write instead of recording anything.
-                    journal_suffix=(
-                        Path() if attempt == 0 else Path("retries") / f"attempt-{attempt}"
-                    ),
-                )
-            )
-            if trace.stop_reason != PROVIDER_FAILURE_STOP_REASON:
-                break
-        # Falling out of the loop means every attempt failed, and that is an Episode outcome rather
-        # than a reason to abandon the Campaign. The specification says so in as many words: a parse
-        # failure is not an invalidity, it counts in the denominator and is reported separately. The
-        # Opportunity is consumed by an Episode that produced no turn -- identifiable in the
-        # artifact
-        # by this stop reason and by an `unassessed` coverage key, the class for a run that never
-        # looked -- and the discarded attempts stay in `retries/` beside it.
+        # An Episode is run until the Oracle reaches a verdict about it.  Two different reasons send
+        # it round again, and they are nested because they are not the same thing:
         #
-        # Aborting here instead, which is what this used to do, throws away every valid Episode the
-        # repetition had already produced. It did exactly that to the first repetition of the formal
-        # experiment, at Episode twelve of sixteen, over two malformed generations.  The denominator
-        # still counts this Opportunity, so nothing is quietly shrunk by carrying on.
-        bridged = bridge_trace(trace, material=material, plan=plan)
+        #   * the provider failed, so the run produced no turn at all.  `PROVIDER_FAILURE_RETRIES`
+        #     covers a timeout, a dropped connection, a service briefly unavailable -- and when every
+        #     attempt fails the Episode is *kept*, because an Opportunity the provider never served
+        #     is still a fact about the arm;
+        #   * the run produced a trace and the Oracle declined to judge it.  `UNJUDGED_EPISODE_ATTEMPTS`
+        #     covers that, and it is *not* kept: an Episode nobody judged must not answer the arm's
+        #     question by being counted, or the denominator comes out smaller than the plan with
+        #     nothing saying so.
+        bridged: BridgedEvidence | None = None
+        unjudged: list[str] = []
+        for round_no in range(UNJUDGED_EPISODE_ATTEMPTS):
+            for attempt in range(PROVIDER_FAILURE_RETRIES + 1):
+                trace = await episode_executor.run_attempt(
+                    EpisodeAttempt(
+                        episode_id=episode_id,
+                        index=index,
+                        mode=mode.value,
+                        fixture=fixture,
+                        plan=plan,
+                        material=material,
+                        max_tool_requests=max_tool_requests,
+                        max_continuations=max_continuations,
+                        journal_root=None if journal_root is None else Path(journal_root),
+                        workspace_root=_workspace_root(episode_id, round_no),
+                        # A discarded attempt must not be resumed, so it gets its own journal
+                        # directory, named for the attempt.  The Episode id has to stay the
+                        # same: the journal refuses to persist a checkpoint whose episode_id
+                        # does not match the store's, so a suffixed id would fail on the first
+                        # write instead of recording anything.
+                        journal_suffix=_attempt_suffix(round_no, attempt),
+                    )
+                )
+                if trace.stop_reason != PROVIDER_FAILURE_STOP_REASON:
+                    break
+            # Falling out of the inner loop means every provider attempt failed, and that is an
+            # Episode outcome rather than a reason to abandon the Campaign.  The specification says
+            # so in as many words: a parse failure is not an invalidity, it counts in the denominator
+            # and is reported separately.  The Opportunity is consumed by an Episode that produced no
+            # turn -- identifiable in the artifact by this stop reason and by an `unassessed`
+            # coverage key, the class for a run that never looked -- and the discarded attempts stay
+            # in `retries/` beside it.
+            #
+            # Aborting here instead, which is what this used to do, throws away every valid Episode
+            # the repetition had already produced.  It did exactly that to the first repetition of
+            # the formal experiment, at Episode twelve of sixteen, over two malformed generations.
+            # The denominator still counts this Opportunity, so nothing is quietly shrunk by
+            # carrying on.
+            bridged = bridge_trace(trace, material=material, plan=plan)
+            if _verdict_reached(bridged):
+                break
+            # The Oracle deferred.  Recording what it deferred on is what makes the stop below
+            # readable: the next move is to read these, decide whether the fixture or the Oracle is
+            # what needs the work, and fix that rather than the denominator.
+            unjudged.append(
+                f"round {round_no}: findings {sorted(findings_of(bridged))}, "
+                f"stop_reason {trace.stop_reason}"
+            )
+        else:
+            raise ValueError(
+                f"the Oracle reached no verdict for Episode {index} ({episode_id}) in "
+                f"{UNJUDGED_EPISODE_ATTEMPTS} runs, so the arm is stopping rather than counting an "
+                f"Episode nobody judged.  Per run: {unjudged}.  The runs are on disk under "
+                f"{journal_root}; a later pass continues from them."
+            )
+        assert bridged is not None  # the loop above raises rather than ending without a verdict
 
         # The key is built from the trace and the material, not from the plan: which files the run
         # opened and which calls it proved are facts about the run, and a plan-based key would count

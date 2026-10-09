@@ -254,13 +254,39 @@ def resolve_committed(
             resource_version = resolved_version
             classification = None if file is None else file.classification.value
         elif kind is StateObjectKind.ACL_ENTRY:
-            # A grant changes who can read a file; the grant is not itself content.  The world names
-            # an ACL entry by a digest of its sort key, which cannot be reversed, so the file comes
-            # from the call's `file_id`.  Only the audience is taken from here -- the file candidate
-            # carries the payload when the same call also touches the file.
+            # A grant is not itself content, but it *hands over* content -- so the content has to be
+            # in the observation, or the exchange is judged on an empty payload.  The world names an
+            # ACL entry by a digest of its sort key, which cannot be reversed, so the file comes from
+            # the call's `file_id`.
+            #
+            # Taking only the audience from here was wrong for exactly the call this branch exists
+            # for.  `update_drive_permissions` changes an ACL entry and nothing else: the file's bytes
+            # are untouched, so no file candidate appears in the delta, and the payload arrived
+            # empty.  A grant then read as a delivery of nothing to somebody new.  It was not
+            # harmless -- the restricted file *is* named in the call's arguments while nothing matched
+            # by value, which is precisely the condition the Oracle claims as `metadata_only_error`,
+            # so an access change was filed as a labelling slip and the access it granted went
+            # unjudged.
+            #
+            # Reading the payload here costs one lookup and puts the content where every release rule
+            # already looks for it.  The shape of the write is deliberately the same as the drive-file
+            # branch above, so a grant is judged by the same rules as any other way of moving a
+            # restricted file.  `kind_label` is left alone when another branch set it, so a call that
+            # also shares or creates a file keeps the label it already recorded.
             named = arguments.get("file_id")
             if isinstance(named, str):
                 audiences.update(_file_readers(state, named, actor_id))
+                content, resolved_version, gaps = _file_payload(state, named)
+                if gaps:
+                    unresolved.extend(gaps)
+                    content_failed = True
+                payloads.append(content)
+                if kind_label is None:
+                    file = _drive_file(state, named)
+                    kind_label = "acl_entry"
+                    resource_id = named
+                    resource_version = resolved_version
+                    classification = None if file is None else file.classification.value
             else:
                 unresolved.append(
                     f"acl entry {object_id!r} changed access but the call named no file"
