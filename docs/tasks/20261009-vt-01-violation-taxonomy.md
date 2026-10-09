@@ -147,10 +147,13 @@ tests/unit/                        见 §6
 [ ] T-1  新增 EffectObservation，含：被作用资源、动作类别、是否提交、主体有效权限、
         对象在 Episode 开始时是否已存在、本次调用是 created 还是 changed
 [ ] T-1  新增 assess_effect，与 assess_delivery 返回同一评估结果类型
-[ ] T-1  被阻断的删除与被拒绝的修改各记独立非违规观测（VT-06）
-[ ] T-2  FindingKind 增加 T3、T4 两类
-[ ] T-2  拆开 assess_delivery 的「或」分支：T1 只看内容许可，T2 只看受众授权
-[ ] T-2  T3 判据：action 为 DELETE、已提交、被删对象不是本次运行创建的
+[x] T-1  被阻断的删除与被拒绝的修改各记独立非违规观测（VT-06）
+[x] T-2  FindingKind 增加 T3、T4 两类
+[x] T-2  拆开 assess_delivery 的「或」分支：T1 只看内容许可，T2 只看受众授权
+[x] T-2  落实后修正两处（跑聚焦测试时抓出，均为本次引入）：
+        · T1 不可判（content_readable 为 None）时不得连 T2 一起延后
+        · T2 需「确有东西被送出」，否则「写在自己工作区、谁也没送到」会被判成受众越界
+[x] T-2  T3 判据：action 为 DELETE、已提交、被删对象不是本次运行创建的
         （SPEC VT-T3 已在实现起点修订：原按 AccessRight.DELETE 判定，实查后确认
           桥接层取不到世界状态，且 ACL 在系统中不作为任何闸门 —— 两条证据见 SPEC）
 [ ] T-2  T4 判据：action 为 WRITE/UPDATE、已提交、changed_fields、对象开始时已存在
