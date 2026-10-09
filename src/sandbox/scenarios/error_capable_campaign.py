@@ -90,7 +90,7 @@ from sandbox.scenarios.error_capable_world import carrier_ids, planned_file_ids
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 
-CAMPAIGN_VERSION = "error-capable-campaign-v9"
+CAMPAIGN_VERSION = "error-capable-campaign-v10"
 ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
 
 #: How many times one Opportunity may be asked again before the Campaign stops.
@@ -541,6 +541,13 @@ async def _run_campaign(
     `executor` says *where* an Episode runs and nothing else.  Left out, the loop runs in
     this process, which is what every result so far was produced by.  Passing a container
     runner moves the loop and changes nothing downstream of the returned trace.
+
+    There is no way to continue a run that was made under different rules.  A resumed Campaign
+    re-executes every Episode from the first, because the score table and the coverage ledger both
+    start empty and are rebuilt by walking the Episodes in order; nothing here skips one that is
+    already settled.  So the frozen decisions of an earlier identity would be replayed *and* every
+    Episode re-run -- all of the cost of a fresh run, and a report made of two runs that nothing
+    distinguishes.  A changed harness gets a fresh run, and a new run root to put it in.
     """
 
     if episodes < 1:
@@ -636,6 +643,13 @@ async def _run_campaign(
         #: left refused attempts behind and this one carries on from them, so the records accumulate
         #: instead of the new pass overwriting the names the old one used.
         retry_offset = 0
+        #: This Opportunity's refusals, in order, so the next attempt can be told what the last one
+        #: got wrong.  Declared before the resume block because a resumed Opportunity has refusals
+        #: too, and they are the same information: an attempt that cannot see them is asking a
+        #: question the previous attempt already answered.
+        #:
+        #: Not a set, and not deduplicated -- see `SelectorRequest.previous_rejections`.
+        episode_refusals: list[str] = []
         if artifact_path is not None and artifact_path.exists():
             frozen = read_artifact(artifact_path, identity=identity_digest)
             # Attempts before the accepted one are on disk under their own names.  Their refusals go
@@ -667,11 +681,12 @@ async def _run_campaign(
                 replayed = refused_attempts or [frozen]
                 for record in replayed:
                     rejected.append(record)
+                    if record.get("rejection"):
+                        episode_refusals.append(str(record["rejection"]))
                     if record.get("attempt"):
                         selection_attempts.append(
                             SelectorAttempt.model_validate(record["attempt"])
                         )
-                sentinel_reads.extend(replayed[-1].get("history_reads", ()))
                 refused = refusable_cell(frozen.get("refused_coordinate"))
                 if refused is not None and refused not in refused_cells:
                     refused_cells.append(refused)
@@ -703,9 +718,6 @@ async def _run_campaign(
         # recorded added to it, because at `temperature=0.0` a question that does not change gets an
         # answer that does not change either.  The loop is bounded only by `SELECTION_ATTEMPTS`, and
         # that bound is a guard against a wedged selector rather than a budget the arm spends.
-        #: This Opportunity's refusals, kept apart from `rejected` so the error below can quote its
-        #: own rather than whatever happened to be last in a list that spans the whole arm.
-        episode_refusals: list[str] = []
         for attempt_no in range(retry_offset, retry_offset + SELECTION_ATTEMPTS):
             feedback = feedback_base
             if feedback is not None and refused_cells:
@@ -733,6 +745,11 @@ async def _run_campaign(
                 # rule being weakened for the arm the comparison is about.
                 require_unobserved=guided and not isinstance(selector, PinnedSelector),
                 feedback=feedback,
+                # What the last attempt got wrong, when the reason was not a combination.  The
+                # combination refusals travel in `feedback.rejected_menu_cells`; everything else --
+                # a rationale past the schema's bound, a coordinate the menu does not carry, a reply
+                # that did not parse -- has no coordinate to travel in and was being dropped.
+                previous_rejections=tuple(episode_refusals),
             )
             if frozen is not None:
                 # The frozen path is one pass.  The request is rebuilt before the comparison because

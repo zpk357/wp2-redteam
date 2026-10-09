@@ -40,6 +40,22 @@ def write_artifact(path: Path, payload: dict[str, Any]) -> None:
 
 
 def read_artifact(path: Path, *, identity: str) -> dict[str, Any]:
+    """The artifact, provided it belongs to this identity.
+
+    There is deliberately no way to read one that belongs to a different identity.  A run that has
+    changed its selector is a different treatment, and this is where that is noticed.
+
+    A `continuation` parameter sat here briefly and was removed.  It let the artifacts of a named
+    earlier run be adopted, which sounds like continuing an arm across a deliberate change -- and
+    would have been the first half of it.  What it could not do is skip the Episodes that earlier
+    run had already settled: the Campaign has no such path, so a "continuation" re-executed every
+    Episode from the beginning while adopting the frozen decisions of another identity.  That is
+    the worst of both -- the cost of a full run, and a record made of two runs that nothing
+    distinguishes -- so the parameter is gone rather than left for the next person to reach for.
+    Continuing an arm needs the skip path first; until that exists, a fresh run is the honest way
+    to run a changed harness.
+    """
+
     try:
         envelope = json.loads(path.read_text(encoding="utf-8"))
         payload = envelope["payload"]

@@ -30,6 +30,11 @@ from sandbox.scheduler.models import SandboxHandle
 MAX_RPC_TRANSPORT_BYTES = 1024 * 1024
 RPC_CANCEL_GRACE_SECONDS = 1.0
 
+#: The Runtime's token check failed.  Kept as a name here rather than a literal in a comparison,
+#: because the meaning depends on who is reading it: to the Runtime it is "this caller may not
+#: proceed", and to this client it is "the caller and the answerer are not the same pair".
+UNAUTHORIZED_RPC_CODE = -32001
+
 
 class _RpcCancellation:
     def __init__(self) -> None:
@@ -243,7 +248,46 @@ class RuntimeClient:
                         else future.exception()
                     )
             raise RuntimeTimeoutError(f"Runtime request timed out for {method}") from exc
-        return parse_response(payload, request_id)
+        try:
+            return parse_response(payload, request_id)
+        except ProtocolError as exc:
+            raise self._diagnose(exc, handle, method) from exc
+
+    @staticmethod
+    def _diagnose(
+        exc: ProtocolError, handle: SandboxHandle, method: str
+    ) -> ProtocolError:
+        """Say what an `unauthorized` reply means, because the code on its own says the wrong thing.
+
+        The Runtime checks the token on every call and the scheduler gives each container its own,
+        so `-32001` does not mean "this client is not allowed".  It means **something else
+        answered**: the request reached a process that is not the container this handle names.
+
+        Under host networking a container binds a fixed port on the host, and a container left
+        behind by an earlier run goes on holding it.  The new container's own Runtime then never
+        binds its port, its healthcheck passes against the *old* one, and the first RPC comes back
+        `unauthorized` -- a message that reads like a permissions problem and names neither the port
+        nor the leftover.  That is not hypothetical: it happened here, to a run whose container had
+        been orphaned by a `SIGTERM` that skipped the `finally: destroy(handle)`.
+
+        The transport is the only layer that can see both the token it sent and the fact that the
+        reply rejected it, so it is the layer that should say so.
+        """
+
+        if exc.code != UNAUTHORIZED_RPC_CODE:
+            return exc
+        return ProtocolError(
+            f"{method} reached a process that is not this container. The reply was `unauthorized`, "
+            f"which means the token this client sent is not the one the answering Runtime holds -- "
+            f"so the answer came from somewhere else. Container {handle.container_id} was started "
+            f"for execution {handle.execution_id} at {handle.runtime_url}. The usual cause is "
+            f"another container still holding that address: under host networking a container left "
+            f"behind by an earlier run keeps the port, the new container's own Runtime never binds, "
+            f"and its healthcheck passes against the old one. Look for a stray container before "
+            f"retrying.",
+            code=exc.code,
+            data=exc.data,
+        )
 
     def _exec_rpc(
         self,

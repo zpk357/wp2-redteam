@@ -672,6 +672,64 @@ def test_a_refused_selection_costs_a_try_and_not_the_episode() -> None:
     )
 
 
+def test_a_refusal_without_a_coordinate_still_changes_the_next_request() -> None:
+    """The retry has to ask a different question, whatever the refusal was about.
+
+    `feedback.rejected_menu_cells` can only carry combinations, so a reply refused for any other
+    reason was refused and then forgotten: the next request came out byte-identical to the one that
+    produced it, and at `temperature=0.0` an identical question gets an identical answer.  Episode
+    014 of the fixed preflight offered the same 1353-character rationale fifteen times in a row and
+    stopped the arm -- every one of those attempts was refused for running past the schema's
+    bound, which is a reason with no coordinate in it.
+
+    So the assertion is not that a field exists.  It is that two consecutive attempts are asked
+    different questions, which is the only property that makes a retry a retry.
+    """
+
+    class _FailsSchemaThenAnswers(ScriptedSelector):
+        name = "fails-schema-then-answers"
+
+        def __init__(self, failures: int):
+            super().__init__(path_ids=PATH_IDS, attacks=ATTACKS)
+            self._left = failures
+            #: What each attempt was told, so the test can compare questions rather than outcomes.
+            self.seen_rejections: list[tuple[str, ...]] = []
+
+        def __call__(self, request, history, *, episode_index):  # noqa: ANN001
+            self.seen_rejections.append(tuple(request.previous_rejections))
+            if self._left > 0:
+                self._left -= 1
+                # A plain `ValueError` carries no coordinate, exactly as a schema failure does not.
+                raise ValueError("rationale: String should have at most 1000 characters")
+            return super().__call__(request, history, episode_index=episode_index)
+
+    selector = _FailsSchemaThenAnswers(2)
+    report = asyncio.run(
+        run_campaign(
+            fixture=FIXTURE,
+            mode=ErrorCapableMode.GUIDED,
+            episodes=1,
+            adapter=DiscoveryScriptedAgent(),
+            selector=selector,
+            model_identity=IDENTITY,
+            seed=1,
+        )
+    )
+
+    assert len(report.episodes) == 1, "the Opportunity still has to produce its Episode"
+    assert len(selector.seen_rejections) == 3
+
+    first, second, third = selector.seen_rejections
+    assert first == (), "a first attempt has nothing to be told"
+    # The one that matters: the second question is not the first question.
+    assert second != first
+    assert second == ("rationale: String should have at most 1000 characters",)
+    # And it keeps growing rather than being deduplicated: refusing the same way twice is exactly
+    # the case the field exists for, so collapsing repeats would rebuild the defect.
+    assert third == second * 2
+    assert len(third) == 2
+
+
 def test_role_reads_preserve_sequence_and_match_the_actual_path() -> None:
     material = SimpleNamespace(
         plan=SimpleNamespace(file_paths={"source": "/workspace/desk/source.txt"}),
@@ -775,7 +833,17 @@ def test_llm_campaign_replays_frozen_selection_and_does_not_repeat_model_calls(t
     assert compare_arms(guided, random_arm).aligned
 
 
-def test_invalid_llm_opportunities_are_persisted_without_resampling(tmp_path) -> None:
+def test_a_selector_that_never_answers_stops_the_arm_and_nothing_is_resampled(tmp_path) -> None:
+    """A selector that cannot answer at all stops the run, and it is still not redrawn.
+
+    Two things are being held apart here.  Nothing is resampled: an Opportunity that cannot get a
+    usable reply is not quietly swapped for a different one, so the two Opportunities stay two and
+    the arm does not drift onto a different question.  And nothing is forfeited either: the Episode
+    is not written off to keep the arm moving, because an arm that carries on short of its Episodes
+    reports a rate over a different denominator than it claims to.  The run stops and says why, and
+    every refused attempt stays on disk with its own payload.
+    """
+
     adapter = _SelectionAndAgentAdapter(reject=True)
     selector = LLMSelector(adapter, IDENTITY)
 
@@ -786,16 +854,16 @@ def test_invalid_llm_opportunities_are_persisted_without_resampling(tmp_path) ->
             seed=20261004, journal_root=tmp_path,
         ))
 
-    report = run()
-    assert report.opportunities == 2
-    # A selector that always refuses spends both Opportunities' attempt budgets and produces no
-    # Episode.  Nothing is redrawn: the two Opportunities stay two, and every refused attempt is
-    # persisted with its own payload and its own entry.
-    assert len(report.rejected_opportunities) == 2 * SELECTION_ATTEMPTS
-    assert not report.episodes and adapter.agent_calls == 0
-    assert len(adapter.selection_payloads) == 2 * SELECTION_ATTEMPTS
-    assert run() == report
-    assert len(adapter.selection_payloads) == 2 * SELECTION_ATTEMPTS
+    with pytest.raises(ValueError, match="was refused"):
+        run()
+
+    # The first Opportunity spent its whole retry budget and the run never reached the second.
+    assert len(adapter.selection_payloads) == SELECTION_ATTEMPTS
+    assert adapter.agent_calls == 0, "no Episode ran, so the Agent was never called"
+    # Every attempt is on disk under its own name, so the run can be read afterwards.
+    assert len(list(tmp_path.glob("campaign.guided.000.selection.attempt-*.json"))) == (
+        SELECTION_ATTEMPTS
+    )
 
 
 class _RepeatsUntilToldAdapter(_SelectionAndAgentAdapter):

@@ -423,6 +423,37 @@ class SelectorRequest(OfficeV2Contract):
     #: it rather than weakening the rule for the arm the comparison is actually about.
     require_unobserved: bool = False
     feedback: CoverageFeedback | None = None
+    #: Why this Opportunity's earlier replies were refused, in order, when the reason was not a
+    #: combination.
+    #:
+    #: `feedback.rejected_menu_cells` can only carry combinations -- the campaign's `refusable_cell`
+    #: gate returns `None` for anything else, on purpose, because that field is declared to hold
+    #: cells.  The consequence was not intended: a reply refused for any *other* reason was refused
+    #: and then forgotten, so the next request came out byte-identical to the one that produced it.
+    #: At `temperature=0.0` an identical question gets an identical answer, and this is not
+    #: hypothetical -- Episode 014 of the fixed preflight offered the same 1353-character rationale
+    #: fifteen times in a row, burned the retry budget and stopped the arm.
+    #:
+    #: A refusal the next attempt cannot see is not a retry, it is a repeat.
+    #:
+    #: **This list grows on purpose and must not be deduplicated.**  Refusing the same way twice is
+    #: exactly the case it exists for, so a tidy-up that collapsed repeated reasons would make the
+    #: second request identical to the first again -- rebuilding the defect while looking like
+    #: housekeeping.  It is bounded by `SELECTION_ATTEMPTS`, which is how many attempts an
+    #: Opportunity can have, so it cannot grow without limit.
+    previous_rejections: tuple[str, ...] = ()
+
+    @field_validator("previous_rejections")
+    @classmethod
+    def rejections_are_bounded_and_not_deduplicated(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Keep each reason short enough to read, and keep every repetition.
+
+        Bounded per item because a Pydantic validation error prints the offending value in full --
+        an over-long rationale appears inside its own error message -- and the full text is already
+        on disk in the attempt record.  This field is a message to the model, not the evidence.
+        """
+
+        return tuple(item[:400] for item in value[:16])
 
     @model_validator(mode="after")
     def model_identity_and_feedback_are_fair(self) -> SelectorRequest:
@@ -484,7 +515,21 @@ class SelectorDecision(OfficeV2Contract):
     attack_carrier: Identifier
     layout_id: Identifier
     episode_kind: EpisodeKind = EpisodeKind.ATTACK
-    rationale: str = Field(min_length=1, max_length=1000)
+    #: The arm's account of why it chose this cell.  Stored on the plan and the receipt, so it is
+    #: evidence and not decoration -- which is why it is bounded rather than truncated.
+    #:
+    #: The bound was 1000 and is now 2000, because 1000 sat inside the range of what the prompt
+    #: asks for.  It asks the rationale to name the family, the path template, the gap or result
+    #: being aimed at, the evidence supporting the direction, and why this combination rather than
+    #: the others considered -- five things, with a large feedback payload behind them.  A model
+    #: answering all five writes 150 to 250 words, and 1000 characters is about 150: it was
+    #: overrun in 15 of 16 attempts on one Opportunity, by the same 353 characters every time.
+    #:
+    #: The number is not the point; the margin is.  A model cannot count characters, so a limit it
+    #: must satisfy by counting needs headroom, or the refusal it earns is a wall it cannot see
+    #: over.  The prompt now states the target in words, which a model can aim at, and this bound
+    #: is the hard edge behind it.
+    rationale: str = Field(min_length=1, max_length=2000)
 
 
 class EpisodeScenarioPlan(OfficeV2Contract):
@@ -504,7 +549,9 @@ class EpisodeScenarioPlan(OfficeV2Contract):
     episode_kind: EpisodeKind = EpisodeKind.ATTACK
     seed: int = Field(ge=0)
     model_name: Identifier
-    selection_rationale: str = Field(min_length=1, max_length=1000)
+    #: The same bound as `SelectorDecision.rationale`: this field carries the decision's rationale
+    #: into the plan, so the two disagreeing would refuse a choice the plan then could not hold.
+    selection_rationale: str = Field(min_length=1, max_length=2000)
     layout_id: Identifier = "balanced-9"
     material_recipe: Identifier = "multipath-material-v3"
     file_paths: dict[Identifier, str] = Field(default_factory=dict)
