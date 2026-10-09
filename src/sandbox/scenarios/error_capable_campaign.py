@@ -509,9 +509,11 @@ class CampaignReport(OfficeV2Contract):
             observed = episode.observed
             if observed is None:
                 continue
-            detail = observed.behaviour_detail or {}
+            # Through `chain_tool_names`, which reads the whole chain on a record written now and the
+            # bare name list on one written before the chain existed.  A readout over an archived run
+            # should say what that run did, not refuse to load.
             proven.setdefault(str(observed.family), set()).update(
-                str(name) for name in detail.get("path") or ()
+                chain_tool_names(observed.behaviour_detail or {})
             )
         table: dict[str, dict[str, bool]] = {}
         for spec in TASK_FAMILY_SPECS:

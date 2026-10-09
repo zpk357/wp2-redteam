@@ -44,6 +44,7 @@ from sandbox.scenarios.error_capable_coverage import (
     CoverageLedger,
     MenuTargets,
     ObservedKey,
+    chain_tool_names,
     keyed,
     risk_class,
     roles_read,
@@ -98,7 +99,10 @@ def test_the_menu_space_holds_only_combinations_a_plan_can_use() -> None:
 
     assert TARGETS.enumerable
     assert len(TARGETS.families) == 3
-    assert len(TARGETS.paths) == 12
+    # Nine, not twelve: `51c0785` took one route out of each family -- the three that finished their
+    # work inside the actor's own workspace, which the family's own completion rule rejected -- and
+    # this assertion was left behind.  It has been red since that commit.
+    assert len(TARGETS.paths) == 9
     # Five axes, each contributing its own factor.  The path count is per family, not the
     # flattened union: `MenuTargets` crosses each family only with its own paths, so the union
     # would count the space as three times what it is.
@@ -186,15 +190,25 @@ def test_metadata_and_instruction_errors_are_not_releases() -> None:
 
 
 def _observation(item: object) -> tuple:
-    """Everything a behaviour key is allowed to depend on, read back from the stored descriptor."""
+    """Everything a behaviour key is allowed to depend on, read back from the stored descriptor.
+
+    Rewritten when the key became the whole chain.  What it read before -- the tool-name list, the
+    roles of the files read, the discovery calls and the delivery channels -- was four coefficients
+    standing in for one thing, three of them projections of the fourth, and the fourth constant in
+    every Episode of the last pilot.  The chain carries the same facts plus what they were missing:
+    which record each call acted on and who it addressed, which is what took the guided arm from
+    seven distinct behaviours to twelve on the same thirty-two traces.
+    """
 
     detail = item.observed.behaviour_detail  # type: ignore[attr-defined]
     return (
-        tuple(detail["path"]),
-        tuple(detail["file_roles"]),
-        tuple(detail["discovery"]),
-        tuple(detail["channels"]),
+        tuple(tuple(entry) for entry in detail["chain"]),
+        tuple(
+            (str(entry["basis"]), bool(entry["before_delivery"]))
+            for entry in detail["permission_exposures"]
+        ),
         tuple(detail["stages"]),
+        detail["strongest_stage"],
     )
 
 
@@ -244,7 +258,11 @@ def test_a_behaviour_key_tracks_what_the_run_did_and_not_how_it_was_planned() ->
     assert len(plans) == 3
 
     random_arm = _campaign(ErrorCapableMode.RANDOM, episodes=3, seed=0)
-    random_paths = [item.observed.behaviour_detail["path"] for item in random_arm.episodes]
+    # Through `chain_tool_names`, which reads the chain on a record written now and the bare name list
+    # on one written before the chain existed -- so this still reads an archived report.
+    random_paths = [
+        chain_tool_names(item.observed.behaviour_detail) for item in random_arm.episodes
+    ]
     random_keys = [item.observed.behaviour for item in random_arm.episodes]
 
     assert len(set(map(tuple, random_paths))) == 3, "this arm was supposed to vary the path"
@@ -260,7 +278,11 @@ def _one_episode_per_family() -> dict[str, bool]:
 
     guided = _campaign(ErrorCapableMode.GUIDED, episodes=3)
     keys = [item.observed.behaviour for item in guided.episodes if item.observed]
-    paths = [item.observed.behaviour_detail["path"] for item in guided.episodes if item.observed]
+    paths = [
+        chain_tool_names(item.observed.behaviour_detail)
+        for item in guided.episodes
+        if item.observed
+    ]
     attacks = [item.selector.decision.attack_mode.value for item in guided.episodes]
 
     # Same family, three different attacks, one identical path.
@@ -270,7 +292,9 @@ def _one_episode_per_family() -> dict[str, bool]:
 
     random_arm = _campaign(ErrorCapableMode.RANDOM, episodes=3, seed=0)
     random_paths = [
-        item.observed.behaviour_detail["path"] for item in random_arm.episodes if item.observed
+        chain_tool_names(item.observed.behaviour_detail)
+        for item in random_arm.episodes
+        if item.observed
     ]
     random_keys = [item.observed.behaviour for item in random_arm.episodes if item.observed]
     different_path_different_behaviour = (
@@ -582,7 +606,10 @@ def test_a_decision_outside_the_frozen_menu_fails_closed() -> None:
             decision = SelectorDecision(
                 task_family=TaskFamily.ACCESS_REVIEW,
                 path_id="not-a-registered-path",
-                attack_mode=AttackMode.NOTE_REWRITE,
+                # Any mechanism will do; what is being refused here is the path.  Named by a survivor
+                # rather than by `NOTE_REWRITE`, which left the set when the mechanisms were bound to
+                # the four types.
+                attack_mode=AttackMode.CROSS_FILE_SPLICE,
                 attack_carrier=legal_carrier,
                 layout_id="balanced-9",
                 episode_kind=EpisodeKind.ATTACK,
@@ -642,7 +669,7 @@ def test_a_refused_selection_costs_a_try_and_not_the_episode() -> None:
                     # A path the family does not register, so the refusal the run records is this
                     # one rather than an artefact of some other axis being wrong as well.
                     path_id="not-a-registered-path",
-                    attack_mode=AttackMode.NOTE_REWRITE,
+                    attack_mode=AttackMode.CROSS_FILE_SPLICE,
                     attack_carrier=legal_carrier,
                     layout_id="balanced-9",
                     episode_kind=EpisodeKind.ATTACK,
@@ -1006,7 +1033,7 @@ def test_a_refusal_that_is_not_a_duplicate_reaches_the_next_opportunity_too(tmp_
     assert len(report.episodes) == 4
 
 
-def test_the_guided_request_carries_the_twelve_scores_in_registry_order(tmp_path) -> None:
+def test_the_guided_request_carries_every_score_in_registry_order(tmp_path) -> None:
     """`NP-AC-05`/`NP-07`: the scores reach the next request, in registry order, never ranked."""
 
     guided = asyncio.run(run_campaign(
@@ -1020,7 +1047,11 @@ def test_the_guided_request_carries_the_twelve_scores_in_registry_order(tmp_path
         assert [row["neighborhood_id"] for row in rows] == [
             item.neighborhood_id for item in registry
         ]
-        assert len(rows) == 12
+        # Read off the registry rather than spelled out: the count is the number of neighbourhoods,
+        # which is the number of paths, and the paths went from twelve to nine when the three that
+        # finished inside the workspace were removed.  A literal here would go stale the same way
+        # again the next time a route moves.
+        assert len(rows) == len(registry)
         # The floor holds, and no direction can gain more than one hit's worth per Episode: the step
         # is the coverage increment (zero, or minus one when the Episode repeated a profile) plus
         # `HIT_BONUS` when the Episode proved an informed violation.
@@ -1035,7 +1066,7 @@ def test_the_guided_request_carries_the_twelve_scores_in_registry_order(tmp_path
     counted = sum(item.raised + item.lowered + item.neutral for item in guided.priority.scores)
     assert counted == len(guided.episodes)
     # The guided arm grew a score table; the random arm has none, by design (`NP-04`).
-    assert guided.priority is not None and len(guided.priority.scores) == 12
+    assert guided.priority is not None and len(guided.priority.scores) == len(registry)
     random_arm = asyncio.run(run_campaign(
         fixture=FIXTURE, mode=ErrorCapableMode.RANDOM, episodes=2,
         adapter=DiscoveryScriptedAgent(), selector=_selector(),
