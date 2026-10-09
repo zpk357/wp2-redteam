@@ -287,8 +287,30 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             executor=executor,
         )
         reports[arm] = report
+        # **The two readouts this run exists to produce were not reaching the artifact.**  The report
+        # is serialised by field, and both `target_reach` -- whether each mechanism produced the
+        # violation type it is written to provoke -- and `risk_dimension_curve` -- where each of the
+        # four types finished -- are methods, so `model_dump` left them out.  Neither had a consumer
+        # anywhere in the run path: `selection_cost` is read by this script and by the probe, and
+        # these two were only ever called from a test.  A run would therefore have finished, written
+        # its artifacts, and shown nobody the numbers the whole change was for.
+        #
+        # Written beside the report rather than turned into fields on it.  Both are derived from
+        # `episodes`, and a stored copy is a second place for the same quantity to live -- which is
+        # the shape of the defect already fixed twice in this area.
         (stage_root / f"{arm}-campaign.json").write_text(
-            json.dumps(report.model_dump(mode="json"), indent=2, sort_keys=True, ensure_ascii=False)
+            json.dumps(
+                {
+                    **report.model_dump(mode="json"),
+                    "readouts": {
+                        "target_reach": report.target_reach(),
+                        "risk_dimension_curve": report.risk_dimension_curve(),
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+                ensure_ascii=False,
+            )
             + "\n",
             encoding="utf-8",
             newline="\n",
@@ -297,6 +319,22 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             f"  {arm:<7} episodes={len(report.episodes)} opportunities={report.opportunities}"
             f" rejected={len(report.rejected_opportunities)}"
         )
+        # Printed as well as stored: a run is watched as it goes, and a fact that is only in a file
+        # is one nobody reads until the run is over.
+        reached = report.target_reach()
+        for name, row in reached.items():
+            print(
+                f"      {name:<26}-> {row['target_type']:<26}"
+                f"reached={row['reached']} other={row['reached_other']}"
+                f" nothing={row['reached_nothing']}"
+            )
+        if not reached:
+            print("      target reach: no Episode's mechanism resolved to a target type")
+        levels = {
+            name: points[-1]["level"] if points else None
+            for name, points in report.risk_dimension_curve().items()
+        }
+        print(f"      risk levels {levels}")
 
     if set(reports) != {"guided", "random"}:
         # The pair summary is a statement about two arms, so it is not written until there are
