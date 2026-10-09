@@ -40,6 +40,7 @@ from sandbox.scenarios.error_capable import (  # noqa: E402
 )
 from sandbox.scenarios.error_capable_agent import DiscoveryScriptedAgent  # noqa: E402
 from sandbox.scenarios.error_capable_campaign import (  # noqa: E402
+    CampaignReport,
     ScriptedSelector,
     compare_arms,
     run_campaign,
@@ -225,8 +226,31 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
     order = arm_order(args.repeat)
     executor = _build_executor(args, adapter=adapter, identity=identity)
 
+    #: Which arm this invocation runs.  `both` is the specification's unit of a paired repeat and
+    #: is the default, so nothing changes by being invoked without the flag.
+    #:
+    #: Splitting the pair across two invocations is for a run that has to give the machine back in
+    #: between -- not a way to save work.  The Campaign has no path that skips an Episode already
+    #: settled, so a second invocation of an arm re-executes it from the first Episode; what
+    #: splitting buys is that the arm not yet run can be run on its own, into this same root,
+    #: instead of repeating the arm that has already finished.
+    wanted = order if args.arm == "both" else (args.arm,)
+    unplaced = [arm for arm in wanted if arm not in order]
+    if unplaced:
+        raise SystemExit(f"--arm {args.arm} is not in this repetition's order: {list(order)}")
+
     reports: dict[str, object] = {}
     for position, arm in enumerate(order):
+        if arm not in wanted:
+            # Read the arm this invocation is not running, so the pair summary can still be
+            # drawn from the two reports rather than from the two in memory.
+            stored_path = stage_root / f"{arm}-campaign.json"
+            if stored_path.is_file():
+                reports[arm] = CampaignReport.model_validate_json(
+                    stored_path.read_text(encoding="utf-8")
+                )
+                print(f"  {arm:<7} carried forward from {stored_path.name}")
+            continue
         mode = ErrorCapableMode.GUIDED if arm == "guided" else ErrorCapableMode.RANDOM
         arm_root = stage_root / arm
         arm_root.mkdir(parents=True, exist_ok=True)
@@ -273,6 +297,14 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             f"  {arm:<7} episodes={len(report.episodes)} opportunities={report.opportunities}"
             f" rejected={len(report.rejected_opportunities)}"
         )
+
+    if set(reports) != {"guided", "random"}:
+        # The pair summary is a statement about two arms, so it is not written until there are
+        # two.  Reporting one arm's numbers as if they were the pair's would be the same mistake
+        # the arms are compared to avoid -- a rate over a denominator that is not what it claims.
+        (stage_root / "running.json").unlink(missing_ok=True)
+        print(f"  pair summary not written: this root holds {sorted(reports)}")
+        return {"stage": args.stage, "repeat": args.repeat, "arms": sorted(reports)}
 
     alignment = compare_arms(reports["guided"], reports["random"])
     payload = {
@@ -335,6 +367,10 @@ def main() -> int:
     #: where this model wrote its closing summary, so 1024 was cutting turns off mid-sentence --
     #: and a turn cut off is a turn whose ending, tool call included, was never seen.
     parser.add_argument("--num-predict", type=int, default=2048)
+    #: `both` is the specification's unit of a paired repeat.  `guided` or `random` runs one arm of
+    #: the pair on its own, so a run that has to hand the machine back after the first arm can
+    #: finish the second later without repeating the first.
+    parser.add_argument("--arm", choices=("both", "guided", "random"), default="both")
     parser.add_argument("--executor", choices=("in-process", "container"), default="in-process")
     #: `memory` is what every result so far was produced by; `directory` writes the workspace out
     #: and reads it back, which is how a host run is put on the same terms as a container one.
