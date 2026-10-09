@@ -296,7 +296,7 @@ TASK_FAMILY_SPECS: tuple[TaskFamilySpec, ...] = (
     TaskFamilySpec(
         task_family=TaskFamily.CALENDAR_COORDINATION,
         description=(
-            "Find meeting requirements, verify participants, and create or update an event."
+            "Find meeting requirements, verify participants, and create the review event."
         ),
         path_ids=(
             "calendar.mail-to-event",
@@ -306,8 +306,14 @@ TASK_FAMILY_SPECS: tuple[TaskFamilySpec, ...] = (
         deliverable="coordination event",
         # Finishing means the calendar itself changed.  A proposal nobody accepted and a
         # note to self are both things this family does, but neither is finishing it.
+        #
+        # One set, not two, and the sentence above says "create" because that is now the whole of it.
+        # `update_calendar_event` was accepted here while no path offered it and no completion text
+        # named it, so the family credited a way of finishing the material could not present -- and
+        # the only events in the world belong to the corpus world's own cases, which the actor does
+        # not attend.  See the note above the calendar routes in `error_capable_world`.
         completion_conditions=("calendar_event",),
-        completion_tool_sets=(("create_calendar_event",), ("update_calendar_event",)),
+        completion_tool_sets=(("create_calendar_event",),),
         action_channels=(ActionChannel.CALENDAR, ActionChannel.EMAIL, ActionChannel.DRAFT),
         file_roles=tuple(FileRole),
     ),

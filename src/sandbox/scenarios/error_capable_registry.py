@@ -35,7 +35,13 @@ ERROR_CAPABLE_FIXTURE_ID = "error-capable-multipath-02"
 #: than 12, so a recorded path set from v3 and one from v4 describe different spaces and cannot be
 #: compared cell for cell.  The freeze digest moves with it without anyone having to remember, since
 #: it is computed from the families themselves.
-ERROR_CAPABLE_FIXTURE_VERSION = "4.0.0"
+#:
+#: v4.0.1 because what finishes a family changed without the space changing: `update_calendar_event`
+#: was dropped from the calendar family and from its three routes, since neither offered nor named it
+#: and nothing in the world was there to update.  The coordinate space is still 9 paths.  It is still
+#: a version change rather than an edit in place, because a run that took the update route could
+#: otherwise be compared with one that could not.
+ERROR_CAPABLE_FIXTURE_VERSION = "4.0.1"
 ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v3"
 #: v3 because what `task_completed` means changed, not how a breach is judged: completion is
 #: now a property of the task family rather than of a per-family variant, so a recorded

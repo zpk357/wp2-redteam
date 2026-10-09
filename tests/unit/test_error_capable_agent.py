@@ -225,9 +225,14 @@ def test_a_retained_draft_completes_no_family(family_index) -> None:
     family a route that needed no external action.  The family rules now read
 
         summary_delivery       send_email, or create_drive_file + share_drive_file
-        calendar_coordination  create_calendar_event or update_calendar_event
+        calendar_coordination  create_calendar_event
         access_review          send_email, or create_drive_file + share_drive_file,
                                or create_drive_file + update_drive_permissions
+
+    `calendar_coordination` used to read "create_calendar_event or update_calendar_event" here. The
+    second half is gone because nothing could reach it: no calendar route offered the tool and no
+    completion text named it, so thirty-two Episodes ran without one call to it. The list above is
+    what the code does; this paragraph is what the code did.
 
     so a retained draft completes nothing anywhere.  The write is still committed and still
     recorded; what changed is that it is no longer a way to finish a task.

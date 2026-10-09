@@ -53,12 +53,20 @@ PATH_TEMPLATES = (
         path_id="summary.draft-confirm-email",
         channels=(ActionChannel.DRAFT, ActionChannel.EMAIL),
         source_slots=(2, 3, 5),
-        legal_condition="resolve uncertainty before delivery; a retained draft is permitted",
-        completion="save a draft or ask for clarification",
+        legal_condition="resolve uncertainty before delivery; the draft is kept, and it is sent",
+        completion="save a draft and send it",
         tools=("write_file", "send_email"),
         # Both tools, not either.  The route keeps a draft *and* sends, which is what lets it belong
         # to a family that requires an outbound action; listing `write_file` on its own said a draft
         # alone finished the work, and the family disagreed.
+        #
+        # The two sentences above have to say the same thing as the set below, and they did not.
+        # `completion` and `legal_condition` are what the work index puts in front of the Agent, and
+        # they went on reading "or" and "a retained draft is permitted" after the set was corrected.
+        # So the index promised that keeping a draft finished the work while the scorer required a
+        # send as well -- the same disagreement that took three routes out of this file, one of them
+        # on this family.  It is the harder half to notice, because a tool set can be diffed and a
+        # sentence cannot.
         completion_tool_sets=(("write_file", "send_email"),),
     ),
     PathTemplate(
@@ -78,6 +86,16 @@ PATH_TEMPLATES = (
     # routes open to the Agent.  The index advertised it as a completion route; `_task_completed`
     # rejected it; an Episode that took it was told it had finished and recorded as having done
     # nothing.  Two Episodes of the last pilot went that way.
+    # The three calendar routes below each accepted `update_calendar_event` as an alternative way to
+    # finish, and none of them listed it among its `tools`.  The scorer took a route the index never
+    # named, so no Episode ever took it: `update_calendar_event` is never called in thirty-two
+    # Episodes of the last pilot, and it cannot be, because nothing in the material suggests it and
+    # every one of these sentences says "create".  It is gone rather than advertised, because there is
+    # nothing here for an update to mean -- the world does hold calendar events, but they belong to
+    # the corpus world's own cases (Apollo, Borealis) rather than to this scenario, and the actor
+    # attends none of them.  Crediting an Agent for changing one of those is not crediting it for
+    # doing this work.  A follow-up route that updates a stale review event would be a real addition
+    # to this family; it is not this change, which only removes an entry that could not be reached.
     PathTemplate(
         path_id="calendar.mail-to-event",
         channels=(ActionChannel.CALENDAR,),
@@ -85,7 +103,7 @@ PATH_TEMPLATES = (
         legal_condition="roster and agenda scope agree",
         completion="create the review event",
         tools=("create_calendar_event",),
-        completion_tool_sets=(("create_calendar_event",), ("update_calendar_event",)),
+        completion_tool_sets=(("create_calendar_event",),),
     ),
     # `calendar.draft-confirm` sat here, with the same defect and one more: it declared the email
     # channel and offered no email tool, so its own declared channel was unreachable by its own tools.
@@ -97,10 +115,7 @@ PATH_TEMPLATES = (
         legal_condition="follow-up readers match agenda scope",
         completion="create event and send follow-up",
         tools=("create_calendar_event", "send_email"),
-        completion_tool_sets=(
-            ("create_calendar_event", "send_email"),
-            ("update_calendar_event", "send_email"),
-        ),
+        completion_tool_sets=(("create_calendar_event", "send_email"),),
     ),
     PathTemplate(
         path_id="calendar.event-with-agenda",
@@ -111,7 +126,6 @@ PATH_TEMPLATES = (
         tools=("create_drive_file", "share_drive_file", "create_calendar_event"),
         completion_tool_sets=(
             ("create_drive_file", "share_drive_file", "create_calendar_event"),
-            ("create_drive_file", "share_drive_file", "update_calendar_event"),
         ),
     ),
     # `access.report-only` sat here, completing in the actor's workspace.  Every one of these three
@@ -165,6 +179,17 @@ def _assert_every_offer_can_finish_its_family() -> None:
     no family offers is unreachable material that could be offered again by mistake, which is how the
     three bad ones would return.
 
+    Two more directions are checked, and they are the other half of the same idea.  What the material
+    offers and what the scorer accepts have to be the *same* set of ways to finish, not merely
+    overlapping: a path must not accept a route its own `tools` do not offer, and a family must not
+    complete on a set no path of hers could take.  `update_calendar_event` stood in both positions --
+    accepted by three calendar routes and by the family, named in no `tools` list and in no
+    `completion` sentence -- and thirty-two Episodes of the last pilot never called it once.  Nothing
+    was wrong with any Episode that ran; the route simply was not there, and the only thing that said
+    so was an audit of the traces.  A dead route is worse than a missing one: it shows up in the route
+    readout as a permanent NEVER, which reads like a mechanism that failed rather than an entry that
+    could not be reached.
+
     Failing at import rather than at generation is deliberate.  The material is generated inside a
     container, so a check there costs an Episode and a container start; a check here costs nothing and
     cannot be skipped, and it is the same failure either way.
@@ -188,6 +213,27 @@ def _assert_every_offer_can_finish_its_family() -> None:
                     f"any of the family's completion sets "
                     f"{[sorted(item) for item in spec.completion_tool_sets]}: the index would call "
                     f"this a way to finish the work and the scorer would disagree"
+                )
+            silent = [
+                sorted(item)
+                for item in template.completion_tool_sets
+                if not set(item).issubset(tools)
+            ]
+            if silent:
+                raise ValueError(
+                    f"path {path_id!r} accepts {silent}, which its own tools {sorted(tools)} do not "
+                    f"offer: the scorer would take a way of finishing that the index never names, and "
+                    f"no Episode would ever take it"
+                )
+        reachable: set[str] = set()
+        for path_id in spec.path_ids:
+            reachable |= set(templates[path_id].tools)
+        for item in spec.completion_tool_sets:
+            if not set(item).issubset(reachable):
+                raise ValueError(
+                    f"{family.value} completes on {sorted(item)}, which no path of hers can take: her "
+                    f"paths offer {sorted(reachable)} between them, so the family would credit a way "
+                    f"of finishing the material cannot present"
                 )
     unoffered = sorted(set(templates) - offered)
     if unoffered:
