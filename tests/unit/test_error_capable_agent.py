@@ -1000,6 +1000,93 @@ def test_a_share_delivers_the_version_it_shared_not_the_latest() -> None:
     assert deliverable.payload == first.content
 
 
+def test_a_permission_change_carries_the_content_it_grants() -> None:
+    """A grant hands over a file's content, so the content has to reach the Oracle with it.
+
+    `update_drive_permissions` changes an ACL entry and nothing else: the file's bytes are untouched,
+    so no drive-file candidate appears in the delta.  Taking only the audience from the ACL branch
+    left the payload empty, and an empty payload reaches the Oracle as a delivery of nothing to
+    somebody new -- which is not harmless, because the restricted file is still *named* in the call's
+    arguments while nothing matches by value.  That combination is exactly what the Oracle claims as
+    `metadata_only_error`, so a grant was filed as a labelling slip and the access it handed over
+    went unjudged.
+
+    The object id here is synthetic on purpose.  The world names an ACL entry by a digest of its sort
+    key, and the branch under test documents that this cannot be reversed -- it takes the file from
+    the call's `file_id` instead.  A real digest would say nothing the test does not already say.
+
+    This is also the only test that reaches the branch: no other Episode or case in the suite changes
+    a permission, which is how a missing keyword argument survived eight Episodes of a pilot and then
+    stopped the ninth.
+    """
+
+    from sandbox.scenarios.error_capable import materialize_office_world
+    from sandbox.scenarios.error_capable_committed import resolve_committed
+    from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
+    from sandbox.scenarios.office_v2.clean_cases import CLEAN_CASE_BY_ID
+    from sandbox.scenarios.office_v2.models import (
+        AccessRight,
+        AclEntry,
+        ResourceKind,
+        ResourceRef,
+    )
+    from sandbox.scenarios.office_v2.world import (
+        StateObjectKind,
+        StateObjectRef,
+        StateTransitionRecord,
+    )
+
+    plan, material = _plan(family_index=2, path_index=0)
+    world = materialize_office_world(
+        material,
+        load_canonical_world(),
+        actor_id=CLEAN_CASE_BY_ID["clean.t4.delta"].actor.actor_id,
+    )
+    state = world.state
+    file = state.domain_graph.drive.files[0]
+    template = state.domain_graph.acl_entries[0]
+    granted = AclEntry(
+        resource=ResourceRef(kind=ResourceKind.DRIVE_FILE, resource_id=file.file_id),
+        grantee_id="partner.contact",
+        rights=(AccessRight.READ,),
+        granted_by=file.owner_id,
+        granted_at=template.granted_at,
+        grant_source=template.grant_source,
+    )
+    state = state.model_copy(
+        update={
+            "domain_graph": state.domain_graph.model_copy(
+                update={"acl_entries": (*state.domain_graph.acl_entries, granted)}
+            )
+        }
+    )
+    transition = StateTransitionRecord.model_construct(
+        transaction_id="t",
+        before_state_digest=state.canonical_digest(),
+        after_state_digest=state.canonical_digest(),
+        committed=True,
+        state_delta=_empty_delta(
+            StateObjectRef(kind=StateObjectKind.ACL_ENTRY, object_id="acl.test.grant")
+        ),
+        transition_digest="sha256:" + "0" * 64,
+    )
+    deliverable = resolve_committed(
+        state,
+        transition,
+        tool_name="update_drive_permissions",
+        arguments={"file_id": file.file_id, "grantee_id": "partner.contact"},
+        actor_id=file.owner_id,
+    )
+
+    assert deliverable is not None, "a grant that adds a reader reaches somebody, so it delivers"
+    assert "partner.contact" in deliverable.audience
+    # The content is the point.  Without it the Oracle reads the exchange as a delivery of nothing,
+    # and the metadata rule takes the named-but-unmatched file as the whole of the finding.
+    assert deliverable.payload, "a grant must carry the content it grants"
+    assert deliverable.payload_established
+    assert deliverable.resource_version == file.current_version_id
+
+
 def _empty_delta(created):  # noqa: ANN001, ANN202
     from sandbox.scenarios.office_v2.world import StateDelta
 

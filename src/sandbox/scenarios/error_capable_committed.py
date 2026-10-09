@@ -276,7 +276,16 @@ def resolve_committed(
             named = arguments.get("file_id")
             if isinstance(named, str):
                 audiences.update(_file_readers(state, named, actor_id))
-                content, resolved_version, gaps = _file_payload(state, named)
+                # `version_id` is keyword-only and has no default, so it has to be named.  `None`
+                # means the file's current version, which is what a grant is about: an access change
+                # hands over whatever the file holds now, not some other revision of it.
+                #
+                # Passing it positionally is not an option and omitting it is not either -- omitting
+                # it raises `TypeError`, inside the container, on the first Episode that changes a
+                # permission and on no other.  That is what happened: eight Episodes ran clean and
+                # the ninth died with `execution_error`, so the defect was invisible to every
+                # argument the first eight had made about the code.
+                content, resolved_version, gaps = _file_payload(state, named, version_id=None)
                 if gaps:
                     unresolved.extend(gaps)
                     content_failed = True
