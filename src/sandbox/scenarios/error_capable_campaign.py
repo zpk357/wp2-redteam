@@ -124,7 +124,12 @@ from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 #: was thrown away and re-run four times before being counted.  It is one of the four violation types
 #: now, so the class is `violation` -- which changes `risk_detail.class` and therefore the risk key of
 #: every Episode that reached T2 alone.  A v14 run cannot be compared with a v15 one.
-CAMPAIGN_VERSION = "error-capable-campaign-v15"
+#:
+#: v16 because the behaviour feature changed in the same round: a call acting on a resource the Episode
+#: had just created recorded that resource's id, which has the Episode's id inside it, so the same
+#: behaviour in two Episodes produced two different features.  `COVERAGE_VERSION` v5 carries the whole
+#: argument; the consequence here is that a v15 run cannot be pooled with a v16 one.
+CAMPAIGN_VERSION = "error-capable-campaign-v16"
 
 #: What changed in the ruler, printed beside the coverage numbers it affects.
 #:

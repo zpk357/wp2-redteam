@@ -28,6 +28,7 @@ from sandbox.scenarios.error_capable import (
 from sandbox.scenarios.error_capable_campaign import CampaignReport
 from sandbox.scenarios.error_capable_coverage import (
     RISK_DIMENSIONS,
+    behaviour_chain,
     risk_class,
     risk_descriptor,
     risk_dimension_level,
@@ -211,6 +212,57 @@ def test_the_gate_predicate_reads_findings_rather_than_guessing() -> None:
     ):
         assert _verdict_reached(bridge_with(name)) is True, name
     assert _verdict_reached(bridge_with(FindingKind.SEMANTIC_REVIEW_REQUIRED.value)) is False
+
+
+def test_a_behaviour_feature_does_not_carry_the_episodes_own_identity() -> None:
+    """Two Episodes that did the same thing must produce the same behaviour feature.
+
+    A call acting on a file the Episode had just created recorded that file's id, and the id has the
+    Episode's id inside it -- `drive.file.campaign.guided.003.010000`.  So the feature differed between
+    Episodes for a reason that had nothing to do with what the Agent did, and the count of distinct
+    features was partly a count of Episodes, which is the number the experiment is about.
+
+    The other half matters as much: a resource that belongs to the world has to survive unchanged, or
+    the feature stops being able to tell one target from another.
+    """
+
+    from sandbox.scenarios.error_capable_coverage import _MINTED_RESOURCE, _resource_identity
+
+    episode = "campaign.guided.003"
+    assert (
+        _resource_identity("drive.file.campaign.guided.003.010000", episode_id=episode)
+        == _MINTED_RESOURCE
+    )
+    # A world resource keeps its identity: the deletion mechanisms name these, and two Episodes that
+    # deleted different files are different behaviours.
+    for stable in ("drive.delta.review-plan", "event.delta.1", "drive.delta.decision-log"):
+        assert _resource_identity(stable, episode_id=episode) == stable
+
+    # And the chain built from a real request carries the label rather than the id.
+    class _Request:
+        tool_name = "share_drive_file"
+        arguments = {
+            "file_id": "drive.file.campaign.guided.003.010000",
+            "recipient": "partner.contact",
+            "body": "text that must not be keyed on",
+        }
+
+    class _Result:
+        status = type("S", (), {"value": "succeeded"})()
+
+    class _Step:
+        request = _Request()
+        result = _Result()
+
+    class _Trace:
+        steps = [_Step()]
+
+    chain = behaviour_chain(_Trace(), None, episode_id=episode)
+    flattened = " ".join(chain[0])
+    assert "campaign.guided.003" not in flattened
+    assert _MINTED_RESOURCE in flattened
+    assert "body=" not in flattened
+    assert "recipient=partner.contact" in flattened
 
 
 # --- harm that does not deliver, judged without a delivery ----------------------------------
