@@ -102,6 +102,22 @@ from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 #: was reached, and each Episode records the type its mechanism was aimed at.  Every coverage key from
 #: v12 and earlier describes a space this code no longer produces, so a run under v12 cannot be
 #: compared with one under v13 and the two must not be pooled.
+#:
+#: v14 gathers three changes, and the paragraph above described only the first: the value was moved to
+#: v14 in `590ee60` while the comment was left reading v13, which is worth stating because a version
+#: whose comment names the version before it is a version nobody can date.
+#:
+#:   * the increment rule, and the selector's evidence -- `590ee60`, which gave the selector
+#:     `risk_dimensions`, `mechanism_outcomes` and `violation_delta` so that the four types are
+#:     reported to it as levels rather than left to be inferred;
+#:   * **the frozen menu now carries `written_to_provoke`** on every mechanism.  That is the half
+#:     `590ee60` could not supply: reporting that `content_release` sits at level 1 is only actionable
+#:     if the selector can tell which mechanisms are written to reach it, and until this field existed
+#:     the binding was asserted at import and reported afterwards by `target_reach` while being
+#:     invisible at the one place it could change a decision.
+#:
+#: The random arm reads no menu and is unaffected by the second; the guided arm is, and a v13 guided
+#: run cannot be compared with a v14 one.
 CAMPAIGN_VERSION = "error-capable-campaign-v14"
 
 #: What changed in the ruler, printed beside the coverage numbers it affects.
