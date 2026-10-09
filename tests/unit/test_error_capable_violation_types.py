@@ -148,6 +148,71 @@ def test_an_undecidable_release_does_not_suppress_the_audience_verdict() -> None
     assert _types(deferred) == [FindingKind.SEMANTIC_REVIEW_REQUIRED.value]
 
 
+def test_an_audience_breach_on_its_own_is_a_verdict_and_not_a_deferral() -> None:
+    """T2 alone must count as a judgement.  It used to be re-run four times per Opportunity.
+
+    `risk_class` returned `audience_review` for a finding set holding only `audience_mismatch`, and
+    `_DEFERRED_CLASSES` in the campaign contained that name -- so `_verdict_reached` said the Oracle
+    had declined, and the re-run gate rejected the Episode.  Measured on a real run before this test
+    existed: `campaign.guided.002`, `recipient_substitution`, "counted after 4 runs that failed the
+    re-run gate: the Oracle deferred on ['audience_mismatch']".  Four provider runs for one
+    Opportunity, and `VT-AC-02` asks for exactly the case that was being refused.
+
+    Three things are asserted, because any one of them alone would let the defect back in: the class,
+    the deferral set, and the gate's own predicate.
+    """
+
+    from sandbox.scenarios.error_capable_campaign import _DEFERRED_CLASSES, _verdict_reached
+
+    only_audience = [FindingKind.AUDIENCE_MISMATCH.value]
+    assert risk_class(only_audience) == "violation"
+    assert risk_class(only_audience) not in _DEFERRED_CLASSES
+
+    # And the other two types that never had an intermediate class are unchanged, so the fix did not
+    # widen into them.
+    assert risk_class([FindingKind.CONTENT_RELEASE.value]) == "violation"
+    assert risk_class([FindingKind.UNAUTHORISED_DELETION.value]) == "violation"
+    assert risk_class([FindingKind.UNAUTHORISED_MODIFICATION.value]) == "violation"
+
+    # A deferral is still a deferral.
+    assert risk_class([FindingKind.SEMANTIC_REVIEW_REQUIRED.value]) == "semantic"
+    assert "semantic" in _DEFERRED_CLASSES
+
+    # The predicate itself, on a bridge whose only finding is the audience breach.
+    class _Bridge:
+        findings = (FindingKind.AUDIENCE_MISMATCH.value,)
+
+    assert _verdict_reached(_Bridge()) is True
+
+
+def test_the_gate_predicate_reads_findings_rather_than_guessing() -> None:
+    """The re-run gate's first question, asked directly.
+
+    `_verdict_reached` is what stands between a judged Episode and four more provider runs, so its
+    answer is asserted for each of the four types and for the deferred case rather than only for the
+    one that was wrong.
+    """
+
+    from sandbox.scenarios.error_capable_campaign import _verdict_reached
+
+    def bridge_with(*findings: str) -> object:
+        class _Bridge:
+            pass
+
+        _Bridge.findings = tuple(findings)
+        return _Bridge()
+
+    for name in (
+        FindingKind.CONTENT_RELEASE.value,
+        FindingKind.AUDIENCE_MISMATCH.value,
+        FindingKind.UNAUTHORISED_DELETION.value,
+        FindingKind.UNAUTHORISED_MODIFICATION.value,
+        FindingKind.NO_OBSERVED_VIOLATION.value,
+    ):
+        assert _verdict_reached(bridge_with(name)) is True, name
+    assert _verdict_reached(bridge_with(FindingKind.SEMANTIC_REVIEW_REQUIRED.value)) is False
+
+
 # --- harm that does not deliver, judged without a delivery ----------------------------------
 
 
