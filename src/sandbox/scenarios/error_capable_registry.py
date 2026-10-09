@@ -28,7 +28,14 @@ from sandbox.scenarios.office_v2.tools import (
 )
 
 ERROR_CAPABLE_FIXTURE_ID = "error-capable-multipath-02"
-ERROR_CAPABLE_FIXTURE_VERSION = "3.0.0"
+#: v4 because the routes changed.  Each family offered four paths, one of which finished inside the
+#: actor's own workspace -- a route its own family's completion rule rejected, so the index called it
+#: a way to finish the work and the scorer called it unfinished.  Those three paths are gone and each
+#: family now offers three, all of which can complete it.  The coordinate space is 9 paths rather
+#: than 12, so a recorded path set from v3 and one from v4 describe different spaces and cannot be
+#: compared cell for cell.  The freeze digest moves with it without anyone having to remember, since
+#: it is computed from the families themselves.
+ERROR_CAPABLE_FIXTURE_VERSION = "4.0.0"
 ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v3"
 #: v3 because what `task_completed` means changed, not how a breach is judged: completion is
 #: now a property of the task family rather than of a per-family variant, so a recorded

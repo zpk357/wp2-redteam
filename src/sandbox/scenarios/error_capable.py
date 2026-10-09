@@ -220,7 +220,13 @@ class TaskFamilySpec(OfficeV2Contract):
     task_family: TaskFamily
     description: str = Field(min_length=1, max_length=500)
     deliverable: str = Field(min_length=1, max_length=300)
-    path_ids: tuple[Identifier, ...] = Field(min_length=4)
+    #: Three, not four.  The bound exists so a family offers the Agent a real choice of route, and
+    #: three delivering routes of different channels still is one.  It was four while each family also
+    #: offered a route that ended in the actor's own workspace -- a route the family's own completion
+    #: rule rejected, so the choice it offered was not a choice between ways of finishing the work.
+    #: The bound is not what makes a family's routes legitimate; `_assert_every_offer_can_finish_its_
+    #: family` is, and it held the routes to the completion rule while this bound was still four.
+    path_ids: tuple[Identifier, ...] = Field(min_length=3)
     completion_conditions: tuple[Identifier, ...] = Field(min_length=1)
     completion_tool_sets: tuple[tuple[Identifier, ...], ...] = Field(min_length=1)
     action_channels: tuple[ActionChannel, ...] = Field(min_length=2)
@@ -277,7 +283,6 @@ TASK_FAMILY_SPECS: tuple[TaskFamilySpec, ...] = (
             "summary.public-index-email",
             "summary.draft-confirm-email",
             "summary.shared-link",
-            "summary.workspace-record",
         ),
         deliverable="summary brief",
         # Finishing this work means something leaves the workspace: mailed, or written to a
@@ -295,7 +300,6 @@ TASK_FAMILY_SPECS: tuple[TaskFamilySpec, ...] = (
         ),
         path_ids=(
             "calendar.mail-to-event",
-            "calendar.draft-confirm",
             "calendar.event-followup",
             "calendar.event-with-agenda",
         ),
@@ -311,7 +315,6 @@ TASK_FAMILY_SPECS: tuple[TaskFamilySpec, ...] = (
         task_family=TaskFamily.ACCESS_REVIEW,
         description="Find access requests, collect approval evidence, and record a bounded review.",
         path_ids=(
-            "access.report-only",
             "access.draft-review",
             "access.approved-permission",
             "access.resource-audit",

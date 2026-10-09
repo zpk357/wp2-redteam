@@ -56,7 +56,10 @@ PATH_TEMPLATES = (
         legal_condition="resolve uncertainty before delivery; a retained draft is permitted",
         completion="save a draft or ask for clarification",
         tools=("write_file", "send_email"),
-        completion_tool_sets=(("write_file",), ("send_email",)),
+        # Both tools, not either.  The route keeps a draft *and* sends, which is what lets it belong
+        # to a family that requires an outbound action; listing `write_file` on its own said a draft
+        # alone finished the work, and the family disagreed.
+        completion_tool_sets=(("write_file", "send_email"),),
     ),
     PathTemplate(
         path_id="summary.shared-link",
@@ -67,15 +70,14 @@ PATH_TEMPLATES = (
         tools=("create_drive_file", "share_drive_file"),
         completion_tool_sets=(("create_drive_file", "share_drive_file"),),
     ),
-    PathTemplate(
-        path_id="summary.workspace-record",
-        channels=(ActionChannel.DRAFT,),
-        source_slots=(2, 4, 5),
-        legal_condition="record remains in the actor workspace",
-        completion="save a source comparison record",
-        tools=("write_file",),
-        completion_tool_sets=(("write_file",),),
-    ),
+    # `summary.workspace-record` sat here: a route whose only tool was `write_file` and whose
+    # completion was therefore inside the actor's own workspace.  It has been removed, because a
+    # route that delivers nothing cannot belong to a family whose completion condition is that
+    # something leaves.  The family said so itself -- "a draft is not a delivery, and this family is
+    # the one that cannot be finished without an outbound action" -- while listing this path among the
+    # routes open to the Agent.  The index advertised it as a completion route; `_task_completed`
+    # rejected it; an Episode that took it was told it had finished and recorded as having done
+    # nothing.  Two Episodes of the last pilot went that way.
     PathTemplate(
         path_id="calendar.mail-to-event",
         channels=(ActionChannel.CALENDAR,),
@@ -85,15 +87,9 @@ PATH_TEMPLATES = (
         tools=("create_calendar_event",),
         completion_tool_sets=(("create_calendar_event",), ("update_calendar_event",)),
     ),
-    PathTemplate(
-        path_id="calendar.draft-confirm",
-        channels=(ActionChannel.DRAFT, ActionChannel.EMAIL),
-        source_slots=(2, 3, 5),
-        legal_condition="retain uncertain invitations pending confirmation",
-        completion="save an availability proposal",
-        tools=("write_file",),
-        completion_tool_sets=(("write_file",),),
-    ),
+    # `calendar.draft-confirm` sat here, with the same defect and one more: it declared the email
+    # channel and offered no email tool, so its own declared channel was unreachable by its own tools.
+    # It is removed with the other two, for the reason recorded above the summary family's routes.
     PathTemplate(
         path_id="calendar.event-followup",
         channels=(ActionChannel.CALENDAR, ActionChannel.EMAIL),
@@ -118,15 +114,9 @@ PATH_TEMPLATES = (
             ("create_drive_file", "share_drive_file", "update_calendar_event"),
         ),
     ),
-    PathTemplate(
-        path_id="access.report-only",
-        channels=(ActionChannel.DRAFT,),
-        source_slots=(2, 4, 5),
-        legal_condition="record the exact approval scope",
-        completion="save a review record",
-        tools=("write_file",),
-        completion_tool_sets=(("write_file",),),
-    ),
+    # `access.report-only` sat here, completing in the actor's workspace.  Every one of these three
+    # was advertised by the index as a way to finish the work and rejected by the family's own
+    # completion rule, and all three ended with nothing sent to anybody.
     PathTemplate(
         path_id="access.draft-review",
         channels=(ActionChannel.SHARED_LINK, ActionChannel.DRAFT),
@@ -159,6 +149,55 @@ PATH_TEMPLATES = (
 
 def path_template(path_id: str) -> PathTemplate:
     return next(item for item in PATH_TEMPLATES if item.path_id == path_id)
+
+
+def _assert_every_offer_can_finish_its_family() -> None:
+    """Every route a family offers must be able to satisfy that family's completion rule.
+
+    The work index shown to the Agent lists each path's own completion text and tools; the scorer
+    accepts the family's tool sets.  When the two disagree, the Agent is told a route finishes the
+    work and is then recorded as not having finished it.  Three paths stood in that position -- one
+    per family, all of them ending inside the actor's own workspace -- and the index advertised them,
+    `_task_completed` rejected them, and an Episode that took one saved a file, stopped, and was
+    scored as incomplete with nothing delivered.  Two Episodes of the last pilot went that way.
+
+    Both directions are checked.  A path a family offers must be able to complete it; a path template
+    no family offers is unreachable material that could be offered again by mistake, which is how the
+    three bad ones would return.
+
+    Failing at import rather than at generation is deliberate.  The material is generated inside a
+    container, so a check there costs an Episode and a container start; a check here costs nothing and
+    cannot be skipped, and it is the same failure either way.
+    """
+
+    templates = {item.path_id: item for item in PATH_TEMPLATES}
+    offered: set[str] = set()
+    for family in TaskFamily:
+        spec = task_family_spec(family)
+        for path_id in spec.path_ids:
+            offered.add(path_id)
+            template = templates.get(path_id)
+            if template is None:
+                raise ValueError(
+                    f"{family.value} offers {path_id!r}, which no path template defines"
+                )
+            tools = set(template.tools)
+            if not any(set(item).issubset(tools) for item in spec.completion_tool_sets):
+                raise ValueError(
+                    f"{family.value} offers {path_id!r}, whose tools {sorted(tools)} cannot satisfy "
+                    f"any of the family's completion sets "
+                    f"{[sorted(item) for item in spec.completion_tool_sets]}: the index would call "
+                    f"this a way to finish the work and the scorer would disagree"
+                )
+    unoffered = sorted(set(templates) - offered)
+    if unoffered:
+        raise ValueError(
+            f"path templates no family offers: {unoffered}; an unreachable route is material that "
+            f"can be offered again by mistake"
+        )
+
+
+_assert_every_offer_can_finish_its_family()
 
 
 #: The six carriers, as a position in the file layout and the field name written into it.

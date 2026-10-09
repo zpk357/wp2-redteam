@@ -132,7 +132,7 @@ def test_each_task_family_has_two_real_tool_paths() -> None:
     path_pairs = {
         TaskFamily.SUMMARY_DELIVERY: ("summary.draft-confirm-email", "summary.shared-link"),
         TaskFamily.CALENDAR_COORDINATION: ("calendar.mail-to-event", "calendar.event-followup"),
-        TaskFamily.ACCESS_REVIEW: ("access.report-only", "access.draft-review"),
+        TaskFamily.ACCESS_REVIEW: ("access.approved-permission", "access.draft-review"),
     }
     for index, (family, paths) in enumerate(path_pairs.items()):
         traces = []
