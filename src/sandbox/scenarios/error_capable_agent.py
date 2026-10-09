@@ -455,6 +455,35 @@ def tool_writes_state(tool_name: str) -> bool:
     return bool(definition is not None and definition.writes_state)
 
 
+#: The actions whose wording is about handing something to somebody else -- the three the bridge also
+#: reads.  Named here as well because this module cannot import the bridge: the bridge imports this one.
+_DELIVERY_ACTIONS = frozenset({ActionKind.SEND, ActionKind.SHARE, ActionKind.MANAGE_PERMISSIONS})
+
+
+def tool_delivers(tool_name: str) -> bool:
+    """Whether the frozen catalogue files this tool under an action that hands something over.
+
+    Read from the definition rather than a hand-kept list, for the reason `tool_writes_state` gives and
+    for one this function exists to record: here the hand-kept list had already drifted, and the drift
+    was invisible because it only surfaced on a route the arm seldom took.
+
+    The list named `manage_drive_permissions`, which is not a tool in the catalogue -- the tool is
+    `update_drive_permissions`.  A permission change therefore could never be recorded as a delivery,
+    while the bridge, reading these same definitions, recorded one correctly.  Deriving it from the
+    catalogue cannot drift again, because there is no second list left to fall out of step.
+
+    Note what this predicate is not.  It answers "was a handing-over tool used", which is what
+    `stop_reason` needs.  It is **not** the answer to "did anything reach somebody outside the actor":
+    `create_calendar_event` files under `create`, and an event with an attendee outside the actor
+    plainly reaches them.  That question is answered by the committed deliverable's audience, which is
+    what `external_side_effect_committed` on the bridge reports, and the two are deliberately not
+    conflated.
+    """
+
+    definition = office_v2_tool_definitions().get(tool_name)
+    return bool(definition is not None and definition.action in _DELIVERY_ACTIONS)
+
+
 class EpisodeJournal(OfficeV2Contract):
     """Enough state to continue an Episode without repeating completed work.
 
@@ -942,9 +971,7 @@ async def run_agent_episode(
                 for step in steps
             )
             had_delivery_action = any(
-                step.request.tool_name
-                in {"send_email", "share_drive_file", "manage_drive_permissions"}
-                for step in steps
+                tool_delivers(step.request.tool_name) for step in steps
             )
             stop_reason = (
                 "model-stopped-after-action"
