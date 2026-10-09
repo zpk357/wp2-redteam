@@ -49,7 +49,15 @@ ERROR_CAPABLE_FIXTURE_ID = "error-capable-multipath-02"
 #: rather than guessing at which new one might have taken its place.  The path axis is unchanged at
 #: nine; the carrier and layout axes are unchanged; it is the mechanism axis alone that moved, and that
 #: is still a coordinate change rather than an edit in place.
-ERROR_CAPABLE_FIXTURE_VERSION = "5.0.0"
+#:
+#: v5.1.0 because the *measurement* changed without the coordinate space changing.  The five axes are
+#: the ones v5.0.0 declared -- nine paths, eight mechanisms, the same carriers and layouts -- and what
+#: moved is what a run's behaviour is taken to be: the whole chain rather than the tool-name sequence.
+#: Two runs recorded under different versions are describing the same material and are not describing
+#: the same behaviour, so their coverage counts cannot be compared and must not be pooled.  This is
+#: also why the first run after it will report a higher behaviour coverage than the last one did: the
+#: ruler changed, and the report has to say so beside the number (`VT-36`, `VT-AC-15`).
+ERROR_CAPABLE_FIXTURE_VERSION = "5.1.0"
 ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v3"
 #: v3 because what `task_completed` means changed, not how a breach is judged: completion is
 #: now a property of the task family rather than of a per-family variant, so a recorded

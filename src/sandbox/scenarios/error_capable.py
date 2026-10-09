@@ -244,6 +244,23 @@ class CoverageFeedback(OfficeV2Contract):
     behaviour_keys: tuple[Identifier, ...] = ()
     risk_keys: tuple[Identifier, ...] = ()
     joint_keys: tuple[Identifier, ...] = ()
+    #: The four risk dimensions: the level reached, how many violations of that type, how many times a
+    #: mechanism aimed at it reached the Agent, and why it stopped where it did.
+    #:
+    #: **Not a rate, and the absence is deliberate.**  An Episode produces zero or one violation, so a
+    #: rate over a sixteen-Episode arm is noise; and with four types the difference between "breached
+    #: the audience" and "deleted a file" is most of the information there is, which a single ratio
+    #: would put back together after the verdict was split apart.
+    risk_dimensions: tuple[dict[str, object], ...] = ()
+    #: What the previous Episode added, with behaviour and risk kept **apart**.
+    #:
+    #: Separate because the two moving together and only one of them moving are different facts:
+    #: behaviour growing while risk does not is "changing tactic without finding harm", and one number
+    #: over both hides exactly that.
+    coverage_delta: dict[str, object] = {}
+    #: Which violation types the previous Episode produced.  Explicitly empty when it produced none,
+    #: rather than absent: an omitted field reads as "not recorded".
+    violation_delta: tuple[Identifier, ...] = ()
     recent_joint_keys: tuple[Identifier, ...] = ()
     #: Opportunities since the last new joint key.  `None` means there is not enough history to say,
     #: which is deliberately not the same value as zero.

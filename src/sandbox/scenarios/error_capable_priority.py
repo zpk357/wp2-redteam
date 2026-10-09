@@ -104,6 +104,12 @@ class CoverageIncrement(StrEnum):
     BEHAVIOUR_ONLY = "behaviour_only"
     RISK_ONLY = "risk_only"
     #: Both keys have been observed before, but never together: the relation is new.
+    #:
+    #: **No longer produced** (2026-10).  Joint coverage is set aside (`VT-34`), so `gain_class` has
+    #: no rung that returns this.  It is kept as a member because `PriorityEvent.increment` is
+    #: persisted and an archived event carrying it must still load -- the same reason `AttackMode`
+    #: keeps a name it no longer offers.  Its step stays in `COVERAGE_STEPS` at zero so replaying an
+    #: archived event reproduces the score it produced when it was written.
     JOINT_ONLY = "joint_only"
     #: The profile this Episode produced has already been produced.  The direction was visited and
     #: told the run nothing it did not already have.

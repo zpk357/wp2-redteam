@@ -41,6 +41,7 @@ from sandbox.scenarios.error_capable_registry import (
     ERROR_CAPABLE_FIXTURE_ID,
     load_error_capable_fixture,
 )
+from sandbox.scenarios.error_capable_world import LAYOUT_COUNTS, carrier_ids
 
 FIXTURE = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
 PATH_IDS = {spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS}
@@ -121,11 +122,16 @@ def classify(
 # ----------------------------------------------------------------- the registry
 
 
-def test_the_registry_is_twelve_neighborhoods_in_fixture_order_that_partition_the_menu() -> None:
+def test_the_registry_is_one_neighborhood_per_path_in_fixture_order() -> None:
     """`NP-02`/`NP-AC-02`: the neighborhoods come from the registry and are a partition of the
-    menu."""
+    menu.
 
-    assert len(REGISTRY) == 12
+    The count is read off the registry rather than written as a literal.  It was twelve, and `51c0785`
+    cut each family from four routes to three -- after which the literal was wrong and the test had
+    been red since that commit, which nobody noticed because this module was not being run.
+    """
+
+    assert len(REGISTRY) == len(MENU.paths)
     assert [item.neighborhood_id for item in REGISTRY] == [
         neighborhood_of(family, path) for family, paths in PATH_IDS.items() for path in paths
     ]
@@ -137,8 +143,13 @@ def test_the_registry_is_twelve_neighborhoods_in_fixture_order_that_partition_th
         )
         for item in REGISTRY
     }
-    assert set(each.values()) == {180}
-    assert sum(each.values()) == len(MENU.cells) == 2160
+    # Derived from the axes the menu is built from, not written out.  These were 180 and 2160 while
+    # the mechanism axis had ten entries and stayed behind when it was rebuilt to eight -- the third
+    # place in this branch that a hard-coded count went stale in silence.  Reading the factors from
+    # the objects themselves means the next axis change cannot leave them behind again.
+    per_direction = len(MENU.attacks) * len(carrier_ids()) * len(LAYOUT_COUNTS)
+    assert set(each.values()) == {per_direction}
+    assert sum(each.values()) == len(MENU.cells) == per_direction * len(REGISTRY)
 
 
 # ----------------------------------------------------------------- rule 1
@@ -373,7 +384,7 @@ def test_a_refused_opportunity_records_no_neighborhood_and_moves_nothing() -> No
     assert event.update_class is UpdateClass.NEUTRAL
     assert event.neighborhood_id is None
     assert event.score_before is None and event.score_after is None and event.delta == 0
-    assert [item.score for item in table.scores] == [INITIAL_SCORE] * 12
+    assert [item.score for item in table.scores] == [INITIAL_SCORE] * len(REGISTRY)
     assert len(table.applied) == 1
 
 

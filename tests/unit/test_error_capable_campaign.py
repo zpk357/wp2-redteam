@@ -106,9 +106,16 @@ def test_the_menu_space_holds_only_combinations_a_plan_can_use() -> None:
     # Five axes, each contributing its own factor.  The path count is per family, not the
     # flattened union: `MenuTargets` crosses each family only with its own paths, so the union
     # would count the space as three times what it is.
-    assert {len(spec.path_ids) for spec in TASK_FAMILY_SPECS} == {4}
+    assert {len(spec.path_ids) for spec in TASK_FAMILY_SPECS} == {3}
+    # Read off the specs rather than written as a literal, for the same reason as the line above: the
+    # literal `4` here was correct when every family offered four routes and stayed behind when they
+    # were cut to three.
     assert len(TARGETS.cells) == (
-        len(TARGETS.families) * 4 * len(TARGETS.attacks) * len(carrier_ids()) * len(LAYOUT_COUNTS)
+        len(TARGETS.families)
+        * len(TASK_FAMILY_SPECS[0].path_ids)
+        * len(TARGETS.attacks)
+        * len(carrier_ids())
+        * len(LAYOUT_COUNTS)
     )
 
     for family in TARGETS.families:
@@ -379,11 +386,27 @@ def test_the_stall_signal_comes_from_the_run_not_from_the_key_space() -> None:
 
 
 def test_the_four_increment_classes_are_all_expressible() -> None:
-    """`§7.3`: behaviour only, risk only, both, and neither must all be producible."""
+    """`§7.3`: behaviour only, risk only, both, and neither must all be producible.
 
+    Rewritten when the risk rung stopped being a fact about the key.  Two things changed and both are
+    visible here.  `joint_only` -- "both keys seen before, but never together" -- is gone, because
+    joint coverage is set aside (`VT-34`).  And the risk rung now asks whether this Episode raised a
+    *level*, which means the synthetic Episodes have to carry the types they reached: a key with no
+    types raises nothing, so a test built out of such keys would find two of the four classes
+    unreachable and conclude the rule was broken when it was the fixture.
+
+    The sequence below is the shortest one that reaches all four, with the level boundaries in mind --
+    `release` sits at level 3 from its first violation until its fifth, so the second violation of it
+    is genuinely "neither".
+    """
+
+    from sandbox.scenarios.error_capable import FindingKind
     from sandbox.scenarios.error_capable_coverage import ObservedKey
 
-    def key(index: int, behaviour: str, risk: str) -> ObservedKey:
+    release = FindingKind.CONTENT_RELEASE.value
+    audience = FindingKind.AUDIENCE_MISMATCH.value
+
+    def key(index: int, behaviour: str, risk: str, produced: tuple[str, ...] = ()) -> ObservedKey:
         return ObservedKey(
             episode_id=f"episode-{index}",
             family="f",
@@ -394,6 +417,9 @@ def test_the_four_increment_classes_are_all_expressible() -> None:
             behaviour=behaviour,
             risk=risk,
             joint=keyed("joint", {"b": behaviour, "r": risk}),
+            target_type=release,
+            inducement_reached=bool(produced),
+            observed_types=produced,
             behaviour_detail={},
             risk_detail={},
             evidence_digest="sha256:" + "0" * 64,
@@ -401,12 +427,11 @@ def test_the_four_increment_classes_are_all_expressible() -> None:
 
     ledger = CoverageLedger()
     sequence = [
-        key(0, "b1", "r1"),  # both new
-        key(1, "b1", "r1"),  # neither
-        key(2, "b2", "r1"),  # behaviour only: a new path with a risk already seen
-        key(3, "b1", "r2"),  # risk only: a path already seen under a new risk
-        key(4, "b2", "r2"),  # only the relation is new
-        key(5, "b2", "r2"),  # the relation is now a repeat too
+        key(0, "b1", "r1", (release,)),  # both: a new path, and this type's first violation
+        key(1, "b1", "r1", (release,)),  # neither: same path, and the level has not moved
+        key(2, "b2", "r1"),  # behaviour only: a new path, nothing reached
+        key(3, "b1", "r2", (audience,)),  # risk only: the path is old, another level rises
+        key(4, "b1", "r2"),  # neither again
     ]
     for item in sequence:
         ledger, settled = ledger.settle(item)
@@ -416,7 +441,6 @@ def test_the_four_increment_classes_are_all_expressible() -> None:
         "no_increment",
         "behaviour_only",
         "risk_only",
-        "joint_only",
         "no_increment",
     )
 
