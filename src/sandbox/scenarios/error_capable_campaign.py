@@ -476,6 +476,44 @@ class CampaignReport(OfficeV2Contract):
             item.selector.history_reads for item in self.episodes if item.selector.history_reads
         )
 
+    def completion_routes(self) -> dict[str, dict[str, bool]]:
+        """Which of each family's completing tool sets this arm actually exercised.
+
+        A route the instrument offers and no Episode takes has not been shown to work, however many
+        Episodes ran, and the report used to say nothing about it.  The last pilot's `access_review`
+        Episodes all finished through routes that every other family can also take, so the one route
+        that family exists to test -- handing access over by changing a permission -- was never
+        exercised, and nothing in the artifact made that visible.
+
+        The other half of this check lives at import, in
+        `error_capable_world._assert_every_offer_can_finish_its_family`, and answers whether an
+        offered route *can* complete its family.  This one answers whether it *did*, which cannot be
+        known before the run.  It is read from each Episode's own proven tool calls rather than from
+        the plan, because the plan says what was offered and the trace says what happened.
+
+        "Exercised" means every tool of the set was proven at least once by one Episode of that
+        family.  It does not mean the Episode settled, or that this set is what completed it: a
+        family's sets overlap, and which one finished the work is the family's rule, not this table's.
+        """
+
+        proven: dict[str, set[str]] = {}
+        for episode in self.episodes:
+            observed = episode.observed
+            if observed is None:
+                continue
+            detail = observed.behaviour_detail or {}
+            proven.setdefault(str(observed.family), set()).update(
+                str(name) for name in detail.get("path") or ()
+            )
+        table: dict[str, dict[str, bool]] = {}
+        for spec in TASK_FAMILY_SPECS:
+            taken = proven.get(spec.task_family.value, set())
+            table[spec.task_family.value] = {
+                " + ".join(item): set(item).issubset(taken)
+                for item in spec.completion_tool_sets
+            }
+        return table
+
     def selection_cost(self) -> dict[str, Any]:
         unknown = sum(
             attempt.provider_calls > 0 and attempt.token_usage is None
