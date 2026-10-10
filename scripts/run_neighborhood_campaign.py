@@ -25,6 +25,7 @@ import json
 import sys
 from contextlib import suppress
 from pathlib import Path
+from typing import Any
 
 _HERE = Path(__file__).resolve()
 for _candidate in (_HERE.parent, _HERE.parents[1] / "src", _HERE.parents[1] / "agent_image"):
@@ -285,6 +286,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             max_continuations=args.max_continuations,
             journal_root=arm_root,
             executor=executor,
+            on_episode=_progress,
         )
         reports[arm] = report
         # **The two readouts this run exists to produce were not reaching the artifact.**  The report
@@ -383,6 +385,29 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
     (stage_root / "running.json").unlink(missing_ok=True)
     print(f"  aligned={alignment.aligned}  written {stage_root / 'pair.json'}")
     return payload
+
+
+def _progress(record: Any) -> None:
+    """One line per settled Episode, so a long run is visible while it is happening.
+
+    Written after `pilot-rep4` ended with a **0-byte** log.  The campaign module prints nothing at all
+    and this script printed only its closing summary, so forty minutes of a working run and forty
+    minutes of a hung one were indistinguishable from outside -- and an interrupted run left no record
+    of how far it had reached.  Both facts cost time in that run's diagnosis.
+
+    Flushed deliberately: stdout is redirected to a file here, and a progress line sitting in a block
+    buffer is not progress.
+    """
+    observed = getattr(record, "observed", None)
+    aimed = getattr(observed, "target_type", "") if observed else ""
+    reached = getattr(observed, "observed", ()) if observed else ()
+    produced = ", ".join(str(item) for item in reached) or "clean"
+    mode = getattr(getattr(record, "mode", None), "value", "")
+    print(
+        f"  [{record.index:>3}] {record.episode_id:<26}{mode:<8}"
+        f"{(aimed or '-'):<26}{produced:<46}{record.stop_reason}",
+        flush=True,
+    )
 
 
 def main() -> int:
