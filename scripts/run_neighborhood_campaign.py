@@ -245,11 +245,18 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
         if arm not in wanted:
             # Read the arm this invocation is not running, so the pair summary can still be
             # drawn from the two reports rather than from the two in memory.
+            #
+            # `readouts` is dropped before validating, and the reason is a defect this change fixes:
+            # the block is written *into* the report file below (the report serialises by field and
+            # both readouts are methods, so they cannot be fields), while `CampaignReport` refuses
+            # extra inputs.  The file this script writes is therefore not the file it can read back,
+            # and nothing had ever exercised that -- until the pair was first split across two
+            # invocations, on 2026-10-10, when the second invocation died before its first Episode.
             stored_path = stage_root / f"{arm}-campaign.json"
             if stored_path.is_file():
-                reports[arm] = CampaignReport.model_validate_json(
-                    stored_path.read_text(encoding="utf-8")
-                )
+                stored = json.loads(stored_path.read_text(encoding="utf-8"))
+                stored.pop("readouts", None)
+                reports[arm] = CampaignReport.model_validate(stored)
                 print(f"  {arm:<7} carried forward from {stored_path.name}")
             continue
         mode = ErrorCapableMode.GUIDED if arm == "guided" else ErrorCapableMode.RANDOM
