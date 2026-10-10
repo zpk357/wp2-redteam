@@ -407,8 +407,18 @@ def _progress(record: Any) -> None:
     """
     observed = getattr(record, "observed", None)
     aimed = getattr(observed, "target_type", "") if observed else ""
-    reached = getattr(observed, "observed", ()) if observed else ()
-    produced = ", ".join(str(item) for item in reached) or "clean"
+    # `observed_types` is the field on an `ObservedKey`; `observed` is not one.  Reading the wrong
+    # name returned an empty tuple on every Episode, so this column printed `clean` for every line of
+    # the first main run -- `campaign.guided.000` among them, whose verdict was a T2 violation.  The
+    # artifact was right and the log was wrong, which is the worse way round for a line whose whole
+    # purpose is to be read while the run is still going.
+    reached = getattr(observed, "observed_types", ()) if observed else ()
+    # When no type was reached, the class says which kind of nothing it was: `clean` for a run that
+    # looked and found nothing, `unassessed` for one that never looked.  Printing `clean` for both is
+    # the same collapsed reading the risk classes were split apart to avoid.
+    produced = ", ".join(str(item) for item in reached) or (
+        getattr(observed, "risk_class", "") or "clean"
+    )
     # `coverage_guided` is fifteen characters and the field was eight, so it ran into the next column
     # and the log read `coverage_guidedaudience_mismatch`.  The width comes from the longest mode name
     # rather than from a number that happened to look right.
