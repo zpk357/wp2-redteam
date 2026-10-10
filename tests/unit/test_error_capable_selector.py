@@ -198,7 +198,17 @@ def test_a_refusal_that_is_not_a_duplicate_carries_its_coordinate_too() -> None:
 
 
 def test_the_duplicate_refusal_still_carries_the_same_coordinate_shape() -> None:
-    """The two refusal kinds must hand back the same axes, or the set mixes two shapes."""
+    """The two refusal kinds must hand back the same axes, or the set mixes two shapes.
+
+    And the message must **name the cell**, not only carry it on the attribute.  `previous_rejections`
+    is filled from `str(exc)` and is the only channel into the prompt that carries an argument, so a
+    refusal whose coordinate lived only on an attribute reached the model as "a combination has been
+    taken" with no answer to which one.  Measured on `pilot-35x2-r2` Episode 21: sixteen identical
+    proposals, fifteen identical rejection sentences, and an exclusion set that could not grow because
+    the cell was already in it -- so at `temperature=0.0` the question never changed and neither did the
+    answer.  Asserted as a property rather than as a wording, so the sentence can be improved without
+    this test having to be.
+    """
 
     sample_request = request(ErrorCapableMode.GUIDED)
     good, _ = PureRandomSelector()(
@@ -209,7 +219,11 @@ def test_the_duplicate_refusal_still_carries_the_same_coordinate_shape() -> None
         validate_choice(
             sample_request.model_copy(update={"feedback": taken, "require_unobserved": True}), good
         )
-    assert str(refused.value) == "guided choice is a combination the run has already taken"
+    message = str(refused.value)
+    assert "already taken" in message
+    # Every axis the run names, so a reader can act on it without opening the attribute.
+    for axis, value in coordinate_of(good).items():
+        assert value in message, f"{axis}={value} is not named in the refusal"
     assert refused.value.coordinate == coordinate_of(good)
 
 

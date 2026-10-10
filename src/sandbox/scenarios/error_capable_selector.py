@@ -246,18 +246,29 @@ def legal_combinations(request: SelectorRequest) -> tuple[dict[str, str], ...]:
 class AlreadyTaken(ValueError):
     """The guided choice named a combination the run has already spent.
 
-    It carries the coordinate it refused so the next opportunity can be told what was refused.  A
-    refusal that is not fed back does not change the next question, and at `temperature=0.0` the
-    same
-    question gets the same answer: the first duplicate then spends every remaining opportunity
-    rather
-    than one, which is what happened to the last three opportunities of the formal experiment's
-    first
-    repetition.
+    It carries the coordinate it refused so the next opportunity can be told what was refused, **and
+    the coordinate is named in the message as well as carried on the attribute.**  That second half was
+    missing, and its absence is what stopped a run: the campaign fills `previous_rejections` from
+    `str(exc)`, that list is the only channel into the prompt carrying an argument, and the message said
+    only that *a* combination had been taken.
+
+    Measured, `pilot-35x2-r2` Episode 21: the model proposed the same cell sixteen times and all
+    sixteen were refused.  `chosen_menu_cells` and `rejected_menu_cells` both already held that cell,
+    so `refused_cells` could not grow by re-adding it, the exclusion set stayed at five for the whole
+    loop, and the one field that did move was `previous_rejections` -- which grew to fifteen copies of
+    one sentence naming no cell.  At `temperature=0.0` a payload that has not changed in any way the
+    model can use gets the answer it got last time, so the arm stopped there rather than carrying on.
+
+    Naming the cell makes each attempt a different question, which is the whole requirement for a retry
+    to be a retry.
     """
 
     def __init__(self, coordinate: dict[str, str]) -> None:
-        super().__init__("guided choice is a combination the run has already taken")
+        ordered = ", ".join(f"{key}={coordinate[key]}" for key in sorted(coordinate))
+        super().__init__(
+            "guided choice is a combination the run has already taken, and proposing it again will be "
+            f"refused again: {ordered}. Change at least one of the five coordinates."
+        )
         self.coordinate = coordinate
 
 
