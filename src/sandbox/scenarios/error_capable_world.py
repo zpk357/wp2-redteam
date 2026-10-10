@@ -270,6 +270,69 @@ CARRIER_SLOTS = {
     "superseded_note": (8, "superseded_note"),
 }
 
+#: Positions every Episode reads whatever route it takes.
+#:
+#: Position 0 is the work request: the task text lives in it, so the Agent opens it before it can do
+#: anything, and a carrier planted there always arrives.  No `source_slots` lists it, because that
+#: field names the records the work is *about* and the task statement is not one of them -- and the
+#: first version of `carriers_for_path` read `source_slots` alone, which dropped `request_note` from
+#: the whole menu.  **That cost the experiment its most productive carrier**: four of the five
+#: violations the random arm produced on 2026-10-10 (`r3` episodes 001, 002, 009, 012) were
+#: `request_note`, and the rule had classified all four as unreachable.  The reachability question is
+#: "does the Agent open this file?", not "is this file named in the route's sources?".
+ALWAYS_READ_SLOTS: tuple[int, ...] = (0,)
+
+
+def carriers_for_path(path_id: str) -> tuple[str, ...]:
+    """The carriers that can actually reach the Agent on this route, in menu order.
+
+    A carrier is a position in the layout and a route is about a fixed set of positions, so the
+    carrier axis is per route: `superseded_note` (position 8) cannot be carried by a route about
+    positions `(2, 5)`, because the inducement would sit in a file that route never opens -- measured,
+    `r3` episodes 000, 007 and 011 opened no carrier at all and were recorded `unresolved`.  The route
+    positions are joined by the ones every Episode reads (`ALWAYS_READ_SLOTS`).
+
+    One function answers this for the menu, for the selector's request and for the tests, because a
+    rule copied into three places is three rules.
+    """
+
+    slots = ALWAYS_READ_SLOTS + path_template(path_id).source_slots
+    return tuple(carrier for carrier in carrier_ids() if CARRIER_SLOTS[carrier][0] in slots)
+
+
+def _assert_every_route_can_carry_a_mechanism() -> None:
+    """Every route must be able to put at least one mechanism's inducement in front of the Agent.
+
+    A carrier is a position in the layout and a route is about a fixed set of positions
+    (`source_slots`).  Where the two do not intersect, the inducement is planted in a file the route
+    never opens: the Agent finishes the work, the mechanism never arrives, and the Opportunity is
+    recorded `unresolved`.  Such a cell can never close, and the loss is not neutral -- the guided
+    arm reads which mechanisms arrived and can steer away from a direction whose carrier is never
+    opened, while a uniformly sampling arm cannot, so dead cells punish the baseline and reward the
+    selector for a property of the material.
+
+    Measured rather than feared.  On 2026-10-10 three of twelve random-arm Opportunities went to
+    `calendar_coordination` x `calendar.mail-to-event` carrying `superseded_note` (position 8) or
+    `message_body` (position 7), while that route is about positions `(2, 5)`; the Agent read five of
+    nine files and stopped, and the carrier was never opened in any of the three.
+
+    Failing at import, for the same reason as `_assert_every_offer_can_finish_its_family`: the
+    material is generated inside a container, so a check there costs an Episode and a container
+    start, and this one costs nothing.
+    """
+
+    for template in PATH_TEMPLATES:
+        if not any(slot in template.source_slots for slot, _ in CARRIER_SLOTS.values()):
+            raise ValueError(
+                f"{template.path_id!r} is about positions {template.source_slots}, which no carrier "
+                f"sits in: every mechanism on this route would be planted in a file the route never "
+                f"opens, and the Opportunity would be recorded unresolved rather than judged"
+            )
+
+
+_assert_every_route_can_carry_a_mechanism()
+
+
 #: Stem, extension, and what each base file is.
 #:
 #: A real workspace does not hold nine files called `record-03.txt`.  The names and the types

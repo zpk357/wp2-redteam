@@ -136,7 +136,25 @@ from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 #: had just created recorded that resource's id, which has the Episode's id inside it, so the same
 #: behaviour in two Episodes produced two different features.  `COVERAGE_VERSION` v5 carries the whole
 #: argument; the consequence here is that a v15 run cannot be pooled with a v16 one.
-CAMPAIGN_VERSION = "error-capable-campaign-v16"
+#:
+#: v17 because the menu stopped offering cells whose carrier cannot arrive.  A carrier is planted in
+#: one file by position and a route is about a fixed set of positions, so a crossing that puts the
+#: inducement in a file the route never opens measures nothing: the Agent finishes the work, the
+#: mechanism never arrives, and the Opportunity is recorded `unresolved`.  Three of twelve random-arm
+#: Opportunities on 2026-10-10 were exactly that, and the dead cells are not neutral -- the guided arm
+#: can read that a direction's carrier never arrives and steer away, while the random arm cannot, so
+#: they punished the baseline.  The material is unchanged for every cell that survives, but the target
+#: space is smaller, so a v16 menu and a v17 one are different spaces and their counts are not
+#: comparable.
+#:
+#: v17 also carries a correction made the same hour, before any run used it: the rule first read
+#: `source_slots` alone, which dropped `request_note` (position 0) from every route -- the work
+#: request is read by every Episode and is named in no route's sources -- and **request_note had
+#: carried four of the five violations the random arm produced**.  Reachability now means "the Agent
+#: opens this file": the route's own positions plus `ALWAYS_READ_SLOTS`.  The version is unchanged
+#: because the space it describes was never run; the first random arm to run under v17 was stopped
+#: after seven clean Episodes once the omission was found, and is parked beside this one.
+CAMPAIGN_VERSION = "error-capable-campaign-v17"
 
 #: What changed in the ruler, printed beside the coverage numbers it affects.
 #:
@@ -307,6 +325,12 @@ class ScriptedSelector:
     ) -> tuple[SelectorDecision, str]:
         families = [item.value for item in request.available_task_families]
         attacks = [item.value for item in request.available_attacks]
+        #: Which carriers a route can carry.  A contract double has to produce a legal cell like any
+        #: other selector: the sweep below used to walk the whole carrier menu and hand back pairs
+        #: the route could not carry, which the menu now refuses -- the inducement would sit in a
+        #: file the route never opens.  Falls back to the union when the caller did not supply the
+        #: map, so a hand-built request in a test keeps its old meaning.
+        carrier_menu = request.carriers_by_path or {}
         if request.mode is ErrorCapableMode.GUIDED:
             snapshot = history.feedback(purpose=f"guided-select-{episode_index}")
             cell = self._construct_from_feedback(request, snapshot, episode_index)
@@ -325,20 +349,19 @@ class ScriptedSelector:
                 family = families[episode_index % len(families)]
                 path = self._paths[family][0]
                 attack = attacks[episode_index % len(attacks)]
-                carrier = request.available_carriers[
-                    episode_index % len(request.available_carriers)
-                ]
+                carriers = carrier_menu.get(path) or request.available_carriers
+                carrier = carriers[episode_index % len(carriers)]
                 layout = request.available_layouts[episode_index % len(request.available_layouts)]
                 rationale = "menu exhausted; rotating open behaviour and risk observations"
         else:
             family = families[request.seed % len(families)]
             attack = self._attacks[(request.seed + episode_index) % len(self._attacks)]
             path = self._paths[family][episode_index % len(self._paths[family])]
-            # The carrier is swept over the whole menu rather than over two carriers the
-            # mechanism happened to register: every carrier is open to every mechanism now.
-            carrier = request.available_carriers[
-                (request.seed + episode_index) % len(request.available_carriers)
-            ]
+            # The carrier is swept over what this route can carry rather than over two carriers the
+            # mechanism happened to register: every carrier is open to every mechanism, and a carrier
+            # is open on a route only where the route's work includes the file it lands in.
+            carriers = carrier_menu.get(path) or request.available_carriers
+            carrier = carriers[(request.seed + episode_index) % len(carriers)]
             layout = request.available_layouts[
                 (request.seed + episode_index) % len(request.available_layouts)
             ]
@@ -872,6 +895,24 @@ async def _run_campaign(
     targets = MenuTargets.from_manifest(
         manifest, path_ids={spec.task_family.value: spec.path_ids for spec in TASK_FAMILY_SPECS}
     )
+    #: Which carriers each route can carry, read off the menu rather than recomputed: a carrier is a
+    #: file position and a route is about a fixed set of positions, so the carrier axis is per route
+    #: and a pair the route cannot carry is not a cell.  `available_carriers` stays the union, which
+    #: is what the request can honestly say about the axis as a whole.
+    carriers_by_path: dict[str, tuple[str, ...]] = {}
+    for choice in targets.choices:
+        offered = carriers_by_path.get(choice["path_id"], ())
+        if choice["attack_carrier"] not in offered:
+            carriers_by_path[choice["path_id"]] = (*offered, choice["attack_carrier"])
+    available_carriers = tuple(
+        dict.fromkeys(
+            carrier for carriers in carriers_by_path.values() for carrier in carriers
+        )
+    )
+    if not available_carriers:
+        # The menu is not enumerable (a manifest missing a component).  Falling back keeps the
+        # request buildable; the refusal below is then the only thing that can speak about carriers.
+        available_carriers = carrier_ids()
     specs = office_tool_specs()
     menu_digest = sha256_digest({"tools": [spec.name for spec in specs]})
     state = ledger or CoverageLedger()
@@ -1045,7 +1086,8 @@ async def _run_campaign(
                     path for spec in TASK_FAMILY_SPECS for path in spec.path_ids
                 ),
                 available_attacks=tuple(AttackMode(item) for item in targets.attacks),
-                available_carriers=carrier_ids(),
+                carriers_by_path=carriers_by_path,
+                available_carriers=available_carriers,
                 available_layouts=("balanced-9", "distributed-11", "nested-13"),
                 # The unobserved-combination contract is the guided treatment's, not a property of
                 # every run that happens to be in guided mode.  The pinned control deliberately

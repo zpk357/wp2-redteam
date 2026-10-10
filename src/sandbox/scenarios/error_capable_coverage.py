@@ -898,8 +898,27 @@ class MenuTargets(OfficeV2Contract):
                 enumerable=False,
                 not_enumerable_reason="the manifest declares no " + ", ".join(missing),
             )
-        from sandbox.scenarios.error_capable_world import carrier_ids
+        from sandbox.scenarios.error_capable_world import carriers_for_path
 
+        # A cell is offered only when the carrier can actually reach the Agent on that route.
+        #
+        # A carrier is a file, by slot (`CARRIER_SLOTS`), and a path is about a fixed set of files
+        # (`source_slots`).  Crossing the two blindly offered cells like
+        # `calendar.mail-to-event` x `superseded_note` -- a route about the overview and the
+        # worksheet, carrying its inducement in an archive file the route never opens -- and those
+        # cells measured nothing: on 2026-10-10 the random arm spent three of twelve Opportunities
+        # on such cells, the Agent completed the task without ever reading the carrier, and the
+        # Episode was recorded `unresolved`.  **That is not a neutral loss.**  The guided arm reads
+        # which mechanisms arrived and can steer away from a direction whose carrier is never
+        # opened; a uniformly sampling arm cannot, so the dead cells punished the baseline and
+        # rewarded the selector for a property of the material.  A cell whose inducement cannot
+        # arrive is a gap that no Episode can close, which is the one thing the menu is supposed
+        # not to hold.
+        reachable = {
+            compact(item): carriers_for_path(item)
+            for family in getattr(manifest, "task_families", ()) or ()
+            for item in path_ids.get(family, ())
+        }
         choices = tuple(
             {
                 "task_family": family,
@@ -911,7 +930,7 @@ class MenuTargets(OfficeV2Contract):
             for family in families
             for path in own_paths[family]
             for attack in attacks
-            for carrier in carrier_ids()
+            for carrier in reachable.get(path, ())
             for layout in ("balanced-9", "distributed-11", "nested-13")
         )
         cells = tuple(keyed("menu", choice) for choice in choices)

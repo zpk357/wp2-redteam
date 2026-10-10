@@ -543,6 +543,13 @@ class SelectorRequest(OfficeV2Contract):
     selector_model_name: Identifier | None = None
     available_task_families: tuple[TaskFamily, ...] = Field(min_length=1)
     available_paths: tuple[Identifier, ...] = ()
+    #: Which carriers each route can carry, keyed by path id.
+    #:
+    #: A carrier is a file position and a route is about a fixed set of positions, so the carrier
+    #: axis is per route even though the choice is made in one reply.  `available_carriers` is the
+    #: union over routes and cannot say this on its own.  Empty when the caller does not know the
+    #: menu, in which case availability stands as `available_carriers` alone.
+    carriers_by_path: dict[str, tuple[str, ...]] = {}
     available_attacks: tuple[AttackMode, ...] = Field(min_length=1)
     #: The same carrier menu for every mechanism.  A carrier says where a payload sits and
     #: how it is labelled, and nothing about which mechanism wrote it.
