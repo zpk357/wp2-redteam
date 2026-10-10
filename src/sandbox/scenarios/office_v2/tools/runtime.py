@@ -330,9 +330,18 @@ class OfficeV2ToolRuntime:
                         definition,
                         PreparedAction(resources=(exc.resource,)),
                     )
-                except (KeyError, StopIteration):
-                    # A caller-supplied reference may not exist. Keep the rejection
+                except (KeyError, StopIteration, ValidationError):
+                    # A caller-supplied reference may not exist, or may name a resource kind this
+                    # tool does not declare -- `source_refs` may point at a workspace file while
+                    # `create_drive_file` declares only drive files.  Either way, keep the rejection
                     # opaque instead of inventing trusted knowledge for that object.
+                    #
+                    # `ValidationError` is in this tuple because of what its absence cost.  On
+                    # 2026-10-10 an Agent called `create_drive_file` with a `source_refs` entry
+                    # naming a workspace path (mistyped as well), `prepare` rejected it, this
+                    # construction of a request for the rejected resource raised, nothing above
+                    # `invoke` caught it, and the Campaign died after 47 settled Episodes -- a
+                    # rejection reported badly is still a rejection, and it must not outrank the run.
                     request = None
                 if request is not None:
                     knowledge = self._pre_action_knowledge(

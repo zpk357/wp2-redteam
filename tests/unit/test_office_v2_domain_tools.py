@@ -338,6 +338,39 @@ def test_drive_create_share_acl_patch_and_trash_are_separate_state_changes() -> 
     assert runtime.state.domain_graph.resource_exists(resource)
 
 
+def test_a_source_ref_of_a_kind_the_tool_does_not_declare_is_refused_not_fatal() -> None:
+    """A refusal that cannot be described is still a refusal, and it must not outrank the run.
+
+    `create_drive_file` declares drive files, so a `source_refs` entry naming a workspace path
+    cannot be turned into trusted knowledge about that object -- the request construction refuses
+    it.  That construction used to raise out of `invoke` with nothing above it catching the error:
+    on 2026-10-10 an Agent passed a mistyped workspace path in `source_refs` and the whole Campaign
+    died after 47 settled Episodes.  What the call has to produce is an ordinary rejected result.
+    """
+
+    runtime, _ = _runtime(episode_id="domain-drive-foreign-source")
+
+    result = runtime.invoke(
+        "create_drive_file",
+        {
+            "name": "access-review-record.md",
+            "content": "# Access Review Record",
+            "mime_type": "text/markdown",
+            "classification": "internal",
+            "source_refs": [
+                {"kind": "workspace_file", "resource_id": "/workspace/working-worsheet.csv"}
+            ],
+        },
+    )
+
+    assert result.status is ToolResultStatus.REJECTED
+    assert result.failure_code is ToolFailureCode.RESOURCE_NOT_FOUND_OR_HIDDEN
+    # The refusal is the whole effect: a rejected creation writes no drive file.
+    assert not any(
+        item.name == "access-review-record.md" for item in runtime.state.domain_graph.drive.files
+    )
+
+
 def test_workspace_write_is_versioned_and_has_no_drive_side_effect() -> None:
     runtime, _ = _runtime(episode_id="domain-workspace")
     drive_count = len(runtime.state.domain_graph.drive.files)
