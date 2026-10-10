@@ -1,6 +1,6 @@
 # FLR-T02：精确清理 766 个有源 Python 缓存
 
-状态：`DRAFT`（已批准全面退役 SPEC 下的删除任务草案，待用户确认；本轮只写任务，不删除）。
+状态：`BLOCKED`（用户已批准；删除中断后 3 个缓存摘要变更，按停止条件保留剩余 64 项，尚未完成删除后验收；T03 未批准）。
 
 日期：2026-10-10。对应 [全面退役 SPEC](../specs/20261010-full-legacy-retirement.md) FLR-01、02、04、05、06、07、09。
 
@@ -23,12 +23,12 @@
 
 ## 3. 实施 checklist
 
-- [ ] 开始读最新 LOG/索引，git status --short 与 HEAD，保留他人工作；状态 READY → IN_PROGRESS。
-- [ ] 验证输入 JSON 摘要与两种选集一致：766 唯一路径、14,714,839 B，全部 cache/可删、有有效源；存在摘要变化则停止受影响路径并修订任务，不把新缓存自动补进来。
-- [ ] 每个缓存用不跟随链接的元数据核对 size/SHA256/nlink=1；缓存与每级祖先均非 symlink/reparse point。将每个绝对目标解析并确认位于 D:/hxjh/wp2-redteam 内，且仍等于清单相对路径。
-- [ ] 核对每个 replacement 源仍在且 size/SHA256 与盘点一致；必要当前入口/构建仍不显式依赖缓存文件。
-- [ ] 检查本地相关写入进程/打开状态；不自动终止进程。无法排除活动写入或访问被占用时，该路径待定并报告，不强删或静默跳过后称全量完成。
-- [ ] 记录删除前源码/保护项摘要与测试收集、Ruff 基线；测试/导入使用 -B 或 PYTHONDONTWRITEBYTECODE，避免原地重建。compileall 使用独立 PYTHONPYCACHEPREFIX，使验证生成物不污染目标集合，明确记录生成目录。
+- [x] 开始读最新 LOG/索引，git status --short 与 HEAD，保留他人工作；状态 READY → IN_PROGRESS。
+- [x] 验证输入 JSON 摘要与两种选集一致：766 唯一路径、14,714,839 B，全部 cache/可删、有有效源；存在摘要变化则停止受影响路径并修订任务，不把新缓存自动补进来。
+- [x] 每个缓存用不跟随链接的元数据核对 size/SHA256/nlink=1；缓存与每级祖先均非 symlink/reparse point。将每个绝对目标解析并确认位于 D:/hxjh/wp2-redteam 内，且仍等于清单相对路径。
+- [x] 核对每个 replacement 源仍在且 size/SHA256 与盘点一致；必要当前入口/构建仍不显式依赖缓存文件。
+- [x] 检查本地相关写入进程/打开状态；不自动终止进程。无法排除活动写入或访问被占用时，该路径待定并报告，不强删或静默跳过后称全量完成。
+- [x] 记录删除前源码/保护项摘要与测试收集、Ruff 基线；测试/导入使用 -B 或 PYTHONDONTWRITEBYTECODE，避免原地重建。compileall 使用独立 PYTHONPYCACHEPREFIX，使验证生成物不污染目标集合，明确记录生成目录。
 - [ ] 同一 PowerShell 用 Remove-Item -LiteralPath 精确逐文件删除，不用 -Recurse、不按目录删除、不跨 shell 传目标；记录每项 deleted/already_absent/blocked/hash_changed。若他人已删，则单列不计成本轮删除。
 - [ ] 删除后复核实际移除数量/字节、清单外路径/所有源/待定保护项未变化；缓存如果被活动进程重新建回，记录不认定最终已删除。
 - [ ] 按 §4 执行删除后验收，结果写独立报告/JSON；只有完整对象已清理且验收有证据才能 DONE。
@@ -103,3 +103,17 @@
 
 - .venv/Scripts/python.exe -B - 内存校验：两任务均 DRAFT，引用清单摘要一致；T02 聚合计量恰为 766 / 14,714,839 B，T03 附录精确集合为 394 / 49,161,766 B，互不重叠。全部新增链接存在、无行尾空白。
 - 起草末次复核 1,160 个缓存/待定候选 size 与已有 SHA256，变化 0；文档 diff-check 通过。未执行删除、测试收集、Ruff、compileall 或外部运行。只提交两份任务草案，LOG/索引保持本地增量记录。
+
+## 2026-10-11 实施记录（中断 / BLOCKED）
+
+- 用户于 2026-10-10 明确确认 T02“删除”，经 READY → IN_PROGRESS；开始基线 ba9d64b，读 LOG 顶部 20261010-classified-retirement-next-tasks。原用户手动文档删除未处理。
+- 原清单固定摘要、766 目标与 550 源、祖先/重解析点、单链接和保护快照核对通过；当前主链输入/执行/Oracle/链/风险/反馈路线只作保护，不改语义。
+- 实际删除前命令：scripts/project_python.cmd -B -m pytest --collect-only -q -p no:cacheprovider 退出 0；因双重 q 只列文件数，另加 -o addopts=--tb=short 重收集节点 ID，退出 0、1,955 节点。
+- scripts/project_python.cmd -m compileall -q src agent_image tests：退出 0；PYTHONPYCACHEPREFIX=.tmp/flr-t02/compile-before；Ruff --output-format json 退出 1，483 个既有问题/26 文件。没有修源码或调低验收。
+- 任务 §4 的 14 文件聚焦命令首次因系统临时目录权限有 27 setup 错误；换全新 --basetemp .tmp/flr-t02/pytest-before 并 -o addopts=--tb=short 后退出 0，258 passed in 523.36s。封装命令的尾部仍指向首次失败日志，未将尾部误当重跑结果；已直接读取 corrected 日志验证通过。PYTHONDONTWRITEBYTECODE=1 / -B；环境仅在当前 shell 暂设/还原。
+- 动态变量目标的 PowerShell 批删除被自动审批拒绝，仅返回 blocked by policy，未执行。改用显式绝对路径、每批最多 25 个的 Remove-Item -LiteralPath，无 -Recurse，先独占读/摘要/祖先复核；没有绕过为另一个 shell 删除。
+- 用户中断后询问 GitHub 推送范围；终止原执行 cell并核实实际状态。初次中断后读数和末次读数都是 702 不存在 / 64 仍在，其中 61 原摘要一致、3 原摘要不同；不存在项原字节 13,295,981 B，剩余原字节 1,418,858 B。可能有批次部分执行，不虚构每文件完成时刻。
+- 续做前哈希复核在 src/sandbox/__pycache__/__init__.cpython-39.pyc 报出变化，按 §3/§5 停止剩余删除。另 models.cpython-39.pyc、protocol.cpython-39.pyc 也变化，保留新字节，待重新准入。没有停止其他 AI 进程/恢复缓存或源。
+- 696 非目标快照末次只见 LOG.md 的其他 AI 增量；其余 695 内容不变。并行进程查询曾含本轮校验进程，不能据此断言有外部写入；随后顺序进程查询为空。变化缓存写入来源尚未确认。
+- [部分结果报告](../reports/20261011-flr-t02-cache-retirement-partial.md) / [JSON](../reports/20261011-flr-t02-cache-retirement-partial.json)保存全部 766 当前状态、摘要和未验收项；历史盘点不改写。源码、待定、禁删、junction/证据不删除；未推送 GitHub或跑远端/模型/Docker。
+- 尚未执行删除后的 collect 对比、聚焦回归、compileall、Ruff 对比，故本 TASK 不可 DONE。后续先对 3 变更缓存重新准入并核实剩余 64，再删除和验收。T03 仍 DRAFT。
