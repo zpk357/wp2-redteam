@@ -49,7 +49,7 @@
 ## 5. 验证与回退要求
 
 - `LC-10`【拟议验收】：实现前后均执行首批聚焦测试；删除后执行完整测试收集、保留的 structured 关闭/义务测试、当前 error-capable 行为链/四类判定/增量/选择/恢复/容器导入契约回归。必要命令在用户批准规格后写入 TASK，不把本轮只读核对记成测试通过。
-- `LC-11`【拟议验收】：Python 改动执行项目 Python 的 `compileall -q src agent_image tests`、`scripts/project_ruff.cmd check src agent_image tests` 和 `git diff --check`。失败必须报告；不能通过删除仍有用途的测试掩盖失败。
+- `LC-11`【已批准修订，2026-10-10】：Python 改动执行项目 Python 的 `compileall -q src agent_image tests`、`scripts/project_ruff.cmd check src agent_image tests` 和 `git diff --check`。全仓 Ruff 仍必须运行并如实记录；本批验收改为无新增 Ruff 问题、本批存活修改文件 Ruff 通过，未修改文件中的原有问题另批处理。编译/差异失败或新增 Ruff 问题仍阻塞；不能通过删除仍有用途的测试掩盖失败。批准依据：用户选择“调整为无新增问题，完成本批”。
 - `LC-12`【已确认协作要求】：每批开始先读 LOG 顶部，再由索引定位最小相关历史；结尾在 LOG 顶部添加唯一标识，写范围、依据、命令及结果、未做项、阻塞和下一入口，并在 LOG-INDEX 加行。并行 AI 的新增记录与用户原有文件不得覆盖。
 - `LC-13`【拟议 Git 约束】：每个完成批次独立提交；只暂存本批源码、测试、规格/任务和被授权的记录。现有 LOG/LOG-INDEX 尚未入库：不得把全文历史作为新文件顺带提交；本轮新增 SPEC 可独立提交，日志新增内容保留在本地供协作。
 - `LC-14`【拟议回退】：保留准确的删除前 HEAD 和提交 ID。需要回退时以反向提交恢复本批已跟踪改动，不 reset/rebase，不覆盖用户并行工作；历史数据不参与回退。
