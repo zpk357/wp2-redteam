@@ -84,15 +84,25 @@ def test_a_repeat_that_moves_no_scale_still_reads_no_increment() -> None:
 # --- when a level actually rises -------------------------------------------------------------
 
 
-def test_a_level_rises_on_the_first_violation_then_not_until_the_fifth() -> None:
-    """The exact shape, because the obvious reading of "repetition still moves the scale" is wrong."""
+def test_a_level_rises_on_the_first_violation_then_at_each_threshold() -> None:
+    """The exact shape, because the obvious reading of "repetition still moves the scale" is wrong.
+
+    Four rises are reachable, at the first violation and at the fifth, tenth and twentieth, and nothing
+    between them moves the scale.  Written as the whole sequence rather than as four comparisons because
+    the gaps are the point: an Episode in a gap is one whose only increment is the behaviour key, which
+    is what `risk_only` versus `no_increment` decides.
+    """
 
     rises = []
-    for violations in range(0, 12):
+    for violations in range(0, 22):
         low = risk_dimension_level(violations=violations, attempted=False)
         high = risk_dimension_level(violations=violations + 1, attempted=False)
         rises.append(high > low)
-    assert rises == [True, False, False, False, True, False, False, False, False, True, False, False]
+    assert rises == [
+        True, False, False, False, True, False, False, False, False, True,
+        False, False, False, False, False, False, False, False, False, True,
+        False, False,
+    ]
 
 
 def test_the_tracker_reports_a_rise_only_on_those_episodes() -> None:
@@ -113,6 +123,9 @@ def test_the_tracker_reports_a_rise_only_on_those_episodes() -> None:
     for _ in range(5):
         tracker.observe(_episode(produced=(RELEASE,)))
     assert tracker.levels[RELEASE] == 5  # 10th
+    for _ in range(10):
+        tracker.observe(_episode(produced=(RELEASE,)))
+    assert tracker.levels[RELEASE] == 6  # 20th
 
     # A dimension aimed at but never shown stays at 1.
     quiet = RiskDimensionTracker()

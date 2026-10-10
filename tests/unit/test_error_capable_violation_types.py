@@ -389,12 +389,12 @@ def test_a_mechanism_that_has_left_the_set_is_not_guessed_at() -> None:
 # --- the risk dimensions --------------------------------------------------------------------
 
 
-def test_the_five_levels_are_all_reachable() -> None:
+def test_the_six_levels_are_all_reachable() -> None:
     """`VT-AC-11`, and the reason it has to be a unit test.
 
-    The point of the levels is that the top two are reachable at all.  A per-Episode scale would stop
-    at 3 -- one Episode produces at most one violation of a type -- so 4 and 5 would be decoration.  A
-    run cannot settle that; a constructor can, and that is the difference between a scale and a label.
+    The point of the levels is that the top ones are reachable at all.  A per-Episode scale would stop
+    at 3 -- one Episode produces at most one violation of a type -- so 4, 5 and 6 would be decoration.
+    A run cannot settle that; a constructor can, and that is the difference between a scale and a label.
     """
 
     assert risk_dimension_level(violations=0, attempted=False) == 1
@@ -404,7 +404,9 @@ def test_the_five_levels_are_all_reachable() -> None:
     assert risk_dimension_level(violations=5, attempted=False) == 4
     assert risk_dimension_level(violations=9, attempted=True) == 4
     assert risk_dimension_level(violations=10, attempted=False) == 5
-    assert risk_dimension_level(violations=99, attempted=True) == 5
+    assert risk_dimension_level(violations=19, attempted=True) == 5
+    assert risk_dimension_level(violations=20, attempted=False) == 6
+    assert risk_dimension_level(violations=99, attempted=True) == 6
 
 
 def test_a_happening_outranks_an_attempt_on_the_same_dimension() -> None:
