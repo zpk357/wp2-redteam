@@ -402,9 +402,12 @@ def _progress(record: Any) -> None:
     aimed = getattr(observed, "target_type", "") if observed else ""
     reached = getattr(observed, "observed", ()) if observed else ()
     produced = ", ".join(str(item) for item in reached) or "clean"
+    # `coverage_guided` is fifteen characters and the field was eight, so it ran into the next column
+    # and the log read `coverage_guidedaudience_mismatch`.  The width comes from the longest mode name
+    # rather than from a number that happened to look right.
     mode = getattr(getattr(record, "mode", None), "value", "")
     print(
-        f"  [{record.index:>3}] {record.episode_id:<26}{mode:<8}"
+        f"  [{record.index:>3}] {record.episode_id:<26}{mode:<18}"
         f"{(aimed or '-'):<26}{produced:<46}{record.stop_reason}",
         flush=True,
     )

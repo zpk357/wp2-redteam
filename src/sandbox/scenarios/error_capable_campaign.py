@@ -1153,10 +1153,29 @@ async def _run_campaign(
             if artifact_path is not None and failure is not None:
                 write_artifact(artifact_path, failure)
             distinct = sorted(set(episode_refusals))
+            # The token counts belong in this message because the failure that produced the first one
+            # was arithmetic rather than syntactic.  The selector's request had grown to 12137 prompt
+            # tokens against a 12288-token window, so the model had 151 tokens for an answer the prompt
+            # asks to be about 150 words; every reply came back cut off mid-string, and the refusal text
+            # said `Unterminated string` -- true, and pointing at the wrong end of the problem.  Reading
+            # that took sixteen attempt files and twenty minutes.  Whoever reads the next one gets the
+            # numbers here instead.
+            usages = sorted(
+                {
+                    f"{attempt.token_usage.get('prompt_tokens')}p/"
+                    f"{attempt.token_usage.get('completion_tokens')}c"
+                    for attempt in selection_attempts
+                    if getattr(attempt, "token_usage", None)
+                }
+            )
             raise ValueError(
                 f"the selector was refused {len(episode_refusals)} times in a row for Episode "
                 f"{index} ({episode_id}), so the arm is stopping rather than carrying on one Episode "
                 f"short. Distinct refusals: {distinct}. "
+                f"Token usage across the attempts: {usages or 'not reported'}. "
+                f"A completion far shorter than the answer the prompt asks for means the request filled "
+                f"the context window, so the reply was cut off -- raise the window rather than the "
+                f"retry budget. "
                 f"The attempts are on disk under "
                 f"{artifact_path.parent if artifact_path is not None else 'the run root'}; a later "
                 f"pass continues their numbering rather than overwriting them."
