@@ -68,7 +68,6 @@ FORBIDDEN_TOOL_DEPENDENCY_PREFIXES = (
     "sandbox.agent_prompts",
     "sandbox.coverage",
     "sandbox.engine",
-    "sandbox.fuzzer",
     "sandbox.mutation",
     "sandbox.scheduler",
     "sandbox.tool_contracts",

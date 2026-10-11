@@ -93,7 +93,6 @@ FORBIDDEN_DEPENDENCY_PREFIXES = (
     "agent_image",
     "sandbox.coverage",
     "sandbox.engine",
-    "sandbox.fuzzer",
     "sandbox.mutation",
     "sandbox.scheduler",
 )

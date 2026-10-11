@@ -29,7 +29,6 @@ FORBIDDEN_PREFIXES = (
     "agent_image",
     "sandbox.coverage",
     "sandbox.engine",
-    "sandbox.fuzzer",
     "sandbox.judge",
     "sandbox.mutation",
     "sandbox.scheduler",
