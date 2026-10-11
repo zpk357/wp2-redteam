@@ -11,7 +11,6 @@ from sandbox.engine.case_source import TemplateCaseSource
 from sandbox.fuzzer.failure_policy import classify_execution_error_code
 from sandbox.fuzzer.models import (
     CandidateExecutionOutcome,
-    SandboxRunContext,
     WorkItem,
     WorkSourceKind,
 )
@@ -19,6 +18,7 @@ from sandbox.models import RunOutcome, TestCase
 from sandbox.mutation.handoff import execute_fork_candidate
 from sandbox.mutation.models import MutationCandidateKind, to_test_case
 from sandbox.mutation.store import MutationStore
+from sandbox.run_context import SandboxRunContext
 
 
 class ExecutionService(Protocol):

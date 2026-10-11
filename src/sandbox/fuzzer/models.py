@@ -365,23 +365,9 @@ class CampaignSnapshot(FuzzerContract):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class SandboxRunContext(FuzzerContract):
-    campaign_id: str
-    work_item_id: str
-    attempt: int = Field(ge=1)
-
-
-class CleanupFailure(FuzzerContract):
-    resource_id: str
-    error: str
-
-
-class CleanupReport(FuzzerContract):
-    campaign_id: str
-    discovered: list[str] = Field(default_factory=list)
-    removed: list[str] = Field(default_factory=list)
-    skipped: list[str] = Field(default_factory=list)
-    failures: list[CleanupFailure] = Field(default_factory=list)
+# `SandboxRunContext`, `CleanupFailure` and `CleanupReport` moved to `sandbox.run_context`
+# on 2026-10-11: the run identity they describe belongs to the kernel, not to this campaign
+# package, and the CLI, engine, replay engine and scheduler import them from there now.
 
 
 def fuzzer_digest(value: object) -> str:

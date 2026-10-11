@@ -10,7 +10,6 @@ from sandbox.client.artifact_transfer import ArtifactTransfer
 from sandbox.config import WeekOneConfig
 from sandbox.engine.case_source import TemplateCaseSource
 from sandbox.engine.models import Runtime, Scheduler, Scorer
-from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.identifiers import validate_execution_id
 from sandbox.models import (
     ExecutionBackend,
@@ -44,6 +43,7 @@ from sandbox.replay.models import (
     StateCheckpoint,
 )
 from sandbox.replay.normalizer import normalize_behavior_trace
+from sandbox.run_context import SandboxRunContext
 from sandbox.scenarios.office_fork import (
     OfficeCarrierForkError,
     replace_office_carrier_payload,

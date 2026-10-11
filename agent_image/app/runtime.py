@@ -17,9 +17,9 @@ from app.protocol import (
     TraceEvent,
 )
 from app.replay.replay_adapter import ReplayAdapter
+from sandbox.diagnostics import failure_record, write_record
 from sandbox.replay.exceptions import ArtifactIntegrityError, ReplayDivergenceError
 from sandbox.replay.models import ReplayCheckpointsRequest, ReplayForkRequest, ReplayRequest
-from sandbox.structured_v1.diagnostics import failure_record, write_record
 
 
 class RuntimeRpcError(RuntimeError):

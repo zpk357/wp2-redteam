@@ -16,7 +16,6 @@ from sandbox.errors import (
     RuntimeTransportError,
     SandboxConfigurationError,
 )
-from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.mutation.v2_brief import build_minimal_fact_brief
 from sandbox.mutation.v2_candidate import (
     normalized_content_digest,
@@ -41,6 +40,7 @@ from sandbox.mutation.v2_preparation import (
 from sandbox.mutation.v2_provider import RuleBasedV2MutationProvider, V2MutationProvider
 from sandbox.replay.digests import sha256_digest
 from sandbox.replay.exceptions import ReplayPreparationError
+from sandbox.run_context import SandboxRunContext
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
 from sandbox.scenarios.office_v2.fork import rematerialize_office_v2_direct_task_text
 from sandbox.scenarios.office_v2.models import OfficeV2Contract

@@ -20,11 +20,15 @@ class AdapterFactory:
     def create(self, request: ExecutionRequest) -> AgentAdapter:
         if request.execution_backend == ExecutionBackend.TRACE_REACT_V2:
             if request.structured_case_execution is not None:
-                from app.adapter.structured_v1_adapter import StructuredV1Adapter
-
-                return StructuredV1Adapter()
-            # The two payload kinds are mutually exclusive by validation in `protocol.py`,
-            # so the order of these branches cannot decide between them.
+                # The structured-scenario adapter was retired with its package (2026-10-11).  The
+                # payload field outlives it on `ExecutionRequest` so that the wire format does not
+                # change in the same step, but nothing can serve the request any more: refuse it
+                # here rather than falling through to the ReAct adapter, which would fail later
+                # and less clearly.
+                raise AdapterConfigurationError(
+                    "structured_scenario_retired",
+                    "the structured-scenario execution adapter has been retired",
+                )
             if request.error_capable_execution is not None:
                 from app.adapter.error_capable_adapter import ErrorCapableAdapter
 

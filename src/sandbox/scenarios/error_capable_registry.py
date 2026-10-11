@@ -2,7 +2,7 @@
 
 The scenario needs a fixture identity of its own: an id, a version, a manifest over everything the
 Episodes are drawn from, and a freeze digest that a run can be pinned to.  It deliberately does not
-join `sandbox.scenarios.structured_v1.fixtures.FIXTURES` -- that registry holds a different object
+join the retired structured-scenario fixture registry -- that registry held a different object
 type and a different scenario family, and merging the two would put old fixtures in the blast radius
 of a new one for no gain.
 
@@ -198,8 +198,8 @@ def build_error_capable_fixture() -> ErrorCapableFixture:
     )
 
 
-#: The scenario's own registry.  Separate from `structured_v1.fixtures.FIXTURES` on purpose: the two
-#: hold different contract types, and RA-01 requires old fixtures to stay untouched.
+#: The scenario's own registry.  Kept separate from the retired structured-scenario one on purpose:
+#: the two hold different contract types, and RA-01 requires old fixtures to stay untouched.
 ERROR_CAPABLE_FIXTURES: dict[str, Callable[[], ErrorCapableFixture]] = {
     ERROR_CAPABLE_FIXTURE_ID: build_error_capable_fixture,
     "error-capable-multipath-01": lambda: ErrorCapableFixture.model_validate_json(

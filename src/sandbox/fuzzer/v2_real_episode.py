@@ -16,7 +16,6 @@ from sandbox.coverage.v2_input import (
     V2CoverageInput,
     v2_coverage_input_from_recording,
 )
-from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.fuzzer.v2_target_oracle import build_formal_target_scenario_supports
 from sandbox.protocol import ModelInferenceOptions, ModelProvider
 from sandbox.replay.artifact_store import ArtifactStore
@@ -26,6 +25,7 @@ from sandbox.replay.models import (
     RecordedModelDecision,
     ReplayManifest,
 )
+from sandbox.run_context import SandboxRunContext
 from sandbox.scenarios.office_v2.agent_context import (
     TASK_EXECUTION_SUPPORT_METADATA_KEY,
 )

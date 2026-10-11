@@ -19,12 +19,12 @@ from sandbox.config import (
     TraceConfig,
     WeekOneConfig,
 )
-from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.protocol import AgentRuntimeKind, ModelOptions, ModelProvider
 from sandbox.replay.artifact_store import ArtifactStore
 from sandbox.replay.manifest import ManifestStore
 from sandbox.replay.models import ForkInjection, ForkSuffixMode, ReplayMode
 from sandbox.replay.replay_engine import ReplayEngine
+from sandbox.run_context import SandboxRunContext
 from sandbox.scenarios.office_v2.cli_entry import (
     build_office_v2_public_request,
     office_v2_public_case,

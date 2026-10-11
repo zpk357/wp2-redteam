@@ -8,7 +8,6 @@ from uuid import uuid4
 from sandbox.config import WeekOneConfig
 from sandbox.engine.case_source import TemplateCaseSource
 from sandbox.engine.models import Runtime, Scheduler, Scorer
-from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.identifiers import validate_execution_id
 from sandbox.models import (
     ExecutionBackend,
@@ -18,6 +17,7 @@ from sandbox.models import (
     RunOutcome,
     TestCase,
 )
+from sandbox.run_context import SandboxRunContext
 from sandbox.scoring.rule_scorer import RuleBasedScorer
 from sandbox.storage.trajectory_store import TrajectoryStore
 from sandbox.versions import AGENT_VERSION
