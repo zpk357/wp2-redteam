@@ -27,7 +27,6 @@ STAGE5_FILES = (
 )
 FORBIDDEN_PREFIXES = (
     "agent_image",
-    "sandbox.coverage",
     "sandbox.engine",
     "sandbox.judge",
     "sandbox.mutation",

@@ -66,7 +66,6 @@ ALLOWED_PYTHON_FILES = {
 FORBIDDEN_TOOL_DEPENDENCY_PREFIXES = (
     "agent_image",
     "sandbox.agent_prompts",
-    "sandbox.coverage",
     "sandbox.engine",
     "sandbox.mutation",
     "sandbox.scheduler",

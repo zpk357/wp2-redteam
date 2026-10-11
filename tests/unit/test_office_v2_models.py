@@ -91,7 +91,6 @@ from sandbox.scenarios.office_v2.models import (
 OFFICE_V2_PACKAGE = Path(__file__).parents[2] / "src" / "sandbox" / "scenarios" / "office_v2"
 FORBIDDEN_DEPENDENCY_PREFIXES = (
     "agent_image",
-    "sandbox.coverage",
     "sandbox.engine",
     "sandbox.mutation",
     "sandbox.scheduler",

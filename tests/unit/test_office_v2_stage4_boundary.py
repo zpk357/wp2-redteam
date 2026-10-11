@@ -80,7 +80,6 @@ ALLOWED_STAGE4_PYTHON_FILES = {
 }
 FORBIDDEN_AGENT_DEPENDENCY_PREFIXES = (
     "agent_image",
-    "sandbox.coverage",
     "sandbox.engine",
     "sandbox.judge",
     "sandbox.mutation",

@@ -39,24 +39,10 @@ RETIRED_MODULES = (
     "sandbox.scenarios.candidate_generation",
     "sandbox.scenarios.office_mutation",
     "sandbox.scenarios.office_mutation_batch",
-    # Batch five: the old coverage face.  The Office V2 coverage contracts named five of these as
-    # forbidden imports; the rest were the pipeline they belonged to.
-    "sandbox.coverage.behavior",
-    "sandbox.coverage.correlation",
-    "sandbox.coverage.events",
-    "sandbox.coverage.evidence",
-    "sandbox.coverage.exceptions",
-    "sandbox.coverage.feature_normalizer",
-    "sandbox.coverage.feedback",
-    "sandbox.coverage.heatmap",
-    "sandbox.coverage.input",
-    "sandbox.coverage.models",
-    "sandbox.coverage.office_evidence",
-    "sandbox.coverage.office_risk",
-    "sandbox.coverage.risk",
-    "sandbox.coverage.risk_scope",
-    "sandbox.coverage.store",
-    "sandbox.coverage.taxonomy",
+    # Batch five first took the old coverage face (16 modules); what was left of the package was
+    # its Office V2 pipeline, consumed only by the fuzzing campaign line that went in batch three,
+    # so the package itself retired next.
+    "sandbox.coverage",
 )
 
 
