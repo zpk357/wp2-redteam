@@ -17,8 +17,6 @@ from app.tools.synthetic_network import SyntheticNetwork
 from app.tools.virtual_vault import VirtualVault
 from sandbox.replay.digests import sha256_digest
 from sandbox.tool_contracts import (
-    OFFICE_SCENARIO_TOOL_SPEC_BY_NAME,
-    OFFICE_SCENARIO_TOOL_SPECS,
     TOOL_SPEC_BY_NAME,
     TOOL_SPECS,
     WORKSPACE_SCENARIO_TOOL_SPEC_BY_NAME,
@@ -60,20 +58,15 @@ class ToolRegistry:
         self.network = SyntheticNetwork()
         self.vault = VirtualVault()
         self.workspace = None
-        self.office = None
         self._legacy_state_mode = False
 
     @property
     def specs(self) -> tuple[ToolSpec, ...]:
-        if self.office is not None:
-            return OFFICE_SCENARIO_TOOL_SPECS
         if self.workspace is None:
             return TOOL_SPECS
         return (*TOOL_SPECS, *WORKSPACE_SCENARIO_TOOL_SPECS)
 
     def get_spec(self, name: str) -> ToolSpec | None:
-        if self.office is not None:
-            return OFFICE_SCENARIO_TOOL_SPEC_BY_NAME.get(name)
         if self.workspace is not None and name in WORKSPACE_SCENARIO_TOOL_SPEC_BY_NAME:
             return WORKSPACE_SCENARIO_TOOL_SPEC_BY_NAME[name]
         return TOOL_SPEC_BY_NAME.get(name)
@@ -81,36 +74,10 @@ class ToolRegistry:
     def enable_workspace_scenario(self, scenario_id: str) -> None:
         from app.tools.workspace_scenario import SCENARIO_IDS, TraceWorkspaceScenario
 
-        if self.office is not None:
-            raise ValueError("office and fixed workspace scenarios are mutually exclusive")
         if scenario_id not in SCENARIO_IDS:
             raise ValueError(f"unsupported TRACE-G workspace scenario: {scenario_id}")
         if self.workspace is None:
             self.workspace = TraceWorkspaceScenario(scenario_id)
-
-    def enable_office_episode(
-        self,
-        payload: dict[str, Any],
-        *,
-        expected_digest: str | None = None,
-    ):
-        from app.tools.office_episode import OfficeEpisodeToolRuntime
-
-        if self.workspace is not None:
-            raise ValueError("office and fixed workspace scenarios are mutually exclusive")
-        office = OfficeEpisodeToolRuntime.from_payload(
-            payload,
-            expected_digest=expected_digest,
-        )
-        if self.office is not None:
-            if (
-                self.office.initialization.envelope_digest
-                != office.initialization.envelope_digest
-            ):
-                raise ValueError("tool registry is already bound to another office episode")
-            return self.office.initialization
-        self.office = office
-        return office.initialization
 
     def export_state(self) -> dict[str, Any]:
         state = {
@@ -132,10 +99,6 @@ class ToolRegistry:
                     "scenario_id": self.workspace.scenario_id,
                     "state": self.workspace.export_state(),
                 }
-            if self.office is not None:
-                state["enterprise_tool_state"]["office_episode"] = (
-                    self.office.export_state()
-                )
         return state
 
     def import_state(self, state: dict[str, Any]) -> None:
@@ -154,20 +117,15 @@ class ToolRegistry:
         self.network.import_state(enterprise["network"])
         self.vault.import_state(enterprise["vault"])
         workspace = enterprise.get("workspace_scenario")
-        office = enterprise.get("office_episode")
-        if workspace is not None and office is not None:
-            raise ValueError("tool state contains multiple active scenarios")
+        if enterprise.get("office_episode") is not None:
+            # Office V1 tool state retired with its scenario line (2026-10-11).  Refusing beats
+            # importing the rest of the state while quietly dropping a slice of it.
+            raise ValueError("recorded Office V1 tool state is no longer supported")
         if workspace is not None:
             self.enable_workspace_scenario(workspace.get("scenario_id", ""))
             self.workspace.import_state(workspace["state"])
         else:
             self.workspace = None
-        if office is not None:
-            from app.tools.office_episode import OfficeEpisodeToolRuntime
-
-            self.office = OfficeEpisodeToolRuntime.restore(office)
-        else:
-            self.office = None
         self._legacy_state_mode = False
 
     def state_digest(self) -> str:
@@ -190,9 +148,6 @@ class ToolRegistry:
                 error=f"invalid tool arguments: {exc.errors()[0]['msg']}",
             )
         values = parsed.model_dump(mode="python")
-
-        if self.office is not None and name in OFFICE_SCENARIO_TOOL_SPEC_BY_NAME:
-            return self.office.execute(name, values)
 
         if name in WORKSPACE_SCENARIO_TOOL_SPEC_BY_NAME:
             if self.workspace is None:

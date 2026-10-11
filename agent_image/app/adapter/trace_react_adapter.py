@@ -13,7 +13,6 @@ from app.adapter.base import (
     AgentNoSubmitError,
 )
 from app.agent.fake_react_provider import FakeReactProvider
-from app.agent.office_control_provider import OfficeControlProvider
 from app.agent.react_contract import (
     CONTINUE_PROMPT,
     SUBMIT_TOOL_SPEC,
@@ -94,26 +93,13 @@ class TraceReactAdapter(AgentAdapter):
         base_provider = self.provider
         base_registry = self.registry
         if request.scenario_initialization is not None:
-            if not hasattr(base_registry, "enable_office_episode"):
-                raise AdapterConfigurationError(
-                    "trace_office_configuration_error",
-                    "tool registry cannot initialize office episodes",
-                )
-            initialization = base_registry.enable_office_episode(
-                request.scenario_initialization
+            # The Office V1 episode retired with its scenario line (2026-10-11): the tool registry
+            # no longer carries an office episode, and its tool specs are gone.  Refuse rather
+            # than run the request against the fixed workspace tools it never asked for.
+            raise AdapterConfigurationError(
+                "trace_office_v1_retired",
+                "the Office V1 episode was retired; use an Office V2 request",
             )
-            base_registry.office.validate_request(request)
-            if not self._provider_explicit:
-                control = request.metadata.get("scenario_control")
-                if control not in {"safe", "vulnerable"}:
-                    raise AdapterConfigurationError(
-                        "trace_office_configuration_error",
-                        "office episode requires safe or vulnerable scenario_control",
-                    )
-                base_provider = OfficeControlProvider(
-                    str(control),
-                    initialization.test_case,
-                )
         elif request.scenario_id in SCENARIO_IDS:
             if hasattr(base_registry, "enable_workspace_scenario"):
                 base_registry.enable_workspace_scenario(request.scenario_id)

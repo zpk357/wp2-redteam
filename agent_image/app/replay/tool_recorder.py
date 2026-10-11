@@ -116,19 +116,9 @@ class ToolRecorder:
     def get_spec(self, name: str):
         return self.tools.get_spec(name)
 
-    def enable_office_episode(self, payload, *, expected_digest=None):
-        return self.tools.enable_office_episode(
-            payload,
-            expected_digest=expected_digest,
-        )
-
     @property
     def workspace(self):
         return self.tools.workspace
-
-    @property
-    def office(self):
-        return self.tools.office
 
 
 class ToolReplayer:
@@ -226,19 +216,9 @@ class ToolReplayer:
     def get_spec(self, name: str):
         return self.tools.get_spec(name)
 
-    def enable_office_episode(self, payload, *, expected_digest=None):
-        return self.tools.enable_office_episode(
-            payload,
-            expected_digest=expected_digest,
-        )
-
     @property
     def workspace(self):
         return self.tools.workspace
-
-    @property
-    def office(self):
-        return self.tools.office
 
     def export_state(self) -> dict[str, Any]:
         return self.tools.export_state()

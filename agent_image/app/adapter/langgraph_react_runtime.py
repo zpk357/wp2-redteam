@@ -739,20 +739,14 @@ class LangGraphReactRuntime(AgentAdapter):
                     "langgraph_office_initialization_required",
                     "the formal Agent requires a validated office initialization",
                 )
-            base_registry = registry_override or self._registry_factory()
-            initialization = base_registry.enable_office_episode(
-                request.scenario_initialization
+            # The Office V1 live session retired with its scenario line (2026-10-11): the tool
+            # registry no longer builds one, and its tool specs are gone.  The Office V2 route
+            # above is the only formal Agent path now, so a request that lands here is refused
+            # rather than served with tools that no longer exist.
+            raise AdapterConfigurationError(
+                "langgraph_office_v1_retired",
+                "the Office V1 live session was retired; use an Office V2 request",
             )
-            base_registry.office.validate_request(request)
-            surface = self._session_surface or self.v1_session_surface(base_registry)
-            if self._session_surface is not None and (
-                force_recording
-                or (request.recording is not None and request.recording.enabled)
-            ):
-                raise AdapterConfigurationError(
-                    "langgraph_injected_surface_recording_unsupported",
-                    "an injected Agent session surface cannot use the V1 recording route",
-                )
         specs = (*surface.business_tool_specs, *surface.control_tool_specs)
         if provider_override is not None:
             base_provider = provider_override

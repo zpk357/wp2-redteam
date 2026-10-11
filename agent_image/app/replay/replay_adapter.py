@@ -9,7 +9,6 @@ from pathlib import Path
 from app.adapter.factory import AdapterFactory
 from app.adapter.trace_react_adapter import TraceReactAdapter
 from app.agent.fake_react_provider import FakeReactProvider
-from app.agent.office_control_provider import OfficeControlProvider
 from app.office_v2_session import (
     OfficeV2LiveOracleArtifact,
     OfficeV2RecordingState,
@@ -564,27 +563,14 @@ class ReplayAdapter:
                 v2_recording_state=v2_recording_state,
             )
         if office is not None:
-            case = office.initialization.test_case
-            control = determinism.get("metadata", {}).get("scenario_control")
-            formal_model = (
-                configured_model is not None
-                and configured_model.provider == ModelProvider.OLLAMA
+            # The Office V1 fork retired with its scenario line (2026-10-11): the episode runtime
+            # and the control provider it drove are gone.  Falling through to the plain-fork path
+            # below would replay the parent's identity as if the fork had been applied, so the
+            # request is refused instead.
+            raise ReplayDivergenceError(
+                -32112,
+                "replaying an Office V1 fork is no longer supported",
             )
-            if not formal_model and control not in {"safe", "vulnerable"}:
-                raise ReplayDivergenceError(
-                    -32112,
-                    "office fork requires safe or vulnerable scenario_control",
-                )
-            if prompt != case.benign_task.instruction:
-                raise ReplayDivergenceError(
-                    -32112,
-                    "office fork cannot change the top-level benign task",
-                )
-            case_id = case.case_id
-            scenario_id = case.scenario.template_id
-            seed = case.seed
-            scenario_initialization = office.initialization.model_dump(mode="json")
-            base_model = None if formal_model else OfficeControlProvider(str(control), case)
         else:
             case_id = f"{manifest.case_id}-fork"
             scenario_id = manifest.scenario_id
