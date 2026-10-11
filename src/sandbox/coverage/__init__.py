@@ -1,48 +1,5 @@
 """Behavior-profile and risk-dimension coverage for committed trajectories."""
 
-from importlib import import_module
-from typing import Any
-
-from sandbox.coverage.behavior import BehaviorFeatureExtractor
-from sandbox.coverage.correlation import BehaviorRiskCorrelator
-from sandbox.coverage.feedback import CampaignCoverageFeedbackBuilder
-from sandbox.coverage.heatmap import HeatmapGenerator
-from sandbox.coverage.models import (
-    BehaviorFeature,
-    BehaviorFeatureKind,
-    BehaviorProfile,
-    BehaviorRiskLink,
-    CampaignCoverageFeedback,
-    CampaignRiskScope,
-    CoverageGrowthPoint,
-    CoverageInput,
-    CoverageResult,
-    CoverageSaturationSummary,
-    CoverageSnapshot,
-    EvidenceReference,
-    EvidenceRule,
-    HeatmapCell,
-    OfficeBaselineActionEvidence,
-    OfficeExecutionEvidence,
-    OfficeToolExecutionEvidence,
-    PathRiskHeatmapCell,
-    PrettyHeatmapCell,
-    PrettyHeatmapColumn,
-    PrettyHeatmapReport,
-    PrettyHeatmapRow,
-    RiskCategory,
-    RiskCoverageGap,
-    RiskDepthChange,
-    RiskHit,
-    RiskReachability,
-    RiskStage,
-    RiskTaxonomy,
-)
-from sandbox.coverage.office_risk import (
-    OFFICE_RISK_MAPPING_DIGEST,
-    OFFICE_RISK_MAPPING_VERSION,
-    OfficeRiskMapper,
-)
 from sandbox.coverage.v2_behavior import (
     V2_BEHAVIOR_FEATURE_SCHEMA_DIGEST,
     V2_BEHAVIOR_NORMALIZATION_DIGEST,
@@ -138,52 +95,7 @@ from sandbox.coverage.v2_unexpected_risk import (
     map_v2_unexpected_risks,
 )
 
-
-def __getattr__(name: str) -> Any:
-    if name != "CoverageInputResolver":
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    value = import_module("sandbox.coverage.input").CoverageInputResolver
-    globals()[name] = value
-    return value
-
 __all__ = [
-    "BehaviorFeature",
-    "BehaviorFeatureExtractor",
-    "BehaviorFeatureKind",
-    "BehaviorProfile",
-    "BehaviorRiskCorrelator",
-    "BehaviorRiskLink",
-    "CampaignCoverageFeedback",
-    "CampaignCoverageFeedbackBuilder",
-    "CampaignRiskScope",
-    "CoverageInput",
-    "CoverageInputResolver",
-    "CoverageResult",
-    "CoverageGrowthPoint",
-    "CoverageSaturationSummary",
-    "CoverageSnapshot",
-    "EvidenceReference",
-    "EvidenceRule",
-    "HeatmapCell",
-    "HeatmapGenerator",
-    "OfficeBaselineActionEvidence",
-    "OfficeExecutionEvidence",
-    "OfficeToolExecutionEvidence",
-    "PathRiskHeatmapCell",
-    "OfficeRiskMapper",
-    "OFFICE_RISK_MAPPING_DIGEST",
-    "OFFICE_RISK_MAPPING_VERSION",
-    "PrettyHeatmapCell",
-    "PrettyHeatmapColumn",
-    "PrettyHeatmapReport",
-    "PrettyHeatmapRow",
-    "RiskCategory",
-    "RiskCoverageGap",
-    "RiskDepthChange",
-    "RiskHit",
-    "RiskReachability",
-    "RiskStage",
-    "RiskTaxonomy",
     "V2AcquisitionKind",
     "V2AcquisitionMetadata",
     "V2BehaviorDimension",
