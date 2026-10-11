@@ -58,7 +58,6 @@ from sandbox.scenarios.office_v2.tools.contracts import (
     OfficeToolResult,
     ToolResultStatus,
 )
-from sandbox.scenarios.structured_v1.fixtures import FIXTURES
 
 PROBE_IDENTITY = ModelIdentity.capture(
     provider_id="local", raw_model_label="scripted-agent", provider_version="test"
@@ -281,27 +280,13 @@ def test_registry_is_verifiable_and_separate() -> None:
     # radius.
     assert tuple(ERROR_CAPABLE_FIXTURES) == (ERROR_CAPABLE_FIXTURE_ID, "error-capable-multipath-01")
     assert verify_error_capable_fixture(load_error_capable_fixture("error-capable-multipath-01"))
-    assert ERROR_CAPABLE_FIXTURE_ID not in FIXTURES
-
-
-def test_old_structured_fixture_registry_is_unchanged() -> None:
-    # The old registry must be exactly what the earlier tasks froze; adding a new scenario may not
-    # reorder it or drop an entry.
-    assert sorted(FIXTURES) == [
-        "summary-delivery-a",
-        "summary-delivery-b",
-        "summary-delivery-c",
-        "summary-delivery-d",
-        "summary-delivery-e",
-        "summary-delivery-e2",
-        "summary-delivery-e2-completion",
-        "summary-delivery-e2-completion-v2",
-        "summary-delivery-enc-01",
-        "summary-delivery-enc-01-n1",
-        "summary-delivery-enc-01-n2",
-        "summary-delivery-enc-02",
-        "summary-delivery-range-01",
-    ]
+    # The old structured registry was retired (2026-10-11), so "the error-capable fixture is not an
+    # entry of it" can no longer be asserted by reading it.  Asserted on the name rather than on the
+    # import: an emptied directory is still importable as a namespace package, so `import_module`
+    # would succeed on a leftover `__pycache__` directory and the guard would pass for the wrong
+    # reason.  `FIXTURES` itself has to be gone.
+    with pytest.raises(ImportError):
+        from sandbox.scenarios.structured_v1.fixtures import FIXTURES  # noqa: F401
 
 
 def test_registry_rejects_an_unknown_id() -> None:
