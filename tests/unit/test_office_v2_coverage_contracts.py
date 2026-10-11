@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 from pathlib import Path
 
 import pytest
@@ -153,11 +154,21 @@ def test_v2_contract_module_does_not_import_v1_coverage_semantics() -> None:
         if isinstance(node, ast.ImportFrom) and node.module is not None
     )
 
-    forbidden = {
-        "sandbox.coverage.feature_normalizer",
+    # Every V1 coverage module this contract forbade retired on 2026-10-11, so a list of names
+    # would only assert things that cannot happen.  The check is stronger instead: no non-V2
+    # coverage module may be imported, whatever it is called, and the retired names are asserted
+    # unimportable so the boundary cannot quietly reopen under a new name.
+    assert not [
+        name
+        for name in imported
+        if name.startswith("sandbox.coverage.") and not name.split(".")[2].startswith("v2_")
+    ]
+    for retired in (
         "sandbox.coverage.input",
+        "sandbox.coverage.feature_normalizer",
         "sandbox.coverage.models",
         "sandbox.coverage.office_risk",
         "sandbox.coverage.store",
-    }
-    assert imported.isdisjoint(forbidden)
+    ):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module(retired)

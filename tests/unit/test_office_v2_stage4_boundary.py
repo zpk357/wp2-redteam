@@ -85,13 +85,9 @@ FORBIDDEN_AGENT_DEPENDENCY_PREFIXES = (
     "sandbox.judge",
     "sandbox.mutation",
     "sandbox.scheduler",
-    "sandbox.scenarios.office_campaign",
-    "sandbox.scenarios.office_controls",
-    "sandbox.scenarios.office_episode",
-    "sandbox.scenarios.office_matrix",
-    "sandbox.scenarios.office_mutation",
-    "sandbox.scenarios.office_runtime",
-    "sandbox.scenarios.office_v1",
+    # The seven `sandbox.scenarios.office_*` entries that stood here were retired on 2026-10-11;
+    # a name that cannot be imported cannot be depended on, and `test_retired_packages` now asserts
+    # exactly that.
 )
 FROZEN_UPSTREAM_DIGESTS = {
     "clean_case_catalog_digest": (

@@ -24,6 +24,39 @@ RETIRED_MODULES = (
     "sandbox.structured_v1",
     # Batch three: the fuzzing campaign package.
     "sandbox.fuzzer",
+    # Batch five: the old office line -- its data, matrix, scenario runtime, controls, fork, the
+    # catalogue helpers, and the candidate generation / V1 mutation modules that fed it.
+    "sandbox.scenarios.office_v1",
+    "sandbox.scenarios.office_matrix",
+    "sandbox.scenarios.office_episode",
+    "sandbox.scenarios.office_runtime",
+    "sandbox.scenarios.office_controls",
+    "sandbox.scenarios.office_fork",
+    "sandbox.scenarios.matrix",
+    "sandbox.scenarios.injection",
+    "sandbox.scenarios.models",
+    "sandbox.scenarios.catalogs",
+    "sandbox.scenarios.candidate_generation",
+    "sandbox.scenarios.office_mutation",
+    "sandbox.scenarios.office_mutation_batch",
+    # Batch five: the old coverage face.  The Office V2 coverage contracts named five of these as
+    # forbidden imports; the rest were the pipeline they belonged to.
+    "sandbox.coverage.behavior",
+    "sandbox.coverage.correlation",
+    "sandbox.coverage.events",
+    "sandbox.coverage.evidence",
+    "sandbox.coverage.exceptions",
+    "sandbox.coverage.feature_normalizer",
+    "sandbox.coverage.feedback",
+    "sandbox.coverage.heatmap",
+    "sandbox.coverage.input",
+    "sandbox.coverage.models",
+    "sandbox.coverage.office_evidence",
+    "sandbox.coverage.office_risk",
+    "sandbox.coverage.risk",
+    "sandbox.coverage.risk_scope",
+    "sandbox.coverage.store",
+    "sandbox.coverage.taxonomy",
 )
 
 

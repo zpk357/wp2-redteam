@@ -32,7 +32,8 @@ FORBIDDEN_PREFIXES = (
     "sandbox.judge",
     "sandbox.mutation",
     "sandbox.scheduler",
-    "sandbox.scenarios.office_v1",
+    # `sandbox.scenarios.office_v1` stood here until 2026-10-11; it is retired and
+    # `test_retired_packages` asserts it cannot be imported at all.
 )
 
 
