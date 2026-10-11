@@ -44,10 +44,6 @@ from sandbox.replay.models import (
     ReplayRequest,
     StateCheckpoint,
 )
-from sandbox.scenarios.office_fork import (
-    OfficeCarrierForkError,
-    replace_office_carrier_payload,
-)
 from sandbox.scenarios.office_v2.attack_models import MaterializedScenarioCase
 from sandbox.scenarios.office_v2.canonical_world import load_canonical_world
 from sandbox.scenarios.office_v2.execution_contracts import build_v2_execution_envelope
@@ -354,13 +350,14 @@ class ReplayAdapter:
                         -32112,
                         "carrier payload replacement must be a string",
                     )
-                try:
-                    envelope = replace_office_carrier_payload(
-                        envelope,
-                        fork_request.injection.content,
-                    ).checkpoint_state
-                except OfficeCarrierForkError as exc:
-                    raise ReplayDivergenceError(-32112, str(exc)) from exc
+                # The Office V1 carrier fork retired with its scenario line (2026-10-11): only an
+                # Office V2 recording carries a replacement payload now, and it takes the branch
+                # above.  Refusing keeps a V1-shaped request from being replayed as if the payload
+                # had been swapped when it had not.
+                raise ReplayDivergenceError(
+                    -32112,
+                    "carrier payload replacement requires an Office V2 recording",
+                )
             initial = StateCodec().restore(
                 envelope,
                 base_tools,
