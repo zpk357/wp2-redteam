@@ -874,8 +874,20 @@ async def _run_campaign(
         raise ValueError("a campaign needs at least one Episode")
     from sandbox.scenarios.error_capable_registry import ERROR_CAPABLE_FIXTURE_ID
 
-    if fixture.fixture_id != ERROR_CAPABLE_FIXTURE_ID:
-        raise ValueError("new material cannot execute under a historical fixture identity")
+    from sandbox.scenarios.error_capable_registry import (
+        ERROR_CAPABLE_FIXTURE_ID,
+        ERROR_CAPABLE_FIXTURES,
+    )
+
+    substantive_fixture = fixture.fixture_id.startswith("substantive-office-")
+    # A fixture is bound to the material family it owns; the historical fixture keeps its default
+    # role and the new one is only usable through its own material.
+    if fixture.fixture_id not in ERROR_CAPABLE_FIXTURES:
+        raise ValueError(f"unregistered fixture {fixture.fixture_id!r} cannot execute")
+    if substantive_fixture and fixture.fixture_id != "substantive-office-01":
+        raise ValueError("substantive material cannot execute under another fixture identity")
+    if not substantive_fixture and fixture.fixture_id != ERROR_CAPABLE_FIXTURE_ID:
+        raise ValueError("historical material cannot execute under another fixture identity")
     if mode is ErrorCapableMode.RANDOM:
         selector = PureRandomSelector()
     if isinstance(selector, LLMSelector):
@@ -1244,6 +1256,14 @@ async def _run_campaign(
             layout_id=decision.layout_id,
             task_file_id=file_ids[0],
         )
+        if fixture.fixture_id.startswith("substantive-office-"):
+            # The instance and the attack phrasing are fixture facts, not selector coordinates:
+            # they are derived from the seed and carried in the plan's material recipe.
+            from sandbox.scenarios.substantive_office.planning import recipe_for
+
+            plan = plan.model_copy(
+                update={"material_recipe": recipe_for(plan.task_family, plan.seed)}
+            )
         material = materialize_scenario(plan)
         receipt = SelectorReceipt.seal(
             episode_index=index,

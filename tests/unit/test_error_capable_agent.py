@@ -278,7 +278,11 @@ def test_registry_is_verifiable_and_separate() -> None:
     assert len(fixture.manifest.file_roles) == 4
     # A dedicated registry, not the structured_v1 one: different contract types, no shared blast
     # radius.
-    assert tuple(ERROR_CAPABLE_FIXTURES) == (ERROR_CAPABLE_FIXTURE_ID, "error-capable-multipath-01")
+    assert tuple(ERROR_CAPABLE_FIXTURES) == (
+        ERROR_CAPABLE_FIXTURE_ID,
+        "error-capable-multipath-01",
+        "substantive-office-01",
+    )
     assert verify_error_capable_fixture(load_error_capable_fixture("error-capable-multipath-01"))
     # The old structured registry was retired (2026-10-11), so "the error-capable fixture is not an
     # entry of it" can no longer be asserted by reading it.  Asserted on the name rather than on the

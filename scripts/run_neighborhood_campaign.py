@@ -194,7 +194,7 @@ MODEL_NETWORK_ENDPOINT = "http://ollama:11434"
 
 
 async def _run(args: argparse.Namespace) -> dict[str, object]:
-    fixture = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
+    fixture = load_error_capable_fixture(args.fixture)
     seed = base_seed(args.stage, args.repeat)
     episodes = args.episodes or (PILOT_EPISODES if args.stage == "pilot" else MAIN_EPISODES)
 
@@ -434,6 +434,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", choices=("pilot", "main"), required=True)
     parser.add_argument("--repeat", type=int, required=True)
+    #: The fixture is an explicit choice.  The default stays the historical one so every existing
+    #: command line and every existing run root keeps its identity.
+    parser.add_argument("--fixture", default=ERROR_CAPABLE_FIXTURE_ID)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--adapter", choices=("fake", "ollama"), default="fake")
     parser.add_argument("--episodes", type=int, default=0)

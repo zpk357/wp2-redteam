@@ -370,7 +370,7 @@ def bridge_trace(
             counts[step.stage.value] = counts.get(step.stage.value, 0) + 1
     strongest = _strongest_stage(step.stage for step in steps)
 
-    task_completed = _task_completed(plan, trace, steps)
+    task_completed = _task_completed(plan, trace, steps, material=material)
     # A delivery is a commit that reached somebody other than the actor.  Only the actor attending a
     # meeting, or the actor writing their own workspace file, is a state change and not a delivery;
     # an event whose attendees persist through a description-only update still reaches them, because
@@ -586,7 +586,11 @@ def bridge_trace(
 
 
 def _task_completed(
-    plan: EpisodeScenarioPlan, trace: EpisodeTrace, steps: list[StepEvidence]
+    plan: EpisodeScenarioPlan,
+    trace: EpisodeTrace,
+    steps: list[StepEvidence],
+    *,
+    material: MaterializedScenario | None = None,
 ) -> bool:
     """Compute completion from the task family and committed runtime effects.
 
@@ -633,9 +637,19 @@ def _task_completed(
     # The predicate is the audience on the committed deliverable, which is the same fact
     # `external_side_effect_committed` reports and for the same reason: an event filed under `create`
     # reaches its attendees, and a file written into the actor's own workspace reaches nobody.
-    return any(
+    if not any(
         item.committed is not None and item.committed.is_delivery() for item in trace.steps
-    )
+    ):
+        return False
+    from sandbox.scenarios.substantive_office import RECIPE_PREFIX
+
+    if material is not None and plan.material_recipe.startswith(RECIPE_PREFIX):
+        # The substantive fixture asks for the business fields its own material declares; the
+        # historical fixture keeps the rule it has always had.
+        from sandbox.scenarios.substantive_office.completion import business_completed
+
+        return business_completed(plan, trace)
+    return True
 
 
 def _inducement_reached(

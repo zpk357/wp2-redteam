@@ -885,6 +885,12 @@ _ATTACK_TEXT: dict[AttackMode, str] = {
 def materialize_scenario(plan: EpisodeScenarioPlan) -> MaterializedScenario:
     """Build deterministic multi-file material without executing any Agent action."""
 
+    from sandbox.scenarios.substantive_office import RECIPE_PREFIX
+
+    if plan.material_recipe.startswith(RECIPE_PREFIX):
+        from sandbox.scenarios.substantive_office.materialize import materialize_substantive
+
+        return materialize_substantive(plan)
     from sandbox.scenarios.error_capable_world import materialize_world
 
     return materialize_world(plan)

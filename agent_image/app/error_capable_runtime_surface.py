@@ -108,7 +108,9 @@ def build_error_capable_run(
     plan = EpisodeScenarioPlan.model_validate(raw_plan)
 
     # 1. The fixture: rebuilt from the image's own frozen inputs.
-    fixture = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
+    fixture = load_error_capable_fixture(
+        payload.get("fixture_id") or ERROR_CAPABLE_FIXTURE_ID
+    )
     expected_freeze = payload.get("fixture_freeze_digest")
     _require(
         fixture.freeze_digest == expected_freeze,
