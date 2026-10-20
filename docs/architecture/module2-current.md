@@ -56,23 +56,19 @@ flowchart TB
     SETTLE -.-> SAVE
     REPORT["两臂报告与身份 / 预算对齐<br/>新链、违规类型、风险等级曲线及成本"]
     SETTLE --> REPORT
-    JOINT["当前残留：joint 不参与分数<br/>但 joint_keys 等字段仍随完整 feedback 进入提示词"]
-    FEEDBACK -.-> JOINT
     classDef guided fill:#ede9fe,stroke:#7c3aed,color:#3b176c;
     classDef execute fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e;
     classDef assess fill:#dcfce7,stroke:#16a34a,color:#14532d;
-    classDef warning fill:#fff7ed,stroke:#ea580c,color:#9a3412;
     class G,FEEDBACK guided;
     class HOST,DOCKER,AGENT,WORLD,TRACE execute;
     class ORACLE,BEHAVIOR,RISK,SETTLE assess;
-    class JOINT warning;
 ```
 
 两臂复用同一候选空间、场景材料化、执行接口和判定口径，但分别维护自己的执行状态与覆盖账本。引导反馈送入选择器，不送入被测 Agent。真实运行入口使用同一模型身份配置引导选择器与被测 Agent；随机臂不调用 LLM 选择器。
 
 邻域指 `(task_family, path_id)`。当前分数不是覆盖率：初值 1、下限 0；有增量本身加 0，`no_increment` 减 1，满足证据条件的 `informed_violation` 另加 3。方向得分与覆盖读数在反馈中分别保留。
 
-当前实现仍有一处与用户设计不一致：joint 虽不参与分数，但覆盖反馈包含 `joint_keys`、`recent_joint_keys`、`since_last_new_joint` 等字段，LLMSelector 序列化完整反馈，因而它们仍进入提示词。图中明确记录此残留，本次未修改代码。
+joint 覆盖率只记录、不参与分数，也不进入提示词：`CoverageFeedback` 仍保留 `joint_keys`、`recent_joint_keys`、`since_last_new_joint` 等字段供读数与归档加载，但 `LLMSelector.payload()` 在序列化前按 `JOINT_FEEDBACK_KEYS` 投影，连由 joint 派生的 `stalled`、`saturated_dimensions` 一并剔除；反馈记录与回执摘要不变（2026-10-20 修正）。
 
 验证边界：LOG 记录 2026-10-11 宿主侧真实模型两臂各 4 集完成、身份与预算对齐；该次验证不覆盖容器 ReAct 适配器、工具注册表和 tool_recorder 的变更。两种执行路径的存在来自代码阅读，不表示本次进行了模型或 Docker 验证。
 

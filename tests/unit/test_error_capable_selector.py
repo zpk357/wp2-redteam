@@ -249,6 +249,36 @@ def test_the_guided_payload_carries_outcomes_and_no_candidate_list() -> None:
     assert sent["menu_gaps"] == [] and sent["menu_gap_details"] == []
 
 
+def test_the_guided_payload_carries_no_joint_coverage() -> None:
+    """Joint coverage is recorded, not shown: it takes no part in the score or the prompt."""
+
+    feedback = CoverageFeedback(
+        behaviour_keys=("behaviour-1",),
+        joint_keys=("joint-1",),
+        recent_joint_keys=("joint-1",),
+        since_last_new_joint=3,
+        stalled=True,
+        saturated_dimensions=("path",),
+    )
+    payload = LLMSelector(SelectionAdapter("{}"), IDENTITY).payload(
+        request(ErrorCapableMode.GUIDED).model_copy(update={"feedback": feedback})
+    )
+    sent = payload["feedback"]
+    withheld = (
+        "joint_keys",
+        "recent_joint_keys",
+        "since_last_new_joint",
+        "stalled",
+        "saturated_dimensions",
+    )
+    for key in withheld:
+        assert key not in sent, f"{key} still reaches the selector"
+    assert sent["behaviour_keys"] == ["behaviour-1"]
+    # The record itself is unchanged: only what the selector is shown is narrowed.
+    assert feedback.joint_keys == ("joint-1",)
+    assert feedback.saturated_dimensions == ("path",)
+
+
 def test_the_prompt_changes_when_the_outcome_rows_change_which_is_only_necessary() -> None:
     """The offline half of the counterfactual.  The sufficient half is a provider call.
 

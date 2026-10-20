@@ -23,6 +23,20 @@ from sandbox.scenarios.error_capable_identity import ModelIdentity
 from sandbox.scenarios.error_capable_world import CARRIER_SLOTS, LAYOUT_COUNTS, path_template
 from sandbox.scenarios.office_v2.models import OfficeV2Contract
 
+#: Feedback fields the selector must not see.  The joint rung was set aside (`VT-34`) and takes no
+#: part in the score; the fields survive on `CoverageFeedback` only so archived artifacts still
+#: load.  `stalled` and `saturated_dimensions` are computed from that same rung, so they leave with
+#: it -- keeping them would carry joint coverage back into the prompt under different names.
+JOINT_FEEDBACK_KEYS = frozenset(
+    {
+        "joint_keys",
+        "recent_joint_keys",
+        "since_last_new_joint",
+        "stalled",
+        "saturated_dimensions",
+    }
+)
+
 #: v19 (2026-10): the paragraph recommending a mechanism the run has never used is gone, along with
 #: the clause calling most of a direction's combinations mechanism-different.  They were the direct
 #: cause of the selector spending its Opportunities on mechanism variety -- the score's only usable
@@ -490,7 +504,9 @@ class LLMSelector:
         is one the model never sees.  That is how `previous_rejections` would have failed -- the
         campaign would have filled it in on every attempt and the prompt would have described a key
         that was not in the payload -- which is the same shape as the defect it exists to fix, and
-        the reason this docstring says so rather than leaving it to be noticed.
+        the reason this docstring says so rather than leaving it to be noticed.  The feedback is
+        projected through `JOINT_FEEDBACK_KEYS` for the same reason: the model keeps the joint rung
+        for the run's own reading, and the prompt does not name it.
         """
 
         result = {
@@ -500,7 +516,13 @@ class LLMSelector:
             "output_schema": SelectorDecision.model_json_schema(),
         }
         if request.feedback is not None:
-            result["feedback"] = request.feedback.model_dump(mode="json")
+            # Projected, not dumped: `CoverageFeedback` still carries the joint rung for the run's
+            # own reading, and a full dump would put it in front of the selector (`VT-34`).
+            result["feedback"] = {
+                key: value
+                for key, value in request.feedback.model_dump(mode="json").items()
+                if key not in JOINT_FEEDBACK_KEYS
+            }
         # Last, and only when there is something to say: on a first attempt this key is absent
         # rather than empty, so an untouched request reads exactly as it did before.
         if request.previous_rejections:
