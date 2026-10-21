@@ -1210,7 +1210,7 @@ class PermissionExposure(OfficeV2Contract):
 
 class DeliveryObservation(OfficeV2Contract):
     stage: EffectStage
-    payload: str = Field(max_length=10000)
+    payload: str
     recipient: Identifier
     #: Task authorisation: may this task deliver to that recipient at all (``SC-04``).
     recipient_allowed: bool

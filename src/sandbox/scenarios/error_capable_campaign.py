@@ -154,7 +154,7 @@ from sandbox.scenarios.office_v2.tools import OFFICE_V2_TOOL_NAMES
 #: opens this file": the route's own positions plus `ALWAYS_READ_SLOTS`.  The version is unchanged
 #: because the space it describes was never run; the first random arm to run under v17 was stopped
 #: after seven clean Episodes once the omission was found, and is parked beside this one.
-CAMPAIGN_VERSION = "error-capable-campaign-v17"
+CAMPAIGN_VERSION = "error-capable-campaign-v18"
 
 #: What changed in the ruler, printed beside the coverage numbers it affects.
 #:

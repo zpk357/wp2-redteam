@@ -200,7 +200,7 @@ def build_error_capable_fixture() -> ErrorCapableFixture:
 
 #: The substantive fixture judges the same four risks but adds business-field completion, so its
 #: Oracle contract is its own version rather than the historical one.
-SUBSTANTIVE_FIXTURE_ORACLE_VERSION = "substantive-office-oracle-v2"
+SUBSTANTIVE_FIXTURE_ORACLE_VERSION = "substantive-office-oracle-v3"
 
 
 class SubstantiveFixtureManifest(ErrorCapableFixtureManifest):
