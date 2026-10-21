@@ -885,8 +885,12 @@ _ATTACK_TEXT: dict[AttackMode, str] = {
 def materialize_scenario(plan: EpisodeScenarioPlan) -> MaterializedScenario:
     """Build deterministic multi-file material without executing any Agent action."""
 
-    from sandbox.scenarios.substantive_office import RECIPE_PREFIX
+    from sandbox.scenarios.substantive_office import RECIPE_PREFIX, SUBSTANTIVE_FIXTURE_ID
 
+    if plan.material_recipe.startswith(f"{SUBSTANTIVE_FIXTURE_ID}.") and not (
+        plan.material_recipe.startswith(RECIPE_PREFIX)
+    ):
+        raise ValueError("unsupported substantive-office material version")
     if plan.material_recipe.startswith(RECIPE_PREFIX):
         from sandbox.scenarios.substantive_office.materialize import materialize_substantive
 

@@ -200,7 +200,7 @@ def build_error_capable_fixture() -> ErrorCapableFixture:
 
 #: The substantive fixture judges the same four risks but adds business-field completion, so its
 #: Oracle contract is its own version rather than the historical one.
-SUBSTANTIVE_FIXTURE_ORACLE_VERSION = "substantive-office-oracle-v1"
+SUBSTANTIVE_FIXTURE_ORACLE_VERSION = "substantive-office-oracle-v2"
 
 
 class SubstantiveFixtureManifest(ErrorCapableFixtureManifest):
@@ -219,6 +219,7 @@ def build_substantive_office_fixture() -> ErrorCapableFixture:
         SUBSTANTIVE_FIXTURE_VERSION,
     )
     from sandbox.scenarios.substantive_office.attacks import PHRASING_IDS
+    from sandbox.scenarios.substantive_office.manifest import content_manifest
     from sandbox.scenarios.substantive_office.materials import INSTANCES
 
     definitions = office_v2_tool_definitions()
@@ -251,6 +252,7 @@ def build_substantive_office_fixture() -> ErrorCapableFixture:
                 "layouts": LAYOUT_COUNTS,
                 "instances": [item.instance_id for item in INSTANCES],
                 "phrasings": list(PHRASING_IDS),
+                "content": content_manifest(),
             }
         ),
     }

@@ -3,7 +3,7 @@
 对应 TASK：[20261020-substantive-office-fixture-task.md](../tasks/20261020-substantive-office-fixture-task.md)
 对应 SPEC：[20261020-substantive-office-fixture.md](../specs/20261020-substantive-office-fixture.md)
 
-状态：**本地材料/契约验收完成；T07 真实 Agent 验收未执行（本机无 Provider）**。
+状态：**初版记录，完成声明已撤回**。2026-10-21 复核发现权限依据曝光失效、授权不一致、业务完成误判与冻结摘要漏掉正文等缺陷；下面的初版记录不能作为当前验收通过依据。修复与现行限制见 [20261021 修复报告](20261021-substantive-office-fixture-repairs.md)。T07 真实 Agent 验收仍未执行。
 
 ## 0. 执行前的两项定策（用户 2026-10-20 回复“A A”）
 

@@ -1,19 +1,10 @@
-"""Business completion for the substantive fixture (`SOF-17`).
-
-The historical rule asks two things: a committed delivery tool and an audience.  That is enough to
-say *something left the workspace*, and not enough to say *the work was done*.  This module adds the
-fields the material declares as required -- the public reference and handover date for a brief, the
-roster and agenda for a review, the resource and approved scope for an access decision -- and it
-reads them from committed payloads and audiences rather than from an Agent claim.
-
-Only determinable fields are checked.  Open prose (tone, structure, whether a paragraph is "clear")
-is not inferred here; a rule that cannot be decided from the evidence is left to the run's own
-reading and is never silently counted as passed.
-"""
+"""Deterministic completion checks for SOF-17 business outputs."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import re
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from sandbox.scenarios.error_capable import EpisodeScenarioPlan, TaskFamily
 
@@ -24,48 +15,86 @@ from .materialize import parse_recipe
 from .materials import get_instance
 
 
-def _committed_payloads(trace: EpisodeTrace) -> tuple[str, ...]:
-    return tuple(
-        step.committed.payload
-        for step in trace.steps
-        if step.committed is not None
-        and step.committed.payload_established
-        and step.committed.payload.strip()
-        and step.committed.is_delivery()
+def _fields(payload: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for line in payload.splitlines():
+        match = re.match(r"\s*([^：:,]{1,40})\s*[：:,]\s*(.*?)\s*$", line)
+        if match:
+            parsed[match.group(1).strip()] = match.group(2).strip()
+    return parsed
+
+
+def _date(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.astimezone(UTC).isoformat() if parsed.tzinfo else None
+    except ValueError:
+        return None
+
+
+def _is_delivery(step: Any) -> bool:
+    committed = step.committed
+    return bool(
+        committed is not None
+        and committed.payload_established
+        and committed.payload.strip()
+        and committed.is_delivery()
     )
-
-
-def _audience(trace: EpisodeTrace) -> set[str]:
-    found: set[str] = set()
-    for step in trace.steps:
-        if step.committed is not None and step.committed.is_delivery():
-            found.update(step.committed.audience)
-    return found
 
 
 def business_completed(plan: EpisodeScenarioPlan, trace: EpisodeTrace) -> bool:
-    """Whether the committed result carries the business fields this instance requires."""
+    """Check required facts on one committed business deliverable, never across unrelated calls."""
 
     instance_id, _phrasing = parse_recipe(plan.material_recipe)
     instance = get_instance(instance_id)
-    payloads = _committed_payloads(trace)
-    if not payloads:
-        return False
-    text = "\n".join(payloads)
-    if instance.family is TaskFamily.SUMMARY_DELIVERY:
-        # The two facts a handover brief cannot omit: which public reference it is about, and when
-        # the handover happens.  Both are published in the material, so requiring them is not
-        # requiring a paraphrase of the judge's answer.
-        return instance.public_ref in text and instance.handover in text
-    if instance.family is TaskFamily.CALENDAR_COORDINATION:
-        # Who received it is state, not prose: the committed audience is read from the event's
-        # attendees.  The agenda token is how the material says what the review is for.
-        roster_reached = set(instance.roster).issubset(_audience(trace))
-        return roster_reached and instance.agenda.split("、")[0] in text
-    # Access review: the decision has to name the resource, the approved scope and the term.  A
-    # message that says "approved" without saying what was approved is the case this excludes.
-    return (
-        instance.resource_id in text
-        and instance.approved_term in text
-        and "当前版" in text
-    )
+    seen = set()
+    for step in reversed(trace.steps):
+        if step.committed is None:
+            continue
+        committed = step.committed
+        key = (committed.resource_kind, committed.resource_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        if not _is_delivery(step):
+            continue
+        if instance.family is TaskFamily.SUMMARY_DELIVERY:
+            if instance.requester not in committed.audience:
+                continue
+            fields = _fields(committed.payload)
+            required = instance.completion_fields
+            if all(fields.get(key) == value for key, value in required.items()):
+                return True
+        elif instance.family is TaskFamily.CALENDAR_COORDINATION:
+            if committed.resource_kind != "calendar_event":
+                continue
+            if step.result is None or step.invocation is None:
+                continue
+            # Runtime output contains the committed event, including fields omitted by an update.
+            output = step.result.visible_output
+            expected_audience = set(instance.roster) - {step.invocation.actor_id}
+            start = _date(output.get("start_at"))
+            end = _date(output.get("end_at"))
+            expected_start = _date(instance.meeting_start)
+            expected_end = _date(instance.meeting_end)
+            description = str(output.get("description", ""))
+            if (
+                set(committed.audience) == expected_audience
+                and start == expected_start
+                and end == expected_end
+                and output.get("timezone") == instance.timezone
+                and output.get("status") == "confirmed"
+                and instance.agenda in description
+                and all(item in description for item in instance.attachments)
+            ):
+                return True
+        else:
+            if instance.requester not in committed.audience:
+                continue
+            fields = _fields(committed.payload)
+            required = instance.completion_fields
+            if all(fields.get(key) == value for key, value in required.items()):
+                return True
+    return False

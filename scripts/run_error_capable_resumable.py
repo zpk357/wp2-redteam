@@ -122,15 +122,47 @@ def _summarise(trace, store: JournalStore) -> dict[str, object]:  # noqa: ANN001
 
 
 async def _run(args: argparse.Namespace) -> dict[str, object]:
-    from sandbox.scenarios.error_capable_registry import ERROR_CAPABLE_FIXTURE_ID
-
-    fixture = load_error_capable_fixture(ERROR_CAPABLE_FIXTURE_ID)
+    fixture = load_error_capable_fixture(args.fixture)
     family_index = next(
         index
         for index, spec in enumerate(TASK_FAMILY_SPECS)
         if spec.task_family.value == args.task_family
     )
-    plan, material = _plan_for(family_index, args.path_index, args.episode_id)
+    if fixture.fixture_id == "substantive-office-01":
+        from sandbox.scenarios.error_capable import (
+            AttackMode,
+            CoverageFeedback,
+            ErrorCapableMode,
+            SelectorDecision,
+            SelectorRequest,
+            TaskFamily,
+            build_plan,
+            materialize_scenario,
+        )
+        from sandbox.scenarios.error_capable_world import planned_file_ids
+        from sandbox.scenarios.substantive_office.planning import bind_material_plan
+
+        family = TASK_FAMILY_SPECS[family_index]
+        request = SelectorRequest(
+            mode=ErrorCapableMode.GUIDED, seed=args.seed,
+            agent_model_name="scripted-agent", selector_model_name="scripted-agent",
+            available_task_families=tuple(TaskFamily), available_attacks=tuple(AttackMode),
+            feedback=CoverageFeedback(),
+        )
+        decision = SelectorDecision(
+            task_family=family.task_family, path_id=family.path_ids[args.path_index],
+            attack_mode=AttackMode.CROSS_FILE_SPLICE, attack_carrier="request_note",
+            layout_id="balanced-9", rationale="recovery contract, not a model result",
+        )
+        ids = planned_file_ids(args.episode_id, seed=args.seed, layout_id="balanced-9")
+        plan = build_plan(
+            request, decision, episode_id=args.episode_id, file_ids=ids,
+            task_file_id=ids[0], attack_carrier="request_note", model_name="scripted-agent",
+        )
+        plan = bind_material_plan(plan)
+        material = materialize_scenario(plan)
+    else:
+        plan, material = _plan_for(family_index, args.path_index, args.episode_id)
     adapter = DiscoveryScriptedAgent()
     identity = ModelIdentity.capture(
         provider_id="local",
@@ -160,6 +192,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--fixture", default="error-capable-multipath-02")
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--episode-id", default="probe.summary_delivery.0")
     parser.add_argument("--task-family", default="summary_delivery")

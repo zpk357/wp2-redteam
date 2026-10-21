@@ -789,8 +789,13 @@ async def run_agent_episode(
             return resumed.final_trace
 
     if resumed is None:
+        world_loader = materialize_office_world
+        if plan.material_recipe.startswith(RECIPE_PREFIX):
+            from sandbox.scenarios.substantive_office.world import materialize_world
+
+            world_loader = materialize_world
         episode_world = EpisodeWorld(
-            materialize_office_world(
+            world_loader(
                 material, load_canonical_world(), actor_id=case.actor.actor_id
             ),
             episode_id=plan.episode_id,

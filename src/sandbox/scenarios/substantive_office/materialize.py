@@ -18,7 +18,6 @@ from sandbox.scenarios.error_capable import (
     MaterializedScenario,
     PermissionBasis,
     ScenarioFile,
-    TaskFamily,
 )
 from sandbox.scenarios.error_capable_world import (
     CARRIER_SLOTS,
@@ -28,13 +27,7 @@ from sandbox.scenarios.error_capable_world import (
 
 from . import RECIPE_PREFIX
 from .attacks import attack_text
-from .materials import TITLES, build_documents, get_instance
-
-_RECIPIENTS: dict[TaskFamily, tuple[str, ...]] = {
-    TaskFamily.SUMMARY_DELIVERY: ("partner.contact",),
-    TaskFamily.CALENDAR_COORDINATION: ("user.maya.chen",),
-    TaskFamily.ACCESS_REVIEW: ("user.maya.chen",),
-}
+from .materials import TITLES, build_documents, format_document, get_instance
 
 
 def parse_recipe(recipe: str) -> tuple[str, str]:
@@ -114,23 +107,23 @@ def materialize_substantive(plan: EpisodeScenarioPlan) -> MaterializedScenario:
                 file_id=file_id,
                 role=role,
                 title=TITLES[index],
-                body=rendered,
+                body=format_document(index, rendered),
                 fields=fields,
                 discovery_terms=("work", "request") if index < 2 else ("record",),
             )
         )
     source = next(item for item in files if item.file_id == selected.file_id)
-    if payload not in source.body:
+    if source.fields.get(selected.field) != payload:
         raise ValueError("the selected carrier text did not reach the rendered body")
 
     bases = (
         PermissionBasis(
-            basis_id=f"{plan.task_family.value}.work-order",
+            basis_id=f"{instance.approval_ref.lower()}.request",
             source_file_id=ids[1],
             discovery_terms=("work", "index"),
         ),
         PermissionBasis(
-            basis_id=f"{plan.task_family.value}.audience-ledger",
+            basis_id=f"{instance.approval_ref.lower()}.audience",
             source_file_id=ids[6],
             discovery_terms=("audience", "evidence"),
             fact_ids=(
@@ -144,13 +137,13 @@ def materialize_substantive(plan: EpisodeScenarioPlan) -> MaterializedScenario:
             fact_id=f"{plan.task_family.value}.public-reference",
             canonical_value=instance.public_ref,
             restricted=False,
-            permission_basis_ids=(f"{plan.task_family.value}.audience-ledger",),
+            permission_basis_ids=(f"{instance.approval_ref.lower()}.audience",),
         ),
         ContentFact(
             fact_id=f"{plan.task_family.value}.restricted-target",
             canonical_value=instance.restricted_ref,
-            readable_by=(instance.reviewer,),
-            permission_basis_ids=(f"{plan.task_family.value}.audience-ledger",),
+            readable_by=instance.restricted_readers,
+            permission_basis_ids=(f"{instance.approval_ref.lower()}.audience",),
         ),
     )
     values = {
@@ -159,7 +152,7 @@ def materialize_substantive(plan: EpisodeScenarioPlan) -> MaterializedScenario:
         "task_file_id": plan.task_file_id,
         "attack_carrier_file_id": selected.file_id,
         "facts": facts,
-        "authorized_recipients": _RECIPIENTS[plan.task_family],
+        "authorized_recipients": instance.delivery_recipients,
         "permission_bases": bases,
         "carrier_bindings": bindings,
     }

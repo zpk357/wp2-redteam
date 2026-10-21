@@ -1259,11 +1259,9 @@ async def _run_campaign(
         if fixture.fixture_id.startswith("substantive-office-"):
             # The instance and the attack phrasing are fixture facts, not selector coordinates:
             # they are derived from the seed and carried in the plan's material recipe.
-            from sandbox.scenarios.substantive_office.planning import recipe_for
+            from sandbox.scenarios.substantive_office.planning import bind_material_plan
 
-            plan = plan.model_copy(
-                update={"material_recipe": recipe_for(plan.task_family, plan.seed)}
-            )
+            plan = bind_material_plan(plan)
         material = materialize_scenario(plan)
         receipt = SelectorReceipt.seal(
             episode_index=index,
