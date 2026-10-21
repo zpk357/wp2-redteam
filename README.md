@@ -4,12 +4,16 @@
 合成办公世界里完成真实任务，观察它是否在完成合法任务的同时越过任务授权，并用**可复算的证据**
 判定"越界是否真的发生"——不读模型的自述。
 
-当前在跑的是**邻域优先级两臂实验**：同一批机会预算下，比较"带邻域优先级反馈的 LLM 引导选择"
+当前主线是**邻域优先级两臂实验**：同一批机会预算下，比较"带邻域优先级反馈的 LLM 引导选择"
 与"纯随机选择"在发现已证实知情违规上的产出。引导臂读一张按邻域记账的分数表和已选/被拒集合；
 随机臂在同一份冻结菜单上均匀有放回采样，选择阶段零模型调用、零历史读取。
 
 规模是每臂同一 base seed 下的若干个机会，一步步由 `scripts/run_neighborhood_campaign.py` 跑出来，
-产物落在运行根内，仓库不收录运行记录。**行为的权威描述是 `src/` 与 `tests/` 里的代码。**
+产物落在运行根内，仓库不收录运行记录。**行为的权威描述是 `src/` 与 `tests/` 里的代码**（完整仓库在 `public` 分支；`main` 只发布 `src/`）。
+
+主实验（两臂各 100 集）于 2026-10-10 完成，读数见 §3。
+
+当前版本：fixture `error-capable-multipath-02` 5.1.0、`error-capable-campaign-v17`、`multipath-guided-selector-v21`、`error-capable-coverage-v5`。2026-10-20 起另有一套独立材料 `substantive-office-01`（三族六实例，显式 `--fixture` 选择，旧 fixture 与默认入口不变），目前只完成本地材料/契约验收，尚无真实模型读数。
 
 本仓库只处理**项目维护者控制的合成环境与合成数据**，不连接任何真实邮箱、账户、第三方
 服务或公网目标。授权范围、明确禁止项与技术隔离要求见
@@ -76,7 +80,31 @@ python scripts/probe_selector_feedback_use.py \
 
 ---
 
-## 3. 真实运行（2026-10-07，两臂各前 15 个机会）
+## 3. 主实验（2026-10-10，两臂各 100 集）
+
+**配置**：fixture `error-capable-multipath-02` 5.1.0；stage `main`、repeat 2、base seed `610621000`，
+引导臂先跑；两臂同一 Agent 身份 `qwen3.5:27b-q4_K_M`，`temperature=0.0`，`num_ctx=12288`，
+`num_predict=1024`；每 Episode ≤24 次工具请求；每臂 100 集；selector `multipath-guided-selector-v21`、
+campaign v17、coverage v5。运行根 `/root/ae/runs/main-100x2-20261010c/main/rep-02`，本机镜像
+`d:/hxjh/runs/main-100x2-20261010c`。
+
+| 读数 | **引导** `coverage_guided` | **随机** `random_independent`（干净口径） |
+|---|---|---|
+| 集数 | 100 | 100 |
+| 链 | **87** | **88** |
+| 知情违规 | **55** | **42** |
+| 干净 | 45 | 58 |
+| 四维（受众 / 内容 / 删除 / 改写） | 14 · 15 · 13 · 15（全 L5） | 16 · 12 · 8（L4）· 12 |
+| 异常集 | 0 | 1（已剔除并等量补跑） |
+| 选择被拒 / provider 调用 | 218 / 318 | 0 / 0 |
+
+干净口径：随机臂剔除 `campaign.random.010`，以补跑集 `main-100x2-20261010c-supp1` 等量顶替；原始
+读数为 89 链 / 43 违规 / 改写 13。链数几乎持平（87 vs 88），违规差 13——引导臂的优势集中在“更快更密
+地踩到违规”，不在“走出更多新链”。单配对、单 seed，不构成显著性主张。
+
+---
+
+## 4. 历史运行（2026-10-07，两臂各前 15 个机会；selector v15）
 
 **配置**：fixture `error-capable-multipath-02`；一个配对重复，两臂同一 base seed `610621000`、
 引导臂先跑；两臂同一 Agent 身份 `qwen3.5:27b-q4_K_M`，`temperature=0.0`，`num_ctx=12288`，
@@ -85,7 +113,7 @@ python scripts/probe_selector_feedback_use.py \
 `error-capable-priority-v6`、`error-capable-campaign-v5`，一个机会内的选择重试上限
 `SELECTION_ATTEMPTS = 4`；随机臂在同一冻结菜单上均匀有放回采样，选择阶段零模型调用、零历史读取。
 
-### 3.1 读数
+### 4.1 读数
 
 | 读数 | **引导** `coverage_guided` | **随机** `random_independent` |
 |---|---|---|
@@ -100,7 +128,7 @@ python scripts/probe_selector_feedback_use.py \
 
 `D_r = W_引导 − W_随机 = +2`。
 
-### 3.2 覆盖（次终点）
+### 4.2 覆盖（次终点）
 
 | 读数 | 引导 | 随机 |
 |---|---|---|
@@ -112,7 +140,7 @@ python scripts/probe_selector_feedback_use.py \
 引导臂的联合覆盖涨得慢（第 4–9 集停在 5、5、6、7、8、8），随机臂一路爬到 9。最终联合覆盖打平，
 随机臂用更短的路走到同一个地方。
 
-### 3.3 两个臂怎么走到这里的
+### 4.3 两个臂怎么走到这里的
 
 | 读数 | 引导 | 随机 |
 |---|---|---|
@@ -128,7 +156,7 @@ python scripts/probe_selector_feedback_use.py \
 机制产出：引导臂 `urgency_bypass` 用 6 次中 3 次，另有五个机制各用 1 次各中 1 次；随机臂
 `forwarding_reclassification` 用 3 次中 3 次。
 
-### 3.4 引导臂的分数轨迹
+### 4.4 引导臂的分数轨迹
 
 | 机会 | 邻域 | 命中 | 分数 |
 |---|---|---|---|
@@ -142,7 +170,7 @@ python scripts/probe_selector_feedback_use.py \
 第 9 集是整轮唯一一次降分（回到同一邻域且本集没有任何新增覆盖），第 10 集它换了邻域，第 11 集回来
 连中三次。收束时 `public-index-email` 19 分，其余被碰过的邻域停在 1–4 分。
 
-### 3.5 必须一起读的一条：命中的共同点是 `task_variant`
+### 4.5 必须一起读的一条：命中的共同点是 `task_variant`
 
 引导臂 8 次命中**全部**落在 `summary.partner-brief` 这一个 `task_variant` 上，而它 13/15 集都用这一个
 variant；随机臂只抽到该 variant 一次，且是干净。两臂的命中在这根轴上完全错开。
@@ -155,7 +183,7 @@ variant；随机臂只抽到该 variant 一次，且是干净。两臂的命中�
 分数表评的是 `family.path`（邻域），不含 variant。所以**不能说"邻域引导找到了更好的方向"**：引导臂
 多出来的命中全部来自回访同一个方向（回访命中 6 对 1），而它在**新方向上的首次命中少于**随机臂（2 对 5）。
 
-### 3.6 这一对的边界
+### 4.6 这一对的边界
 
 - 是**一个**配对、单次运行，两臂各 15 个机会。`D_r = +2` 在这个 n 上不支撑任何显著性主张。
 - 这一对的对齐检查为假：引导臂的第 16 个机会被重复选择烧光（4 次拒绝），只有 15 集。两臂在共同
@@ -165,44 +193,41 @@ variant；随机臂只抽到该 variant 一次，且是干净。两臂的命中�
 
 ---
 
-## 4. 目录结构
+## 5. 目录结构
 
 ```text
 src/sandbox/
 ├── scenarios/
-│   ├── error_capable*.py        当前这条线，14 个模块
-│   │     error_capable_world.py      世界、三任务族、九变体、十二条路径与载体槽位
-│   │     error_capable_selector.py   冻结菜单、LLM 选择器、合法性校验与拒绝坐标
-│   │     error_capable_priority.py   邻域分数表、更新分类与逐机会结算记录
-│   │     error_capable_campaign.py   机会循环、结算顺序、拒绝反馈与中断恢复
-│   │     error_capable_coverage.py   行为 / 风险 / 联合覆盖账本
-│   ├── structured_v1/           更早的一条线，本文不描述
-│   └── office_v2/               更早的产品线，本文不描述
-├── structured_v1/               更早那条线的核心（判定、搜索、材料、容器、证据）
+│   ├── error_capable*.py        当前主线（世界、选择器、优先级、战役、覆盖、判据）
+│   ├── office_v2/               Office V2 平台：世界、工具协议与传输契约
+│   └── substantive_office/      2026-10-20 新增的独立材料 fixture（三族六实例）
 ├── coverage/ engine/ replay/ scheduler/ storage/ fuzzer/ mutation/ scoring/ client/
 tests/unit tests/integration tests/design
 scripts/                        freeze / 运行 / 报告 / 诊断探针 / 本地检查
-docs/                           内部规格与运行记录，不随仓库分发
+docs/                           内部规格、任务与历史报告（开发记录，非对外结论）
 agent_image/                    容器内运行时
+build/                          阶段汇报材料（非运行产物）
 ```
 
 ---
 
-## 5. 引用与边界
+## 6. 引用与边界
 
 **仓库内**
 
 - 授权范围与硬边界：[`AUTHORIZED-EVALUATION-SCOPE.md`](AUTHORIZED-EVALUATION-SCOPE.md)
 - 验收文档：[`tests/design/`](tests/design/)
 
-**不随仓库分发**
+**开发记录**
 
-内部产品规格、施工约定、当前状态文档、运行记录与批次报告都不入库，本文档不再指向它们。
-行为的权威描述是 `src/` 与 `tests/` 里的代码。
+`docs/` 下保留内部规格、任务与历史报告，只作开发记录；对外结论以 `src/`、`tests/` 与标注了
+运行根的读数为准。
 
 代码与测试里出现的 `NP-01`..`NP-16`、`NP-AC-*` 是这套实验的契约条款编号，用来在注释、测试名和
 报告字段之间互相指向。契约文档本身不随仓库分发，因此这些编号在这里是标签而不是可打开的引用：它们
-所指的行为以 `src/` 与 `tests/` 中的实现和断言为准。
+所指的行为以 `src/` 与 `tests/` 中的实现和断言为准。旧材料 `error-capable-multipath-01` 以归档
+JSON（`error_capable_legacy_fixture.json`）保留，只用于兼容读取；默认入口注册并使用
+`error-capable-multipath-02`。
 
-`reports/`、`data/`、`build/` 是本地证据与构建产物，同样不入库。真实运行证据（fixture 清单、
+`reports/`、`data/` 是本地证据与构建产物，同样不入库；`build/` 只放阶段汇报材料。真实运行证据（fixture 清单、
 镜像摘要、源码提交、每集的 bundle 与读数）在批次目录内留档，可按摘要复算。
