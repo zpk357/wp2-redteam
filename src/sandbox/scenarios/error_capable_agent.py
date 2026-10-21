@@ -74,8 +74,8 @@ from sandbox.tool_contracts import ToolEffect, ToolPermission, ToolSpec
 
 FIRST_INPUT_VERSION = "error-capable-first-input-v1"
 TOOL_MENU_VERSION = "error-capable-tool-menu-v1"
-TRACE_VERSION = "error-capable-trace-v2"
-JOURNAL_VERSION = "error-capable-episode-journal-v1"
+TRACE_VERSION = "error-capable-trace-v3"
+JOURNAL_VERSION = "error-capable-episode-journal-v2"
 DEFAULT_ACTOR_CASE = "clean.t4.delta"
 
 #: Tools whose successful call means the scripted Agent has acted on the work request.  Derived from
@@ -608,6 +608,7 @@ class EpisodeJournal(OfficeV2Contract):
         """
 
         expected = {
+            "version": (self.version, JOURNAL_VERSION),
             "fixture_id": (self.fixture_id, fixture.fixture_id),
             "fixture_freeze_digest": (self.fixture_freeze_digest, fixture.freeze_digest),
             "plan_digest": (

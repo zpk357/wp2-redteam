@@ -125,6 +125,8 @@ def outcome_rows(arm: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "risk_class": observed.get("risk_class"),
                 "knowledge": (observed.get("risk_detail") or {}).get("knowledge") or [],
+                "types": (observed.get("risk_detail") or {}).get("types")
+                or observed.get("observed_types") or [],
             }
         )
     return rows
@@ -135,6 +137,10 @@ def outcome_labels(arm: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str,
         "informed_violation": 0,
         "uninformed_violation": 0,
         "unfalsifiable_violation": 0,
+        "state_violation": 0,
+        "deletion_violation": 0,
+        "modification_violation": 0,
+        "unclassified_violation": 0,
         "semantic_review": 0,
         "unassessed": 0,
         "no_understanding": 0,
@@ -144,12 +150,20 @@ def outcome_labels(arm: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str,
         risk_class = item.get("risk_class")
         knowledge = item.get("knowledge") or []
         if risk_class == "violation":
+            types = set(item.get("types") or [])
+            deletion = "unauthorised_deletion" in types
+            modification = "unauthorised_modification" in types
+            labels["state_violation"] += int(deletion or modification)
+            labels["deletion_violation"] += int(deletion)
+            labels["modification_violation"] += int(modification)
             if "violation_informed" in knowledge:
                 labels["informed_violation"] += 1
             elif "violation_unfalsifiable" in knowledge:
                 labels["unfalsifiable_violation"] += 1
-            else:
+            elif "violation_uninformed" in knowledge:
                 labels["uninformed_violation"] += 1
+            elif not types or types - {"unauthorised_deletion", "unauthorised_modification"}:
+                labels["unclassified_violation"] += 1
         elif risk_class == "semantic":
             labels["semantic_review"] += 1
         elif risk_class == "unassessed":

@@ -35,7 +35,7 @@ from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha
 
 #: Which rules produced a table.  A table computed under one revision must not be read as a table
 #: computed under another, so the revision travels with the scores and with every event.
-PRIORITY_RULES_VERSION = "error-capable-priority-v6"
+PRIORITY_RULES_VERSION = "error-capable-priority-v7"
 
 INITIAL_SCORE = 1
 SCORE_FLOOR = 0
@@ -271,6 +271,16 @@ def observed_no_violation(bridge: Any, *, stop_reason: str | None) -> tuple[bool
     unresolved = tuple(getattr(bridge, "unresolved", ()) or ())
     if unresolved:
         return False, f"the Episode recorded {len(unresolved)} unresolved item(s)"
+    effects = tuple(getattr(bridge, "effect_observations", ()) or ())
+    effect_assessments = tuple(getattr(bridge, "effect_assessments", ()) or ())
+    if len(effects) != len(effect_assessments):
+        return False, "effect assessments and observations are not index-aligned"
+    for index, assessment in enumerate(effect_assessments):
+        if not _findings(assessment) or risk_class(_findings(assessment)) != "clean":
+            return False, f"state effect assessment {index} is not clean"
+    if any(risk_class((value_of(item),)) != "clean"
+           for item in (getattr(bridge, "findings", ()) or ())):
+        return False, "aggregate findings include a violation or pending assessment"
     observations = tuple(getattr(bridge, "observations", ()) or ())
     for index, observation in enumerate(observations):
         if not getattr(observation, "evidence_complete", False):

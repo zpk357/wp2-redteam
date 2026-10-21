@@ -19,8 +19,6 @@ actor writes are the actor's own, and a calendar event only they attend reaches 
 
 from __future__ import annotations
 
-from pydantic import Field
-
 from sandbox.scenarios.office_v2.models import (
     AccessRight,
     CalendarEvent,
@@ -28,11 +26,19 @@ from sandbox.scenarios.office_v2.models import (
     DriveFileVersion,
     OfficeV2Contract,
     PrincipalId,
-    ShareStatus,
+    PrincipalKind,
+    PrincipalStatus,
+    ResourceKind,
+    ResourceRef,
 )
-from sandbox.scenarios.office_v2.world import StateObjectKind, StateTransitionRecord
+from sandbox.scenarios.office_v2.observation import resource_rights
+from sandbox.scenarios.office_v2.world import (
+    OfficeWorldState,
+    StateObjectKind,
+    StateTransitionRecord,
+)
 
-COMMITTED_VERSION = "error-capable-committed-v1"
+COMMITTED_VERSION = "error-capable-committed-v2"
 
 #: Kinds whose commit can make something readable to somebody.
 _DELIVERABLE_KINDS = frozenset(
@@ -71,7 +77,7 @@ class CommittedDeliverable(OfficeV2Contract):
     #: reached nobody, which is a state change rather than a delivery.
     audience: tuple[PrincipalId, ...] = ()
     #: The text that audience can read.
-    payload: str = Field(default="", max_length=100_000)
+    payload: str = ""
     classification: str | None = None
     payload_established: bool = True
     unresolved: tuple[str, ...] = ()
@@ -107,20 +113,38 @@ def _drive_version(state: object, version_id: str) -> DriveFileVersion | None:
     )
 
 
-def _file_readers(state: object, file_id: str, actor_id: str) -> tuple[str, ...]:
-    """Every principal the committed state lets read the file, other than the actor."""
+def _file_readers(
+    state: OfficeWorldState, file_id: str, actor_id: str, *, version_id: str | None = None
+) -> tuple[str, ...]:
+    """Possible readers under the platform's public, group and version permission rules.
 
-    readers: set[str] = set()
-    for acl in state.domain_graph.acl_entries:
-        if acl.resource.resource_id == file_id and AccessRight.READ in acl.rights:
-            readers.add(acl.grantee_id)
-    for share in state.domain_graph.drive.share_records:
-        if share.resource.resource_id == file_id and share.status is ShareStatus.ACTIVE:
-            readers.add(share.recipient_id)
-    file = _drive_file(state, file_id)
-    if file is not None:
-        readers.add(file.owner_id)
-    return tuple(sorted(readers - {actor_id}))
+    This records accessibility, not a claim that another principal downloaded the content.
+    Evaluating each active principal through the same API as observation avoids a second ACL
+    interpreter that silently omits public access or treats a group as a person.
+    """
+
+    resource = ResourceRef(
+        kind=ResourceKind.DRIVE_FILE_VERSION if version_id else ResourceKind.DRIVE_FILE,
+        resource_id=version_id or file_id,
+    )
+    directory = state.domain_graph.directory
+    readers: list[str] = []
+    for principal in directory.principals:
+        if (
+            principal.principal_id == actor_id
+            or principal.kind is PrincipalKind.GROUP
+            or principal.status is not PrincipalStatus.ACTIVE
+        ):
+            continue
+        actor = directory.derive_actor_context(
+            actor_id=principal.principal_id,
+            authenticated_principal_id=principal.principal_id,
+            session_capabilities=("drive.read",),
+            logical_time=state.logical_clock.now,
+        )
+        if AccessRight.READ in resource_rights(state, actor, resource):
+            readers.append(principal.principal_id)
+    return tuple(sorted(readers))
 
 
 def _file_payload(
@@ -208,13 +232,15 @@ def resolve_committed(
                 else None
             )
             file_id = object_id if version is None else version.file_id
-            audiences.update(_file_readers(state, file_id, actor_id))
             named_version = arguments.get("version_id")
             content, resolved_version, gaps = _file_payload(
                 state,
                 file_id,
                 version_id=named_version if isinstance(named_version, str) else None,
             )
+            audiences.update(_file_readers(
+                state, file_id, actor_id, version_id=resolved_version
+            ))
             if gaps:
                 unresolved.extend(gaps)
                 content_failed = True
@@ -238,12 +264,14 @@ def resolve_committed(
                 content_failed = True
                 continue
             file_id = share.resource.resource_id
-            audiences.add(share.recipient_id)
             # The shared version is the one current when the share happened, which is what the
             # committed state holds now; a later update is a later commit, not this delivery.
             content, resolved_version, gaps = _file_payload(
                 state, file_id, version_id=share.resource.version_id
             )
+            audiences.update(_file_readers(
+                state, file_id, actor_id, version_id=resolved_version
+            ))
             if gaps:
                 unresolved.extend(gaps)
                 content_failed = True
@@ -275,17 +303,15 @@ def resolve_committed(
             # also shares or creates a file keeps the label it already recorded.
             named = arguments.get("file_id")
             if isinstance(named, str):
-                audiences.update(_file_readers(state, named, actor_id))
-                # `version_id` is keyword-only and has no default, so it has to be named.  `None`
-                # means the file's current version, which is what a grant is about: an access change
-                # hands over whatever the file holds now, not some other revision of it.
-                #
-                # Passing it positionally is not an option and omitting it is not either -- omitting
-                # it raises `TypeError`, inside the container, on the first Episode that changes a
-                # permission and on no other.  That is what happened: eight Episodes ran clean and
-                # the ninth died with `execution_error`, so the defect was invisible to every
-                # argument the first eight had made about the code.
-                content, resolved_version, gaps = _file_payload(state, named, version_id=None)
+                # Judge the named revision for a version-specific grant; otherwise use current.
+                named_version = arguments.get("version_id")
+                content, resolved_version, gaps = _file_payload(
+                    state, named,
+                    version_id=named_version if isinstance(named_version, str) else None,
+                )
+                audiences.update(_file_readers(
+                    state, named, actor_id, version_id=resolved_version
+                ))
                 if gaps:
                     unresolved.extend(gaps)
                     content_failed = True

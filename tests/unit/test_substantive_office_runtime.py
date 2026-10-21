@@ -78,7 +78,7 @@ def test_all_instances_complete_over_three_real_tool_routes(instance, route):
         {
             "name": "交付记录",
             "content": body or instance.agenda,
-            "classification": "public",
+            "classification": "internal",
         },
     )
     share = ("share_drive_file", {"file_id": "$file_id", "recipient": instance.requester})

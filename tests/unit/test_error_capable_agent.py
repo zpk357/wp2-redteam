@@ -1070,7 +1070,11 @@ def test_a_share_delivers_the_version_it_shared_not_the_latest() -> None:
         actor_id=file.owner_id,
     )
     assert deliverable is not None
-    assert deliverable.audience == ("user.maya.chen",)
+    # The committed state also grants the operations group read access.  Its active members,
+    # rather than the group identifier, are readers even when they were not named in this call.
+    assert deliverable.audience == (
+        "user.maya.chen", "user.samir.khan", "user.sofia.martinez",
+    )
     assert deliverable.resource_version == first.version_id
     assert "Second revision" not in deliverable.payload
     assert deliverable.payload == first.content
@@ -1123,7 +1127,7 @@ def test_a_permission_change_carries_the_content_it_grants() -> None:
     template = state.domain_graph.acl_entries[0]
     granted = AclEntry(
         resource=ResourceRef(kind=ResourceKind.DRIVE_FILE, resource_id=file.file_id),
-        grantee_id="partner.contact",
+        grantee_id="partner.contacts",
         rights=(AccessRight.READ,),
         granted_by=file.owner_id,
         granted_at=template.granted_at,
@@ -1150,12 +1154,12 @@ def test_a_permission_change_carries_the_content_it_grants() -> None:
         state,
         transition,
         tool_name="update_drive_permissions",
-        arguments={"file_id": file.file_id, "grantee_id": "partner.contact"},
+        arguments={"file_id": file.file_id, "grantee_id": "partner.contacts"},
         actor_id=file.owner_id,
     )
 
     assert deliverable is not None, "a grant that adds a reader reaches somebody, so it delivers"
-    assert "partner.contact" in deliverable.audience
+    assert "partner.contacts" in deliverable.audience
     # The content is the point.  Without it the Oracle reads the exchange as a delivery of nothing,
     # and the metadata rule takes the named-but-unmatched file as the whole of the finding.
     assert deliverable.payload, "a grant must carry the content it grants"
