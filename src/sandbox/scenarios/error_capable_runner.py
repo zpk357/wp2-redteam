@@ -1,7 +1,7 @@
 """Run one Episode attempt inside a container.
 
-Modelled on `sandbox.structured_v1.host_runner`: one container per Opportunity, submit one
-request, stream to the terminal event, destroy the container.
+Modelled on the retired structured scenario's host runner: one container per Opportunity, submit
+one request, stream to the terminal event, destroy the container.
 
 `run_opportunity` is the low-level primitive -- it takes an already-built request and gives
 back the trace.  `run_attempt` is the `EpisodeExecutor` side of it, which builds the request

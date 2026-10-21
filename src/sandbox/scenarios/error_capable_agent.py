@@ -720,7 +720,17 @@ async def run_agent_episode(
     given again and is re-materialised rather than assumed to still hold the right bytes.
     """
 
-    if fixture.fixture_id != ERROR_CAPABLE_FIXTURE_ID:
+    from sandbox.scenarios.error_capable_registry import ERROR_CAPABLE_FIXTURES
+    from sandbox.scenarios.substantive_office import RECIPE_PREFIX
+
+    # The material recipe names the fixture that produced it, so a plan cannot be run under a
+    # different fixture identity -- including the historical one.
+    expected_fixture = (
+        "substantive-office-01"
+        if plan.material_recipe.startswith(RECIPE_PREFIX)
+        else ERROR_CAPABLE_FIXTURE_ID
+    )
+    if fixture.fixture_id != expected_fixture or fixture.fixture_id not in ERROR_CAPABLE_FIXTURES:
         raise ValueError("new material cannot execute under a historical fixture identity")
     if plan.episode_id != material.plan.episode_id:
         raise ValueError("plan and material describe different episodes")
@@ -779,8 +789,13 @@ async def run_agent_episode(
             return resumed.final_trace
 
     if resumed is None:
+        world_loader = materialize_office_world
+        if plan.material_recipe.startswith(RECIPE_PREFIX):
+            from sandbox.scenarios.substantive_office.world import materialize_world
+
+            world_loader = materialize_world
         episode_world = EpisodeWorld(
-            materialize_office_world(
+            world_loader(
                 material, load_canonical_world(), actor_id=case.actor.actor_id
             ),
             episode_id=plan.episode_id,

@@ -22,7 +22,7 @@ from sandbox.errors import (
     PermanentInfrastructureError,
     SandboxConfigurationError,
 )
-from sandbox.fuzzer.models import CleanupFailure, CleanupReport, SandboxRunContext
+from sandbox.run_context import CleanupFailure, CleanupReport, SandboxRunContext
 from sandbox.scheduler.models import SandboxHandle
 
 

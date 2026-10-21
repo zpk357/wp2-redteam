@@ -7,9 +7,9 @@ from typing import Self
 
 from pydantic import Field, field_validator, model_validator
 
-from sandbox.fuzzer.v2_scheduler import MutationGenerationAllocation
-from sandbox.fuzzer.v2_seed_pools import RiskType
-from sandbox.fuzzer.v2_strategy import CampaignStrategy
+from sandbox.mutation.v2_scheduler import MutationGenerationAllocation
+from sandbox.mutation.v2_seed_pools import RiskType
+from sandbox.mutation.v2_strategy import CampaignStrategy
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.office_v2.models import Identifier, OfficeV2Contract, Sha256Digest
 

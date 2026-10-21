@@ -1,8 +1,8 @@
 """The host's request for one error-capable Episode, addressed to a container.
 
-Modelled on `sandbox.structured_v1.submission`: the host emits one `ExecutionRequest`
-carrying an opaque payload, and the scenario package -- not `protocol.py` -- is what
-validates and consumes it.
+Modelled on the retired structured scenario's submission path: the host emits one
+`ExecutionRequest` carrying an opaque payload, and the scenario package -- not `protocol.py` --
+is what validates and consumes it.
 
 What travels is the **plan and the digests, not the world**.  The fixture and the
 material are pure functions of the frozen inputs, so the container rebuilds both and
@@ -101,6 +101,7 @@ def error_capable_payload(
         "workspace_root": workspace_root,
         "adapter_version": adapter_version,
         "model_identity": model_identity.model_dump(mode="json"),
+        "fixture_id": fixture.fixture_id,
         "fixture_freeze_digest": fixture.freeze_digest,
         "plan_digest": sha256_digest(plan.model_dump(mode="json")),
         "materialization_digest": material.materialization_digest,

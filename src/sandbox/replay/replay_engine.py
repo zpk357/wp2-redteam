@@ -10,7 +10,6 @@ from sandbox.client.artifact_transfer import ArtifactTransfer
 from sandbox.config import WeekOneConfig
 from sandbox.engine.case_source import TemplateCaseSource
 from sandbox.engine.models import Runtime, Scheduler, Scorer
-from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.identifiers import validate_execution_id
 from sandbox.models import (
     ExecutionBackend,
@@ -44,10 +43,7 @@ from sandbox.replay.models import (
     StateCheckpoint,
 )
 from sandbox.replay.normalizer import normalize_behavior_trace
-from sandbox.scenarios.office_fork import (
-    OfficeCarrierForkError,
-    replace_office_carrier_payload,
-)
+from sandbox.run_context import SandboxRunContext
 from sandbox.scenarios.office_v2.attack_models import MaterializedScenarioCase
 from sandbox.storage.trajectory_store import TrajectoryStore
 from sandbox.versions import (
@@ -464,7 +460,6 @@ class ReplayEngine:
         prompt = state.agent_state.get("prompt")
         if not isinstance(prompt, str):
             raise ReplayPreparationError(-32111, "checkpoint prompt state is invalid")
-        office_fork = None
         office_v2_fork = state.scenario_state_codec == "office-v2-state-codec-v1"
         if injection.type == "prompt_replace":
             if not isinstance(injection.content, str):
@@ -481,10 +476,14 @@ class ReplayEngine:
                     "carrier payload replacement must be a string",
                 )
             if not office_v2_fork:
-                try:
-                    office_fork = replace_office_carrier_payload(state, injection.content)
-                except OfficeCarrierForkError as exc:
-                    raise ReplayPreparationError(-32112, str(exc)) from exc
+                # The Office V1 carrier fork retired with its scenario line (2026-10-11).  Only an
+                # Office V2 checkpoint can be forked this way now: the V1 path is what supplied the
+                # child's case identity, so without it the fork would be written with an identity
+                # no reader can reconstruct.  Refusing is the honest outcome.
+                raise ReplayPreparationError(
+                    -32112,
+                    "carrier payload replacement requires an Office V2 checkpoint",
+                )
         child_replay_id = child_replay_id or f"replay-{uuid4().hex}"
         execution_id = execution_id or f"exec-fork-{uuid4().hex}"
         validate_execution_id(execution_id)
@@ -497,22 +496,10 @@ class ReplayEngine:
             injection=injection,
         )
         child_case = TestCase(
-            case_id=(
-                office_fork.initialization.test_case.case_id
-                if office_fork is not None
-                else f"{parent.case_id}-fork"
-            ),
+            case_id=f"{parent.case_id}-fork",
             prompt=prompt,
-            scenario_id=(
-                office_fork.initialization.test_case.scenario.template_id
-                if office_fork is not None
-                else parent.scenario_id
-            ),
-            seed=(
-                office_fork.initialization.test_case.seed
-                if office_fork is not None
-                else parent.seed
-            ),
+            scenario_id=parent.scenario_id,
+            seed=parent.seed,
             metadata={"parent_replay_id": parent_replay_id},
         )
         trajectory_store = TrajectoryStore(
@@ -610,33 +597,7 @@ class ReplayEngine:
                 parent_manifest=parent,
                 fork_checkpoint=checkpoint,
                 recorded_injection=recorded_injection,
-                additional_metadata=(
-                    {
-                        "office_carrier_fork": {
-                            "parent_case_id": (
-                                office_fork.initialization.test_case.parent_case_id
-                            ),
-                            "child_case_id": office_fork.initialization.test_case.case_id,
-                            "objective_id": (
-                                office_fork.initialization.test_case.attack.objective.objective_id
-                            ),
-                            "carrier_id": (
-                                office_fork.initialization.test_case.attack.carrier.carrier_id
-                            ),
-                            "target": (
-                                office_fork.initialization.test_case.attack.carrier.target.model_dump(
-                                    mode="json"
-                                )
-                            ),
-                            "parent_payload_digest": office_fork.parent_payload_digest,
-                            "replacement_payload_digest": (
-                                office_fork.replacement_payload_digest
-                            ),
-                        }
-                    }
-                    if office_fork is not None
-                    else v2_fork_metadata
-                ),
+                additional_metadata=v2_fork_metadata,
             )
             self.manifest_store.save(child_manifest)
         finally:

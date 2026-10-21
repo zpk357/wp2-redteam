@@ -6,8 +6,8 @@ from collections.abc import AsyncIterator
 from typing import Protocol
 
 from sandbox.config import SandboxLimits
-from sandbox.fuzzer.models import SandboxRunContext
 from sandbox.models import ExecutionRequest, ExecutionResult, ScoreResult, TracePage
+from sandbox.run_context import SandboxRunContext
 from sandbox.scheduler.models import SandboxHandle
 from sandbox.storage.trajectory_store import CommittedTrajectory
 
