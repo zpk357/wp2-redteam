@@ -11,7 +11,7 @@
 规模是每臂同一 base seed 下的若干个机会，一步步由 `scripts/run_neighborhood_campaign.py` 跑出来，
 产物落在运行根内，仓库不收录运行记录。**行为的权威描述是 `src/` 与 `tests/` 里的代码**（完整仓库在 `public` 分支；`main` 只发布 `src/`）。
 
-主实验（两臂各 100 集）于 2026-10-10 完成，读数见 §3。
+主实验（两臂各 100 集）于 2026-10-10 完成，读数见 §4。
 
 当前版本：fixture `error-capable-multipath-02` 5.1.0、`error-capable-campaign-v17`、`multipath-guided-selector-v21`、`error-capable-coverage-v5`。2026-10-20 起另有一套独立材料 `substantive-office-01`（三族六实例，显式 `--fixture` 选择，旧 fixture 与默认入口不变），目前只完成本地材料/契约验收，尚无真实模型读数。
 
@@ -80,7 +80,34 @@ python scripts/probe_selector_feedback_use.py \
 
 ---
 
-## 3. 主实验（2026-10-10，两臂各 100 集）
+## 3. 本地验证：克隆后怎么确认能跑
+
+```bash
+python -m venv .venv
+.venv\Scripts\Activate.ps1          # Linux / macOS：source .venv/bin/activate
+pip install -e .[dev]               # dev 额外依赖含 pytest、pytest-asyncio、ruff
+pytest tests/unit -q
+```
+
+要求 Python 3.11–3.14（见 `pyproject.toml` 的 `requires-python`）。`tests/unit` 不调用模型，
+全部走 fake / 脚本 adapter，这条能过就说明代码与依赖是好的。
+
+再跑一条不需要模型服务的端到端冒烟，确认入口到结算的契约是通的：
+
+```bash
+python scripts/run_neighborhood_campaign.py --stage pilot --repeat 1 --episodes 1 \
+  --adapter fake --arm both --root .tmp/smoke
+```
+
+真实模型要另外自备：一个兼容 Ollama 的服务（`--endpoint`，默认 `http://127.0.0.1:11434`）
+与一个支持工具调用的模型（`--model`）。仓库不装解释器、不装依赖、不拉模型。
+
+若 fixture 报 `domain digest mismatch: <file>.json`，说明冻结世界的 JSON 在检出时被换了换行：
+确认 `.gitattributes` 生效后执行 `git rm --cached -r . && git reset --hard`（或重新克隆）。
+
+---
+
+## 4. 主实验（2026-10-10，两臂各 100 集）
 
 **配置**：fixture `error-capable-multipath-02` 5.1.0；stage `main`、repeat 2、base seed `610621000`，
 引导臂先跑；两臂同一 Agent 身份 `qwen3.5:27b-q4_K_M`，`temperature=0.0`，`num_ctx=12288`，
@@ -104,7 +131,7 @@ campaign v17、coverage v5。运行根 `/root/ae/runs/main-100x2-20261010c/main/
 
 ---
 
-## 4. 历史运行（2026-10-07，两臂各前 15 个机会；selector v15）
+## 5. 历史运行（2026-10-07，两臂各前 15 个机会；selector v15）
 
 **配置**：fixture `error-capable-multipath-02`；一个配对重复，两臂同一 base seed `610621000`、
 引导臂先跑；两臂同一 Agent 身份 `qwen3.5:27b-q4_K_M`，`temperature=0.0`，`num_ctx=12288`，
@@ -113,7 +140,7 @@ campaign v17、coverage v5。运行根 `/root/ae/runs/main-100x2-20261010c/main/
 `error-capable-priority-v6`、`error-capable-campaign-v5`，一个机会内的选择重试上限
 `SELECTION_ATTEMPTS = 4`；随机臂在同一冻结菜单上均匀有放回采样，选择阶段零模型调用、零历史读取。
 
-### 4.1 读数
+### 5.1 读数
 
 | 读数 | **引导** `coverage_guided` | **随机** `random_independent` |
 |---|---|---|
@@ -128,7 +155,7 @@ campaign v17、coverage v5。运行根 `/root/ae/runs/main-100x2-20261010c/main/
 
 `D_r = W_引导 − W_随机 = +2`。
 
-### 4.2 覆盖（次终点）
+### 5.2 覆盖（次终点）
 
 | 读数 | 引导 | 随机 |
 |---|---|---|
@@ -140,7 +167,7 @@ campaign v17、coverage v5。运行根 `/root/ae/runs/main-100x2-20261010c/main/
 引导臂的联合覆盖涨得慢（第 4–9 集停在 5、5、6、7、8、8），随机臂一路爬到 9。最终联合覆盖打平，
 随机臂用更短的路走到同一个地方。
 
-### 4.3 两个臂怎么走到这里的
+### 5.3 两个臂怎么走到这里的
 
 | 读数 | 引导 | 随机 |
 |---|---|---|
@@ -156,7 +183,7 @@ campaign v17、coverage v5。运行根 `/root/ae/runs/main-100x2-20261010c/main/
 机制产出：引导臂 `urgency_bypass` 用 6 次中 3 次，另有五个机制各用 1 次各中 1 次；随机臂
 `forwarding_reclassification` 用 3 次中 3 次。
 
-### 4.4 引导臂的分数轨迹
+### 5.4 引导臂的分数轨迹
 
 | 机会 | 邻域 | 命中 | 分数 |
 |---|---|---|---|
@@ -170,7 +197,7 @@ campaign v17、coverage v5。运行根 `/root/ae/runs/main-100x2-20261010c/main/
 第 9 集是整轮唯一一次降分（回到同一邻域且本集没有任何新增覆盖），第 10 集它换了邻域，第 11 集回来
 连中三次。收束时 `public-index-email` 19 分，其余被碰过的邻域停在 1–4 分。
 
-### 4.5 必须一起读的一条：命中的共同点是 `task_variant`
+### 5.5 必须一起读的一条：命中的共同点是 `task_variant`
 
 引导臂 8 次命中**全部**落在 `summary.partner-brief` 这一个 `task_variant` 上，而它 13/15 集都用这一个
 variant；随机臂只抽到该 variant 一次，且是干净。两臂的命中在这根轴上完全错开。
@@ -183,7 +210,7 @@ variant；随机臂只抽到该 variant 一次，且是干净。两臂的命中�
 分数表评的是 `family.path`（邻域），不含 variant。所以**不能说"邻域引导找到了更好的方向"**：引导臂
 多出来的命中全部来自回访同一个方向（回访命中 6 对 1），而它在**新方向上的首次命中少于**随机臂（2 对 5）。
 
-### 4.6 这一对的边界
+### 5.6 这一对的边界
 
 - 是**一个**配对、单次运行，两臂各 15 个机会。`D_r = +2` 在这个 n 上不支撑任何显著性主张。
 - 这一对的对齐检查为假：引导臂的第 16 个机会被重复选择烧光（4 次拒绝），只有 15 集。两臂在共同
@@ -193,7 +220,7 @@ variant；随机臂只抽到该 variant 一次，且是干净。两臂的命中�
 
 ---
 
-## 5. 目录结构
+## 6. 目录结构
 
 ```text
 src/sandbox/
@@ -211,7 +238,7 @@ build/                          阶段汇报材料（非运行产物）
 
 ---
 
-## 6. 引用与边界
+## 7. 引用与边界
 
 **仓库内**
 
