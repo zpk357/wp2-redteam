@@ -10,7 +10,6 @@ from app.agent.react_contract import (
     SUBMIT_TOOL_SPEC,
     ReactToolCall,
 )
-from langchain_core.messages import AIMessage
 
 from sandbox.agent_prompts import (
     render_office_v2_agent_system_prompt,
@@ -27,6 +26,14 @@ from sandbox.scenarios.office_v2.tools import office_v2_tool_definitions
 from sandbox.scenarios.office_v2.tools.runtime import OfficeV2ToolRuntime
 from sandbox.scenarios.office_v2.world import EpisodeWorld
 from sandbox.tool_contracts import OFFICE_V2_TOOL_SPECS
+
+# LangChain is not a declared dependency: the LangGraph adapter imports it lazily at the model
+# boundary.  This test does the same, so a checkout without LangChain still collects and runs.
+_langchain_messages = pytest.importorskip(
+    "langchain_core.messages",
+    reason="the LangGraph adapter needs LangChain, which this checkout does not install",
+)
+AIMessage = _langchain_messages.AIMessage
 
 
 @dataclass(frozen=True)
