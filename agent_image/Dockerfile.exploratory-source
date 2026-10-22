@@ -1,0 +1,6 @@
+ARG RUNTIME_IMAGE
+FROM ${RUNTIME_IMAGE}
+WORKDIR /opt/runtime
+COPY src/sandbox ./sandbox
+COPY agent_image/app ./app
+COPY agent_variants/deepseek_harness/runtime ./agent_variants/deepseek_harness/runtime

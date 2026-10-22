@@ -1,0 +1,21 @@
+* text=auto
+
+*.py text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=crlf
+Dockerfile text eol=lf
+
+# JSON is not only configuration here: the frozen Office world is stored as JSON and its bytes are
+# hashed into the fixture digest.  A checkout that rewrites those newlines produces a world whose
+# digest no longer matches the manifest, and the run refuses to start.  Keep every JSON byte-exact.
+*.json text eol=lf
+*.lock text eol=lf
+*.mjs text eol=lf
+
+# Windows batch files are executed by cmd.exe, which expects its own newlines.
+*.cmd text eol=crlf

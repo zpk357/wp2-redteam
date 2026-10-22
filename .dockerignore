@@ -1,0 +1,22 @@
+.git
+.gitignore
+.deps
+.venv
+.tmp
+.pytest-debug-pair
+.pytest_cache
+.pytest-tmp-*
+.ruff_cache
+**/__pycache__
+*.py[cod]
+*.egg-info
+docs
+reports
+tests
+agent_variants/deepseek_harness/node_modules
+
+# `data/` holds baseline worlds and fixtures no image needs: nothing in any Dockerfile reads
+# it.  It used to be carved open one level at a time so a single frozen structured-v1 manifest
+# could pass as a build input; that package was retired on 2026-10-11 and its COPY went with
+# it, so the plain exclusion is back and the carve-out is gone.
+data
