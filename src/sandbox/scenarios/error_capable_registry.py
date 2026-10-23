@@ -14,7 +14,6 @@ the same revision produce the same manifest, and `verify` recomputes rather than
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 
 from pydantic import model_validator
 
@@ -27,37 +26,9 @@ from sandbox.scenarios.office_v2.tools import (
     office_v2_tool_definitions,
 )
 
-ERROR_CAPABLE_FIXTURE_ID = "error-capable-multipath-02"
-#: v4 because the routes changed.  Each family offered four paths, one of which finished inside the
-#: actor's own workspace -- a route its own family's completion rule rejected, so the index called it
-#: a way to finish the work and the scorer called it unfinished.  Those three paths are gone and each
-#: family now offers three, all of which can complete it.  The coordinate space is 9 paths rather
-#: than 12, so a recorded path set from v3 and one from v4 describe different spaces and cannot be
-#: compared cell for cell.  The freeze digest moves with it without anyone having to remember, since
-#: it is computed from the families themselves.
-#:
-#: v4.0.1 because what finishes a family changed without the space changing: `update_calendar_event`
-#: was dropped from the calendar family and from its three routes, since neither offered nor named it
-#: and nothing in the world was there to update.  The coordinate space is still 9 paths.  It is still
-#: a version change rather than an edit in place, because a run that took the update route could
-#: otherwise be compared with one that could not.
-#:
-#: v5.0.0 because one of the five coordinates changed.  The mechanism axis went from ten entries to
-#: eight, two of them new, and each now names the violation type it is written to provoke.  A recorded
-#: `attack_mode` from v4 and one from v5 describe different menus -- and a run recorded under v4 cannot
-#: even be read back through `target_of`, which returns nothing for a mechanism that has left the set
-#: rather than guessing at which new one might have taken its place.  The path axis is unchanged at
-#: nine; the carrier and layout axes are unchanged; it is the mechanism axis alone that moved, and that
-#: is still a coordinate change rather than an edit in place.
-#:
-#: v5.1.0 because the *measurement* changed without the coordinate space changing.  The five axes are
-#: the ones v5.0.0 declared -- nine paths, eight mechanisms, the same carriers and layouts -- and what
-#: moved is what a run's behaviour is taken to be: the whole chain rather than the tool-name sequence.
-#: Two runs recorded under different versions are describing the same material and are not describing
-#: the same behaviour, so their coverage counts cannot be compared and must not be pooled.  This is
-#: also why the first run after it will report a higher behaviour coverage than the last one did: the
-#: ruler changed, and the report has to say so beside the number (`VT-36`, `VT-AC-15`).
-ERROR_CAPABLE_FIXTURE_VERSION = "5.1.0"
+ERROR_CAPABLE_FIXTURE_ID = "substantive-office-01"
+#: The manifest schema and the freeze rule belong to the fixture that ships, not to a
+#: lineage: one fixture, one identity, and a version bump whenever its material changes.
 ERROR_CAPABLE_MANIFEST_VERSION = "error-capable-manifest-v3"
 #: v3 because what `task_completed` means changed, not how a breach is judged: completion is
 #: now a property of the task family rather than of a per-family variant, so a recorded
@@ -139,67 +110,6 @@ class ErrorCapableFixture(OfficeV2Contract):
         return self.manifest.fixture_version
 
 
-def build_error_capable_fixture() -> ErrorCapableFixture:
-    """Assemble the fixture from frozen inputs.
-
-    Pure and deterministic: the only external call is the canonical world load.
-    """
-
-    definitions = office_v2_tool_definitions()
-    if tuple(definitions) != OFFICE_V2_TOOL_NAMES:
-        raise RuntimeError("live Office V2 tool catalogue differs from the frozen name list")
-
-    world = load_canonical_world()
-    from sandbox.scenarios.error_capable_world import CARRIER_SLOTS, LAYOUT_COUNTS, PATH_TEMPLATES
-
-    fields = {
-        "fixture_id": ERROR_CAPABLE_FIXTURE_ID,
-        "fixture_version": ERROR_CAPABLE_FIXTURE_VERSION,
-        "task_families": tuple(spec.task_family.value for spec in TASK_FAMILY_SPECS),
-        "path_ids": tuple(path for spec in TASK_FAMILY_SPECS for path in spec.path_ids),
-        "attack_modes": tuple(spec.attack_mode.value for spec in ATTACK_SPECS),
-        "file_roles": tuple(role.value for role in FileRole),
-        "action_channels": _ACTION_CHANNELS,
-        "tool_names": tuple(definitions),
-        "tool_catalogue_digest": sha256_digest(list(definitions)),
-        "oracle_contract_version": ERROR_CAPABLE_ORACLE_CONTRACT_VERSION,
-        "world_id": world.world_id,
-        "world_version": str(world.world_version),
-        "world_digest": world.world_digest,
-        "scenario_registry_digest": sha256_digest(
-            {
-                "families": [item.model_dump(mode="json") for item in TASK_FAMILY_SPECS],
-                "attacks": [item.model_dump(mode="json") for item in ATTACK_SPECS],
-                "paths": [item.model_dump(mode="json") for item in PATH_TEMPLATES],
-                "carriers": CARRIER_SLOTS,
-                "layouts": LAYOUT_COUNTS,
-            }
-        ),
-    }
-    # The digest is self-validating, so it is sealed from a placed digest rather than assigned and
-    # then re-checked -- the same two-step `seal_model_inference_options` uses.
-    placeholder = ErrorCapableFixtureManifest.model_construct(
-        **fields, manifest_digest="sha256:" + "0" * 64
-    )
-    manifest = ErrorCapableFixtureManifest(
-        **fields, manifest_digest=sha256_digest(placeholder.digest_payload())
-    )
-    return ErrorCapableFixture(
-        manifest=manifest,
-        freeze_digest=sha256_digest(
-            {
-                "freeze_version": ERROR_CAPABLE_FREEZE_VERSION,
-                "manifest_digest": manifest.manifest_digest,
-                "world_digest": manifest.world_digest,
-                "tool_catalogue_digest": manifest.tool_catalogue_digest,
-                "oracle_contract_version": manifest.oracle_contract_version,
-            }
-        ),
-    )
-
-
-#: The substantive fixture judges the same four risks but adds business-field completion, so its
-#: Oracle contract is its own version rather than the historical one.
 SUBSTANTIVE_FIXTURE_ORACLE_VERSION = "substantive-office-oracle-v3"
 
 
@@ -283,11 +193,7 @@ def build_substantive_office_fixture() -> ErrorCapableFixture:
 #: The scenario's own registry.  Kept separate from the retired structured-scenario one on purpose:
 #: the two hold different contract types, and RA-01 requires old fixtures to stay untouched.
 ERROR_CAPABLE_FIXTURES: dict[str, Callable[[], ErrorCapableFixture]] = {
-    ERROR_CAPABLE_FIXTURE_ID: build_error_capable_fixture,
-    "error-capable-multipath-01": lambda: ErrorCapableFixture.model_validate_json(
-        Path(__file__).with_name("error_capable_legacy_fixture.json").read_text(encoding="utf-8")
-    ),
-    "substantive-office-01": build_substantive_office_fixture,
+    ERROR_CAPABLE_FIXTURE_ID: build_substantive_office_fixture,
 }
 
 

@@ -192,7 +192,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fixture", default="error-capable-multipath-02")
+    parser.add_argument("--fixture", default="substantive-office-01")
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--episode-id", default="probe.summary_delivery.0")
     parser.add_argument("--task-family", default="summary_delivery")

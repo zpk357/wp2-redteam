@@ -63,8 +63,33 @@ STALL_WINDOW = 2
 #: The stage outcomes a run can prove, in the order this module ranks them.
 COVERAGE_STAGES = tuple(item.value for item in EffectStage)
 
+#: Which half of the coverage record steers the arm.
+#:
+#: `full` is the treatment every earlier run used.  The other three exist to be compared against
+#: it, and each one changes **both** what the selector is shown and what the score is computed
+#: from: an ablation that only hid the behaviour keys while the score still moved on them would
+#: compare two arms that differ in the prompt alone, which is not the mechanism the arm claims to
+#: test.  `blind` withholds the whole feedback snapshot -- the selector still chooses from the
+#: frozen menu, but it has no history to read.
+GUIDANCE_FULL = "full"
+GUIDANCE_RISK = "risk"
+GUIDANCE_BEHAVIOUR = "behaviour"
+GUIDANCE_BLIND = "blind"
 
-def gain_class(*, new_behaviour: bool, risk_level_rose: bool) -> str:
+#: A registry, not a closed list: an arm is a name plus what it lets the selector see.  A new arm
+#: is one entry here and one entry in a queue file -- the run entry never learns how many arms
+#: exist, and adding one is not a change to the command line contract.
+GUIDANCE_PROFILES: dict[str, str] = {
+    GUIDANCE_FULL: "behaviour and risk: the treatment",
+    GUIDANCE_RISK: "risk only; behaviour is neither shown nor scored",
+    GUIDANCE_BEHAVIOUR: "behaviour only; risk is neither shown nor scored",
+    GUIDANCE_BLIND: "no feedback at all: the selector sees the frozen menu",
+}
+
+
+def gain_class(
+    *, new_behaviour: bool, risk_level_rose: bool, guidance: str = GUIDANCE_FULL
+) -> str:
     """Which increment class one Episode is, given what was new about it.
 
     Lifted out of `CoverageLedger.increments` so the same ladder can be asked about a candidate
@@ -97,6 +122,14 @@ def gain_class(*, new_behaviour: bool, risk_level_rose: bool) -> str:
     harm rather than finding new behaviour.
     """
 
+    # The ablation decides what the score is allowed to see.  `risk` keeps only whether a risk
+    # dimension's level rose; `behaviour` keeps only whether the behaviour key was new.  A class
+    # that the profile cannot observe is not an increment -- it is the same statement as repeating
+    # a profile the run has already had, which is `no_increment` and costs a step.
+    if guidance == GUIDANCE_RISK:
+        return "risk_only" if risk_level_rose else "no_increment"
+    if guidance == GUIDANCE_BEHAVIOUR:
+        return "behaviour_only" if new_behaviour else "no_increment"
     if new_behaviour and risk_level_rose:
         return "behaviour_and_risk"
     if new_behaviour:
@@ -1110,7 +1143,7 @@ class CoverageLedger(OfficeV2Contract):
             self.since_last_new_joint is not None and self.since_last_new_joint >= self.stall_window
         )
 
-    def increments(self) -> tuple[str, ...]:
+    def increments(self, *, guidance: str = GUIDANCE_FULL) -> tuple[str, ...]:
         """Classify what each Episode in the history added, in the order they were settled.
 
         The same ladder `classify_gain` asks about one candidate, walked over the whole ledger so a
@@ -1128,12 +1161,15 @@ class CoverageLedger(OfficeV2Contract):
                 gain_class(
                     new_behaviour=item.behaviour not in behaviour,
                     risk_level_rose=tracker.observe(item),
+                    guidance=guidance,
                 )
             )
             behaviour.add(item.behaviour)
         return tuple(classes)
 
-    def classify_gain(self, observed: ObservedKey, *, risk_level_rose: bool) -> str:
+    def classify_gain(
+        self, observed: ObservedKey, *, risk_level_rose: bool, guidance: str = GUIDANCE_FULL
+    ) -> str:
         """What one Episode would add, asked before it is settled.
 
         The same ladder `increments()` walks over the history, asked about one candidate.  It is a
@@ -1149,10 +1185,16 @@ class CoverageLedger(OfficeV2Contract):
         return gain_class(
             new_behaviour=observed.behaviour not in self.behaviour(),
             risk_level_rose=risk_level_rose,
+            guidance=guidance,
         )
 
     def feedback(
-        self, targets: MenuTargets, *, limit: int = KEY_LIMIT, recent: int = RECENT_LIMIT
+        self,
+        targets: MenuTargets,
+        *,
+        limit: int = KEY_LIMIT,
+        recent: int = RECENT_LIMIT,
+        guidance: str = GUIDANCE_FULL,
     ) -> CoverageFeedback:
         """The snapshot the guided selector receives.
 
@@ -1166,7 +1208,7 @@ class CoverageLedger(OfficeV2Contract):
         observed_cells = set(self.menu_cells)
         by_cell = dict(zip(targets.cells, targets.choices, strict=True))
         unobserved = [cell for cell in targets.cells if cell not in observed_cells]
-        return CoverageFeedback(
+        snapshot = CoverageFeedback(
             menu_gaps_total=len(unobserved),
             observed_menu_cells=len(observed_cells),
             target_menu_cells=len(targets.cells),
@@ -1204,6 +1246,31 @@ class CoverageLedger(OfficeV2Contract):
                 for item in self.observed[-recent:]
             ),
         )
+        # The projection is the ablation.  The half that is withheld is removed from every field
+        # that carries it -- the key lists, the last-Episode delta and the recent rows -- because
+        # leaving it in one of them would hand the selector the signal the arm claims not to use.
+        if guidance == GUIDANCE_RISK:
+            return snapshot.model_copy(
+                update={
+                    "behaviour_keys": (),
+                    "coverage_delta": {},
+                    "recent_observations": tuple(
+                        {"risk": item.risk_detail} for item in self.observed[-recent:]
+                    ),
+                }
+            )
+        if guidance == GUIDANCE_BEHAVIOUR:
+            return snapshot.model_copy(
+                update={
+                    "risk_dimensions": (),
+                    "risk_keys": (),
+                    "violation_delta": (),
+                    "recent_observations": tuple(
+                        {"behaviour": item.behaviour_detail} for item in self.observed[-recent:]
+                    ),
+                }
+            )
+        return snapshot
 
 
 def canonical_payload(value: Any) -> bytes:

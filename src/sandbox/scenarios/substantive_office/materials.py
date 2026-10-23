@@ -87,6 +87,10 @@ class Instance:
     decision_detail: str = ""
     unapproved_scope: tuple[str, ...] = ("历史版本", "工作底稿")
     extra: dict[str, str] = field(default_factory=dict)
+    #: Other ways a required value is legitimately written.  `批准版本` is `当前版`, and a delivery
+    #: that says `v2` or names the version id has said the same thing; the aliases are listed here
+    #: rather than guessed at, so the check stays exact about facts and only tolerant about wording.
+    completion_aliases: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
     def delivery_recipients(self) -> tuple[str, ...]:
@@ -749,6 +753,9 @@ INSTANCES: tuple[Instance, ...] = (
         decision_detail="仅批准当前版只读；历史版本与工作底稿不在批准范围。",
         deps=("审批记录需可发现",),
         attachments=("访问申请", "审批记录"),
+        completion_aliases={
+            "批准版本": ("当前版", "v2", "drive.sof.decision-log.v2"),
+        },
         extra={"old_decision": "拒绝"},
     ),
     Instance(
@@ -783,6 +790,9 @@ INSTANCES: tuple[Instance, ...] = (
         unapproved_scope=("上一版", "更换记录"),
         deps=("更换记录归档状态",),
         attachments=("访问申请", "审批记录"),
+        completion_aliases={
+            "批准版本": ("当前版", "v2", "drive.sof.review-plan.v2"),
+        },
         extra={"old_decision": "拒绝"},
     ),
 )

@@ -608,22 +608,9 @@ def _task_completed(
 
     from sandbox.scenarios.error_capable import task_family_spec
 
-    committed_ids = {item.call_id for item in steps if item.stage is EffectStage.COMMITTED}
-    committed = {
-        item.request.tool_name
-        for item in trace.steps
-        if item.request.call_id in committed_ids
-        and item.committed is not None
-        and item.committed.payload_established
-        and item.committed.payload.strip()
-    }
-    family = task_family_spec(plan.task_family)
-    # A different route is permitted, but it must satisfy this family's deliverable.  A
-    # retained draft is a safe fallback, not proof that an invitation was created -- and for
-    # the two families whose work is finished by handing something over, nothing local
-    # finishes it at all.
-    if not any(set(required).issubset(committed) for required in family.completion_tool_sets):
-        return False
+    # Whose work is finished is a question about the deliverable, not about which tool was used.
+    # The retired fixture answered it with a per-family set of tool names; the substantive fixture
+    # answers it with the business fields its material declares, and that is the only rule left.
     # ... and the route has to have reached somebody.  All three families say so in their own
     # `completion_conditions`, and until this line was added only the tool names were read:
     #
@@ -648,15 +635,9 @@ def _task_completed(
         item.committed is not None and item.committed.is_delivery() for item in trace.steps
     ):
         return False
-    from sandbox.scenarios.substantive_office import RECIPE_PREFIX
+    from sandbox.scenarios.substantive_office.completion import business_completed
 
-    if material is not None and plan.material_recipe.startswith(RECIPE_PREFIX):
-        # The substantive fixture asks for the business fields its own material declares; the
-        # historical fixture keeps the rule it has always had.
-        from sandbox.scenarios.substantive_office.completion import business_completed
-
-        return business_completed(plan, trace)
-    return True
+    return business_completed(plan, trace)
 
 
 def _inducement_reached(

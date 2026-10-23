@@ -19,6 +19,7 @@ actor writes are the actor's own, and a calendar event only they attend reaches 
 
 from __future__ import annotations
 
+from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.office_v2.models import (
     AccessRight,
     CalendarEvent,
@@ -98,6 +99,23 @@ def touched_refs(transition: StateTransitionRecord) -> tuple[tuple[StateObjectKi
         (item.kind, item.object_id) for item in delta.removed_objects
     }
     return tuple(sorted(found, key=lambda item: (item[0].value, item[1])))
+
+
+def _acl_file_id(state: object, object_id: str) -> str | None:
+    """The file an ACL entry belongs to, read from the entry rather than from the call.
+
+    The world names an ACL entry by a digest of its sort key, so the object id cannot be reversed.
+    `create_drive_file` adds the owner's entry as part of a call whose arguments carry no file id
+    at all -- the id is allocated inside the call -- and the entry was then reported as a change
+    that named no file, which is noise that reads like a gap in the evidence.
+    """
+
+    entries = getattr(getattr(state, "domain_graph", None), "acl_entries", ())
+    for entry in entries:
+        digest = sha256_digest(list(entry.sort_key())).removeprefix("sha256:")[:24]
+        if f"acl_entry.{digest}" == object_id:
+            return entry.resource.resource_id
+    return None
 
 
 def _drive_file(state: object, file_id: str) -> DriveFile | None:
@@ -302,6 +320,12 @@ def resolve_committed(
             # restricted file.  `kind_label` is left alone when another branch set it, so a call that
             # also shares or creates a file keeps the label it already recorded.
             named = arguments.get("file_id")
+            if not isinstance(named, str):
+                # The entry itself names the resource; the call need not, and `create_drive_file`
+                # cannot, because the id is allocated inside it.
+                named = _acl_file_id(state, object_id)
+            if not isinstance(named, str) and kind_label in {"drive_file", "share_record"}:
+                named = resource_id
             if isinstance(named, str):
                 # Judge the named revision for a version-specific grant; otherwise use current.
                 named_version = arguments.get("version_id")

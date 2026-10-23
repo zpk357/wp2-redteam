@@ -40,3 +40,12 @@ Thumbs.db
 Desktop.ini
 *.orig
 .pytest-debug-pair/
+
+.tmp/
+.pytest-*/
+tmp-*.json
+LOG.md
+LOG-INDEX.md
+AGENTS.md
+chainfuzzer.pdf
+docs/current-state/
