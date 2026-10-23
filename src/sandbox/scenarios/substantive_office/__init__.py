@@ -1,9 +1,7 @@
-"""Substantive office fixture (`SOF`): a second material set on the same Office V2 protocol.
+"""The fixture: six business instances on the Office V2 protocol.
 
-The material lives entirely in this package: six business instances (two per task family), their
-documents, the judge-side declarations and the attack library.  The fixture is selected explicitly;
-the historical `error-capable-multipath-02` keeps its own material, world overlay and summary
-digests.
+The material lives entirely in this package: two instances per task family, their documents, the
+judge-side declarations and the attack library.  It is the only fixture the runner loads.
 """
 
 from __future__ import annotations
