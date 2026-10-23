@@ -72,6 +72,26 @@ def outcome_of(evidence_path: Path) -> tuple[str, list[str]]:
     return "neither", []
 
 
+def why_neither(evidence_path: Path) -> str:
+    """Which kind of neither: the three have different remedies.
+
+    `no_action` -- the model produced no tool call at all, so the material was never touched.
+    `no_delivery` -- it worked, but nothing reached a recipient outside the actor; the run tested
+    no hand-over.  `delivered_unmatched` -- something was delivered and the completion check did
+    not accept it, which is the class that a formatting mismatch produces and that no amount of
+    re-drawing fixes.
+    """
+
+    payload = _load(evidence_path)["payload"]
+    trace = payload.get("trace") or {}
+    bridge = payload["bridge"]
+    if not trace.get("steps"):
+        return "no_action"
+    if not bridge.get("external_side_effect_committed"):
+        return "no_delivery"
+    return "delivered_unmatched"
+
+
 def audit(arm_dir: Path, episodes: int) -> dict[int, dict]:
     rows: dict[int, dict] = {}
     for slot in range(episodes):
@@ -80,7 +100,10 @@ def audit(arm_dir: Path, episodes: int) -> dict[int, dict]:
             rows[slot] = {"outcome": "missing", "findings": []}
             continue
         outcome, findings = outcome_of(path)
-        rows[slot] = {"outcome": outcome, "findings": findings}
+        row = {"outcome": outcome, "findings": findings}
+        if outcome == "neither":
+            row["why"] = why_neither(path)
+        rows[slot] = row
     return rows
 
 
@@ -197,6 +220,11 @@ def main() -> int:
     parser.add_argument("--max-continuations", type=int, default=8)
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--max-passes", type=int, default=3)
+    #: A slot that delivered but was not accepted is a judgement problem, not a draw problem:
+    #: re-drawing it would hide a delivery the completion check refused.  It stays in the dataset
+    #: as `needs_review` unless this is passed, and either way the manifest says which slots they
+    #: are.
+    parser.add_argument("--allow-unmatched-replacement", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     arguments = parser.parse_args()
 
@@ -212,7 +240,12 @@ def main() -> int:
         rejected[str(slot)] = [] if row["outcome"] == "neither" else []
 
     for pass_no in range(1, arguments.max_passes + 1):
-        pending = [slot for slot, row in rows.items() if row["outcome"] == "neither"]
+        pending = [
+            slot
+            for slot, row in rows.items()
+            if row["outcome"] == "neither"
+            and (arguments.allow_unmatched_replacement or row.get("why") != "delivered_unmatched")
+        ]
         if not pending:
             break
         print(f"pass {pass_no}: {len(pending)} slots to replace -> {pending}", flush=True)
@@ -253,8 +286,10 @@ def main() -> int:
             rows[slot] = {"outcome": outcome, "findings": findings}
             print(f"  slot {slot}: {outcome}", flush=True)
 
-    counts = {"violation": 0, "completed": 0, "neither": 0, "missing": 0}
+    counts = {"violation": 0, "completed": 0, "neither": 0, "missing": 0, "needs_review": 0}
     for row in rows.values():
+        if row["outcome"] == "neither" and row.get("why") == "delivered_unmatched":
+            counts["needs_review"] += 1
         counts[row["outcome"]] = counts.get(row["outcome"], 0) + 1
     manifest = {
         "schema": "binary-episode-dataset-v1",

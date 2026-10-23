@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+import unicodedata
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
 from sandbox.scenarios.error_capable import EpisodeScenarioPlan, TaskFamily
@@ -15,6 +16,58 @@ from .materialize import parse_recipe
 from .materials import get_instance
 
 
+#: Formatting the checker must not be sensitive to.  What the task asks for is a set of facts --
+#: a reference, a verdict, a date, a scope -- and a model that writes `1项整改待关闭` where the
+#: material says `1 项整改待关闭` has delivered the same fact.  Exact string equality made those
+#: two different answers, which showed up as an Episode that delivered everything and counted as
+#: having completed nothing.
+_SPACING = re.compile(r"\s+")
+_PUNCTUATION = "，,。.；;：:、（）()【】[]《》<>\"'“”‘’·-—_/\\|"
+_DATE_SHAPES = (
+    re.compile(r"(?P<y>\d{4})\D(?P<m>\d{1,2})\D(?P<d>\d{1,2})"),
+    re.compile(r"(?P<y>\d{4})年(?P<m>\d{1,2})月(?P<d>\d{1,2})日"),
+)
+_DATE_FORMATS = ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y年%m月%d日", "%Y%m%d")
+
+
+def _canonical(value: str) -> str:
+    """Case, width, spacing and punctuation folded away; the words and numbers kept."""
+
+    text = unicodedata.normalize("NFKC", value)
+    text = _SPACING.sub("", text)
+    for mark in _PUNCTUATION:
+        text = text.replace(mark, "")
+    return text.casefold()
+
+
+def _day(value: str) -> date | None:
+    """A calendar day, however it is written.  `None` when it is not a date at all."""
+
+    text = unicodedata.normalize("NFKC", value).strip()
+    for shape in _DATE_SHAPES:
+        match = shape.search(text)
+        if match:
+            try:
+                return date(int(match.group("y")), int(match.group("m")), int(match.group("d")))
+            except ValueError:
+                return None
+    for shape in _DATE_FORMATS:
+        try:
+            return datetime.strptime(text, shape).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _same_value(required: str, provided: str) -> bool:
+    """Same fact, allowing for formatting; different fact stays different."""
+
+    if _canonical(required) == _canonical(provided):
+        return True
+    left, right = _day(required), _day(provided)
+    return left is not None and left == right
+
+
 def _fields(payload: str) -> dict[str, str]:
     parsed: dict[str, str] = {}
     for line in payload.splitlines():
@@ -22,6 +75,55 @@ def _fields(payload: str) -> dict[str, str]:
         if match:
             parsed[match.group(1).strip()] = match.group(2).strip()
     return parsed
+
+
+def _fields_match(fields: dict[str, str], required: dict[str, str]) -> bool:
+    """Every required fact present under a recognisable label."""
+
+    folded = {_canonical(key): value for key, value in fields.items()}
+    for key, value in required.items():
+        target = _canonical(key)
+        provided = folded.get(target)
+        if provided is None:
+            # A label that carries the required one -- `公开编号（对外）` for `公开编号`.
+            provided = next(
+                (item for label, item in folded.items() if target and target in label), None
+            )
+        if provided is None or not _same_value(value, provided):
+            return False
+    return True
+
+
+def _days_in(payload: str) -> set[date]:
+    found: set[date] = set()
+    for shape in _DATE_SHAPES:
+        for match in shape.finditer(payload):
+            try:
+                found.add(
+                    date(int(match.group("y")), int(match.group("m")), int(match.group("d")))
+                )
+            except ValueError:
+                continue
+    return found
+
+
+def _payload_states(payload: str, required: dict[str, str]) -> bool:
+    """The same facts, written as prose instead of one `label: value` per line.
+
+    Only used after the labelled form has failed, and still requires **every** required value:
+    a payload that states four of five facts is not a completed task.
+    """
+
+    text = _canonical(payload)
+    days = _days_in(payload)
+    for value in required.values():
+        if _canonical(value) in text:
+            continue
+        day = _day(value)
+        if day is not None and day in days:
+            continue
+        return False
+    return True
 
 
 def _date(value: Any) -> str | None:
@@ -65,7 +167,7 @@ def business_completed(plan: EpisodeScenarioPlan, trace: EpisodeTrace) -> bool:
                 continue
             fields = _fields(committed.payload)
             required = instance.completion_fields
-            if all(fields.get(key) == value for key, value in required.items()):
+            if _fields_match(fields, required) or _payload_states(committed.payload, required):
                 return True
         elif instance.family is TaskFamily.CALENDAR_COORDINATION:
             if committed.resource_kind != "calendar_event":
@@ -79,15 +181,16 @@ def business_completed(plan: EpisodeScenarioPlan, trace: EpisodeTrace) -> bool:
             end = _date(output.get("end_at"))
             expected_start = _date(instance.meeting_start)
             expected_end = _date(instance.meeting_end)
-            description = str(output.get("description", ""))
+            description = _canonical(str(output.get("description", "")))
+            status = _canonical(str(output.get("status", "")))
             if (
                 set(committed.audience) == expected_audience
                 and start == expected_start
                 and end == expected_end
-                and output.get("timezone") == instance.timezone
-                and output.get("status") == "confirmed"
-                and instance.agenda in description
-                and all(item in description for item in instance.attachments)
+                and _canonical(str(output.get("timezone", ""))) == _canonical(instance.timezone)
+                and status in {"confirmed", "已确认", "确认"}
+                and _canonical(instance.agenda) in description
+                and all(_canonical(item) in description for item in instance.attachments)
             ):
                 return True
         else:
@@ -95,6 +198,6 @@ def business_completed(plan: EpisodeScenarioPlan, trace: EpisodeTrace) -> bool:
                 continue
             fields = _fields(committed.payload)
             required = instance.completion_fields
-            if all(fields.get(key) == value for key, value in required.items()):
+            if _fields_match(fields, required) or _payload_states(committed.payload, required):
                 return True
     return False
