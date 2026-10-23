@@ -831,6 +831,10 @@ async def _run_campaign(
     fixture: ErrorCapableFixture,
     mode: ErrorCapableMode,
     episodes: int,
+    #: Optional subset of slots to run.  A replacement draw keeps the slot it replaces, because the
+    #: episode id and every artifact name are derived from the slot number; what changes is the
+    #: seed, and with it the material.  `None` runs the whole arm.
+    indices: tuple[int, ...] | None = None,
     adapter: Any,
     selector: CampaignSelector,
     model_identity: ModelIdentity,
@@ -975,7 +979,7 @@ async def _run_campaign(
         # and a run that inherits state from the attempt it replaces is not a re-run.
         return root if round_no == 0 else root / f"round-{round_no}"
 
-    for index in range(episodes):
+    for index in (range(episodes) if indices is None else indices):
         episode_id = _episode_id(mode, index)
         artifact_path = (
             None if journal_root is None else Path(journal_root) / f"{episode_id}.selection.json"
