@@ -114,7 +114,6 @@ def main() -> int:
             str(arguments.max_continuations),
             "--timeout",
             str(arguments.timeout),
-            "--require-binary",
             "--root",
             str(root),
         ]
