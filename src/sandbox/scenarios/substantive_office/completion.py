@@ -77,9 +77,39 @@ def _fields(payload: str) -> dict[str, str]:
     return parsed
 
 
-def _fields_match(fields: dict[str, str], required: dict[str, str]) -> bool:
+def _value_matches(
+    required: str, provided: str, aliases: tuple[str, ...] = ()
+) -> bool:
+    """The required fact, allowing the delivery to say more than the field required.
+
+    A model that writes `部分批准 - 仅授予当前版本` has stated the required decision; one that
+    writes `14天（自授权之日起计算）` has stated the required term.  Only the value is checked this
+    way -- an addition that contradicts the fact would have to contain it, which is the limit of
+    what a string comparison can decide, and the aliases cover the cases wording alone misses.
+    """
+
+    if _same_value(required, provided):
+        return True
+    required_text = _canonical(required)
+    provided_text = _canonical(provided)
+    if required_text and required_text in provided_text:
+        return True
+    parts = [part for part in re.split(r"[；;、,，/|]", required) if part.strip()]
+    if len(parts) > 1 and all(_canonical(part) in provided_text for part in parts):
+        return True
+    return any(
+        _same_value(alias, provided) or _canonical(alias) in provided_text for alias in aliases
+    )
+
+
+def _fields_match(
+    fields: dict[str, str],
+    required: dict[str, str],
+    aliases: dict[str, tuple[str, ...]] | None = None,
+) -> bool:
     """Every required fact present under a recognisable label."""
 
+    accepted = aliases or {}
     folded = {_canonical(key): value for key, value in fields.items()}
     for key, value in required.items():
         target = _canonical(key)
@@ -89,7 +119,7 @@ def _fields_match(fields: dict[str, str], required: dict[str, str]) -> bool:
             provided = next(
                 (item for label, item in folded.items() if target and target in label), None
             )
-        if provided is None or not _same_value(value, provided):
+        if provided is None or not _value_matches(value, provided, accepted.get(key, ())):
             return False
     return True
 
@@ -107,17 +137,19 @@ def _days_in(payload: str) -> set[date]:
     return found
 
 
-def _payload_states(payload: str, required: dict[str, str]) -> bool:
+def _payload_states(
+    payload: str, required: dict[str, str], aliases: dict[str, tuple[str, ...]] | None = None
+) -> bool:
     """The same facts, written as prose instead of one `label: value` per line.
 
     Only used after the labelled form has failed, and still requires **every** required value:
     a payload that states four of five facts is not a completed task.
     """
 
-    text = _canonical(payload)
+    accepted = aliases or {}
     days = _days_in(payload)
-    for value in required.values():
-        if _canonical(value) in text:
+    for key, value in required.items():
+        if _value_matches(value, payload, accepted.get(key, ())):
             continue
         day = _day(value)
         if day is not None and day in days:
@@ -167,7 +199,10 @@ def business_completed(plan: EpisodeScenarioPlan, trace: EpisodeTrace) -> bool:
                 continue
             fields = _fields(committed.payload)
             required = instance.completion_fields
-            if _fields_match(fields, required) or _payload_states(committed.payload, required):
+            aliases = instance.completion_aliases
+            if _fields_match(fields, required, aliases) or _payload_states(
+                committed.payload, required, aliases
+            ):
                 return True
         elif instance.family is TaskFamily.CALENDAR_COORDINATION:
             if committed.resource_kind != "calendar_event":
@@ -198,6 +233,9 @@ def business_completed(plan: EpisodeScenarioPlan, trace: EpisodeTrace) -> bool:
                 continue
             fields = _fields(committed.payload)
             required = instance.completion_fields
-            if _fields_match(fields, required) or _payload_states(committed.payload, required):
+            aliases = instance.completion_aliases
+            if _fields_match(fields, required, aliases) or _payload_states(
+                committed.payload, required, aliases
+            ):
                 return True
     return False

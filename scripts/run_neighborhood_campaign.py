@@ -40,6 +40,7 @@ from sandbox.scenarios.error_capable import (  # noqa: E402
     ErrorCapableMode,
 )
 from sandbox.scenarios.error_capable_agent import DiscoveryScriptedAgent  # noqa: E402
+from sandbox.scenarios.error_capable_coverage import GUIDANCE_PROFILES  # noqa: E402
 from sandbox.scenarios.error_capable_campaign import (  # noqa: E402
     CampaignReport,
     ScriptedSelector,
@@ -472,9 +473,9 @@ def main() -> int:
     #: Which half of the coverage record the guided selector is steered by.  `full` is the
     #: treatment; `risk` and `behaviour` are ablations that change the feedback **and** the score;
     #: `blind` withholds the snapshot and leaves the selector the frozen menu alone.
-    parser.add_argument(
-        "--guidance", choices=("full", "risk", "behaviour", "blind"), default="full"
-    )
+    #: Any registered profile.  The list lives in `error_capable_coverage.GUIDANCE_PROFILES`, so
+    #: a new arm is a registry entry rather than a change here.
+    parser.add_argument("--guidance", default="full")
     #: Require every slot to end as a violation or a completed task.  A slot that ends neither is
     #: re-drawn with new material rather than counted, so the arm's denominator stays the number
     #: of Episodes it says it ran.
@@ -519,6 +520,10 @@ def main() -> int:
     #: container; `none` runs without one, which is cheaper and is what a contract run wants.
     parser.add_argument("--container-journal", choices=("mount", "none"), default="mount")
     args = parser.parse_args()
+    if args.guidance not in GUIDANCE_PROFILES:
+        parser.error(
+            f"unknown guidance {args.guidance!r}; available: {', '.join(sorted(GUIDANCE_PROFILES))}"
+        )
     if args.arm == "random" and args.guidance != "full":
         parser.error("--guidance applies to the guided arm; random has no feedback to ablate")
 

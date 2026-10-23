@@ -75,7 +75,16 @@ GUIDANCE_FULL = "full"
 GUIDANCE_RISK = "risk"
 GUIDANCE_BEHAVIOUR = "behaviour"
 GUIDANCE_BLIND = "blind"
-GUIDANCE_PROFILES = (GUIDANCE_FULL, GUIDANCE_RISK, GUIDANCE_BEHAVIOUR, GUIDANCE_BLIND)
+
+#: A registry, not a closed list: an arm is a name plus what it lets the selector see.  A new arm
+#: is one entry here and one entry in a queue file -- the run entry never learns how many arms
+#: exist, and adding one is not a change to the command line contract.
+GUIDANCE_PROFILES: dict[str, str] = {
+    GUIDANCE_FULL: "behaviour and risk: the treatment",
+    GUIDANCE_RISK: "risk only; behaviour is neither shown nor scored",
+    GUIDANCE_BEHAVIOUR: "behaviour only; risk is neither shown nor scored",
+    GUIDANCE_BLIND: "no feedback at all: the selector sees the frozen menu",
+}
 
 
 def gain_class(

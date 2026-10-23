@@ -1,0 +1,7 @@
+[
+  {"name": "random", "arm": "random"},
+  {"name": "guided-full", "arm": "guided", "guidance": "full"},
+  {"name": "guided-risk", "arm": "guided", "guidance": "risk"},
+  {"name": "guided-behaviour", "arm": "guided", "guidance": "behaviour"},
+  {"name": "guided-blind", "arm": "guided", "guidance": "blind"}
+]

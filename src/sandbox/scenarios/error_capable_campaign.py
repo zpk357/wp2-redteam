@@ -600,7 +600,6 @@ class CampaignReport(OfficeV2Contract):
             taken = proven.get(spec.task_family.value, set())
             table[spec.task_family.value] = {
                 " + ".join(item): set(item).issubset(taken)
-                for item in spec.completion_tool_sets
             }
         return table
 
@@ -1154,6 +1153,7 @@ async def _run_campaign(
                 # rule being weakened for the arm the comparison is about.
                 require_unobserved=guided and not isinstance(selector, PinnedSelector),
                 feedback=feedback,
+                feedback_withheld=guidance == "blind",
                 # What the last attempt got wrong, when the reason was not a combination.  The
                 # combination refusals travel in `feedback.rejected_menu_cells`; everything else --
                 # a rationale past the schema's bound, a coordinate the menu does not carry, a reply

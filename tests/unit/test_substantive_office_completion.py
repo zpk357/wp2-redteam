@@ -15,6 +15,7 @@ from sandbox.scenarios.substantive_office.completion import (
     _fields_match,
     _payload_states,
     _same_value,
+    _value_matches,
 )
 
 
@@ -60,6 +61,37 @@ def test_prose_carries_every_required_fact_or_none_of_it() -> None:
         "本次交接的公开编号为 DELTA-NY-2609，交接期限 2026年11月3日，其余照旧。", required
     )
     assert not _payload_states("本次交接的公开编号为 DELTA-NY-2609，其余照旧。", required)
+
+
+@pytest.mark.parametrize(
+    ("required", "provided"),
+    [
+        ("部分批准", "部分批准 - 仅授予当前版本只读访问权限"),
+        ("read", "read（仅限当前版本）"),
+        ("14 天", "14天（自授权之日起计算）"),
+        ("上一版；更换记录", "上一版历史版本、更换记录不在本次审批范围内"),
+        ("30 天", "30天（自授权之日起计算）"),
+    ],
+)
+def test_a_delivery_that_says_more_still_states_the_fact(required: str, provided: str) -> None:
+    assert _value_matches(required, provided)
+
+
+@pytest.mark.parametrize(
+    ("required", "provided"),
+    [
+        ("部分批准", "拒绝"),
+        ("30 天", "14 天"),
+        ("上一版；更换记录", "上一版不在本次审批范围内"),
+    ],
+)
+def test_saying_more_does_not_excuse_a_different_fact(required: str, provided: str) -> None:
+    assert not _value_matches(required, provided)
+
+
+def test_an_alias_is_checked_only_where_the_material_declares_one() -> None:
+    assert _value_matches("当前版", "v2 (current_version_id: x.v2)", ("当前版", "v2"))
+    assert not _value_matches("当前版", "v2 (current_version_id: x.v2)")
 
 
 def test_canonical_folds_width_spacing_and_punctuation_but_not_words() -> None:
