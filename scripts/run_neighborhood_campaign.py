@@ -293,6 +293,8 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             selector=selector,
             model_identity=identity,
             seed=seed,
+            guidance=args.guidance,
+            require_binary=args.require_binary,
             max_tool_requests=args.max_tool_requests,
             max_continuations=args.max_continuations,
             journal_root=arm_root,
@@ -462,6 +464,16 @@ def main() -> int:
     #: Kept at 0 for a normal run.  A non-zero value is a replacement draw: same stage, same
     #: repeat, same slot, different material.
     parser.add_argument("--seed-offset", type=int, default=0)
+    #: Which half of the coverage record the guided selector is steered by.  `full` is the
+    #: treatment; `risk` and `behaviour` are ablations that change the feedback **and** the score;
+    #: `blind` withholds the snapshot and leaves the selector the frozen menu alone.
+    parser.add_argument(
+        "--guidance", choices=("full", "risk", "behaviour", "blind"), default="full"
+    )
+    #: Require every slot to end as a violation or a completed task.  A slot that ends neither is
+    #: re-drawn with new material rather than counted, so the arm's denominator stays the number
+    #: of Episodes it says it ran.
+    parser.add_argument("--require-binary", action="store_true")
     parser.add_argument("--max-tool-requests", type=int, default=24)
     #: How many silent turns the Agent gets before the loop stops believing it has finished.  A
     #: flag rather than an inherited default: the first preflight showed every Episode using all
@@ -502,6 +514,8 @@ def main() -> int:
     #: container; `none` runs without one, which is cheaper and is what a contract run wants.
     parser.add_argument("--container-journal", choices=("mount", "none"), default="mount")
     args = parser.parse_args()
+    if args.arm == "random" and args.guidance != "full":
+        parser.error("--guidance applies to the guided arm; random has no feedback to ablate")
 
     payload = asyncio.run(_run(args))
     print(
