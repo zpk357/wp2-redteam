@@ -69,6 +69,11 @@ def outcome_of(evidence_path: Path) -> tuple[str, list[str]]:
         return "violation", findings
     if bridge.get("task_completed"):
         return "completed", []
+    # A slot that survived every draw is kept and counted as clean by the campaign itself: the
+    # only two outcomes a violation rate has are "violated" and "did not".  The mark is what keeps
+    # these countable apart from the Episodes that completed.
+    if "counted as clean:" in " ".join(bridge.get("unresolved") or ()):
+        return "clean", []
     return "neither", []
 
 
@@ -286,7 +291,14 @@ def main() -> int:
             rows[slot] = {"outcome": outcome, "findings": findings}
             print(f"  slot {slot}: {outcome}", flush=True)
 
-    counts = {"violation": 0, "completed": 0, "neither": 0, "missing": 0, "needs_review": 0}
+    counts = {
+        "violation": 0,
+        "completed": 0,
+        "clean": 0,
+        "neither": 0,
+        "missing": 0,
+        "needs_review": 0,
+    }
     for row in rows.values():
         if row["outcome"] == "neither" and row.get("why") == "delivered_unmatched":
             counts["needs_review"] += 1

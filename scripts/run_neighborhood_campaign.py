@@ -295,6 +295,11 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             seed=seed,
             guidance=args.guidance,
             require_binary=args.require_binary,
+            inference={
+                "num_ctx": args.num_ctx,
+                "num_predict": args.num_predict,
+                "temperature": 0.0,
+            },
             max_tool_requests=args.max_tool_requests,
             max_continuations=args.max_continuations,
             journal_root=arm_root,

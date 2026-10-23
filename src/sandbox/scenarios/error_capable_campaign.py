@@ -874,6 +874,10 @@ async def _run_campaign(
     #: new material instead of being counted.  The arm then reports exactly the Episodes it claims
     #: to report, which is what makes violation rates across arms comparable at all.
     require_binary: bool = False,
+    #: The inference options the arm ran with.  They belong to the run's identity: a context
+    #: window or output ceiling that is not recorded makes two runs look identical when they are
+    #: not, which is exactly what happened to the 2026-10-10 pair.
+    inference: dict[str, Any] | None = None,
     journal_root: Any | None = None,
     ledger: CoverageLedger | None = None,
     executor: EpisodeExecutor | None = None,
@@ -1026,6 +1030,7 @@ async def _run_campaign(
                 "max_continuations": max_continuations,
                 "guidance": guidance,
                 "require_binary": require_binary,
+                "inference": dict(sorted((inference or {}).items())),
                 "targets": targets.model_dump(mode="json"),
                 # Where the Episode ran is part of what the result is.  Without it, an
                 # in-process run and a container run of the same plan share an identity, and a
@@ -1400,6 +1405,10 @@ async def _run_campaign(
         #     campaign re-sent the identical request every round and the provider answers an identical
         #     request identically, which `UNJUDGED_EPISODE_ATTEMPTS` records with the measurement.
         bridged: BridgedEvidence | None = None
+        #: Set when the last draw still ended neither way and the Episode was kept rather than
+        #: re-drawn again.  It is then counted with the clean Episodes, because the only two
+        #: outcomes a violation rate has are "violated" and "did not".
+        forced_clean = False
         #: What the gate objected to, if it objected.  Kept as a list rather than logged because the
         #: Episode is counted on weaker evidence than the rest and a reader has to be able to see why.
         gate_reasons: list[str] = []
@@ -1499,6 +1508,13 @@ async def _run_campaign(
             if not reasons:
                 break
             gate_reasons.append(f"{'; '.join(reasons)} (stop {trace.stop_reason})")
+            if require_binary and round_no == draws - 1:
+                # The last draw still ended neither way.  Re-drawing for ever would turn one slot
+                # into an unbounded search, and leaving it unlabelled would put a third outcome
+                # into a rate that has two.  It is kept, counted as clean because it carries no
+                # violation, and marked so a reader can count these separately.
+                forced_clean = True
+                break
         else:
             # The gate objected and there is no further run to make.  The Episode is counted anyway,
             # and marked.
@@ -1521,6 +1537,15 @@ async def _run_campaign(
                 }
             )
         assert bridged is not None  # the loop runs at least once, so a run is always recorded
+        if forced_clean:
+            bridged = bridged.model_copy(
+                update={
+                    "unresolved": (
+                        *bridged.unresolved,
+                        f"counted as clean: no binary outcome after {draws} draws",
+                    )
+                }
+            )
 
         # The key is built from the trace and the material, not from the plan: which files the run
         # opened and which calls it proved are facts about the run, and a plan-based key would count
