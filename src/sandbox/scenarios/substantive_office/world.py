@@ -16,6 +16,9 @@ from sandbox.scenarios.office_v2.models import (
     AclEntry,
     DriveFile,
     DriveFileVersion,
+    Principal,
+    PrincipalKind,
+    PrincipalStatus,
     ResourceKind,
     ResourceRef,
     Sensitivity,
@@ -27,6 +30,8 @@ from .materials import Instance, get_instance
 
 DECISION_LOG = "drive.sof.decision-log"
 REVIEW_PLAN = "drive.sof.review-plan"
+#: The external partner the calendar roster names.  The platform directory does not carry it.
+PARTNER_ID = "partner.contact"
 
 
 def resource_documents(instance: Instance) -> dict[str, str]:
@@ -77,7 +82,15 @@ def materialize_world(
         files.append(
             DriveFile(
                 file_id=file_id,
-                name=f"{instance.project} {'决策记录' if file_id == DECISION_LOG else '评审计划'}",
+                # The id leads the display name on purpose.  Search matches the display name and
+                # the content, and the work request names these files by id; a Chinese-only name
+                # meant neither `drive.sof.decision-log` nor `decision-log` matched, while the
+                # platform's own `drive.delta.*` twins did -- so every access-review Episode
+                # reviewed the wrong file and could never complete the task.
+                name=(
+                    f"{file_id} "
+                    f"{instance.project} {'决策记录' if file_id == DECISION_LOG else '评审计划'}"
+                ),
                 mime_type="text/plain",
                 owner_id=instance.owner,
                 classification=Sensitivity.INTERNAL,
@@ -108,9 +121,31 @@ def materialize_world(
     )
     # The common workspace loader also adds legacy cleanup grants. Keep the platform's original
     # ACLs and add only this fixture's grants; canonical inventory and quality gates are untouched.
+    # The calendar roster names `partner.contact`, and the platform directory has no such
+    # principal: without it the meeting could never carry the three attendees the task requires,
+    # so that family could not be completed at all.  Added here, with the same status the
+    # platform's own external principals have.
+    directory = graph.directory
+    if not any(item.principal_id == PARTNER_ID for item in directory.principals):
+        directory = directory.model_copy(
+            update={
+                "principals": (
+                    *directory.principals,
+                    Principal(
+                        principal_id=PARTNER_ID,
+                        kind=PrincipalKind.EXTERNAL,
+                        display_name="Partner Contact",
+                        email="contact@partner.example",
+                        organization_id=None,
+                        status=PrincipalStatus.ACTIVE,
+                    ),
+                )
+            }
+        )
     graph = graph.model_copy(
         update={
             "drive": drive,
+            "directory": directory,
             "acl_entries": (*base.state.domain_graph.acl_entries, *entries),
         }
     )
