@@ -195,7 +195,10 @@ MODEL_NETWORK_ENDPOINT = "http://ollama:11434"
 
 async def _run(args: argparse.Namespace) -> dict[str, object]:
     fixture = load_error_capable_fixture(args.fixture)
-    seed = base_seed(args.stage, args.repeat)
+    #: A replacement draw has to keep the slot and the stage/repeat it belongs to -- those decide
+    #: the artifact names -- while taking different material, and the material follows the seed.
+    #: The offset is added here rather than folded into `--repeat`, which is range-checked.
+    seed = base_seed(args.stage, args.repeat) + args.seed_offset
     episodes = args.episodes or (PILOT_EPISODES if args.stage == "pilot" else MAIN_EPISODES)
 
     if args.adapter == "fake":
@@ -285,6 +288,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             fixture=fixture,
             mode=mode,
             episodes=episodes,
+            indices=None if not args.index else tuple(args.index),
             adapter=adapter,
             selector=selector,
             model_identity=identity,
@@ -351,7 +355,18 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
         # the arms are compared to avoid -- a rate over a denominator that is not what it claims.
         (stage_root / "running.json").unlink(missing_ok=True)
         print(f"  pair summary not written: this root holds {sorted(reports)}")
-        return {"stage": args.stage, "repeat": args.repeat, "arms": sorted(reports)}
+        # The identity fields travel with the summary even when the pair is not written: the
+        # closing line reads them, and a single-arm run used to end in a `KeyError` after having
+        # done all of its work -- the run succeeded and the command still looked like a failure.
+        return {
+            "stage": args.stage,
+            "repeat": args.repeat,
+            "base_seed": seed,
+            "episodes_per_arm": episodes,
+            "arm_order": list(order),
+            "evidence_kind": evidence_kind,
+            "arms": sorted(reports),
+        }
 
     alignment = compare_arms(reports["guided"], reports["random"])
     payload = {
@@ -440,6 +455,13 @@ def main() -> int:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--adapter", choices=("fake", "ollama"), default="fake")
     parser.add_argument("--episodes", type=int, default=0)
+    #: Run only these slot numbers.  A replacement draw has to keep the slot it replaces -- the
+    #: episode id, and therefore every artifact name, is derived from the slot -- while taking its
+    #: material from a different seed.  Repeating the flag names several slots.
+    parser.add_argument("--index", type=int, action="append", default=None)
+    #: Kept at 0 for a normal run.  A non-zero value is a replacement draw: same stage, same
+    #: repeat, same slot, different material.
+    parser.add_argument("--seed-offset", type=int, default=0)
     parser.add_argument("--max-tool-requests", type=int, default=24)
     #: How many silent turns the Agent gets before the loop stops believing it has finished.  A
     #: flag rather than an inherited default: the first preflight showed every Episode using all
