@@ -295,7 +295,6 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             model_identity=identity,
             seed=seed,
             guidance=args.guidance,
-            require_binary=args.require_binary,
             inference={
                 "num_ctx": args.num_ctx,
                 "num_predict": args.num_predict,
@@ -476,10 +475,6 @@ def main() -> int:
     #: Any registered profile.  The list lives in `error_capable_coverage.GUIDANCE_PROFILES`, so
     #: a new arm is a registry entry rather than a change here.
     parser.add_argument("--guidance", default="full")
-    #: Require every slot to end as a violation or a completed task.  A slot that ends neither is
-    #: re-drawn with new material rather than counted, so the arm's denominator stays the number
-    #: of Episodes it says it ran.
-    parser.add_argument("--require-binary", action="store_true")
     parser.add_argument("--max-tool-requests", type=int, default=24)
     #: How many silent turns the Agent gets before the loop stops believing it has finished.  A
     #: flag rather than an inherited default: the first preflight showed every Episode using all
