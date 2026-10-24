@@ -807,6 +807,34 @@ def _verdict_reached(bridge: BridgedEvidence) -> bool:
     return risk_class(findings) not in _DEFERRED_CLASSES
 
 
+def _hits_target(observed: Any, index: int, *, explore_every: int = 4) -> tuple[str, str] | None:
+    """The family/mechanism pair the hits arm should press, from what has already violated.
+
+    Three of every four Episodes take the pair with the highest observed violation rate among pairs
+    seen at least twice; the fourth takes the least-visited pair, so the arm cannot lock onto a pair
+    that looked dangerous once.  The exploit turn ignores the unobserved-cell rule on purpose: a
+    direction that violated is exactly the direction worth returning to, and requiring a new
+    combination each time would send the arm back to the material lottery.
+    """
+
+    tally: dict[tuple[str, str], tuple[int, int]] = {}
+    for key in observed:
+        pair = (str(getattr(key, "family", "")), str(getattr(key, "attack", "")))
+        if not pair[0] or not pair[1]:
+            continue
+        attempts, violations = tally.get(pair, (0, 0))
+        tally[pair] = (attempts + 1, violations + (1 if key.observed_types else 0))
+    if not tally:
+        return None
+    if index % explore_every == explore_every - 1:
+        return min(tally, key=lambda item: (tally[item][0], item))
+    scored = [(v / a, a, pair) for pair, (a, v) in tally.items() if a >= 2]
+    if not scored:
+        return None
+    scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
+    return scored[0][2]
+
+
 def _attempt_suffix(round_no: int, attempt: int) -> Path:
     """Where one attempt's journal goes.
 
@@ -1105,6 +1133,8 @@ async def _run_campaign(
         # recorded added to it, because at `temperature=0.0` a question that does not change gets an
         # answer that does not change either.  The loop is bounded only by `SELECTION_ATTEMPTS`, and
         # that bound is a guard against a wedged selector rather than a budget the arm spends.
+        #: The hits arm presses the pair that has been violating; every other arm offers the menu.
+        hits_target = _hits_target(state.observed, index) if guidance == "hits" else None
         for attempt_no in range(retry_offset, retry_offset + SELECTION_ATTEMPTS):
             feedback = feedback_base
             if feedback is not None and refused_cells:
@@ -1119,15 +1149,21 @@ async def _run_campaign(
                 seed=seed + index,
                 agent_model_name=model_identity.normalized_model_id,
                 selector_model_name=model_identity.normalized_model_id if guided else None,
-                available_task_families=tuple(TaskFamily(item) for item in targets.families),
+                available_task_families=(
+                    (TaskFamily(hits_target[0]),)
+                    if hits_target is not None
+                    else tuple(TaskFamily(item) for item in targets.families)
+                ),
                 available_paths=tuple(
                     path for spec in TASK_FAMILY_SPECS for path in spec.path_ids
                 ),
                 # A caller may narrow the menu to the mechanisms it wants to study; the draw is
                 # still random within what is offered, so a narrowed menu is a different menu
                 # rather than a different rule.
-                available_attacks=tuple(
-                    AttackMode(item) for item in (attacks or targets.attacks)
+                available_attacks=(
+                    (AttackMode(hits_target[1]),)
+                    if hits_target is not None
+                    else tuple(AttackMode(item) for item in (attacks or targets.attacks))
                 ),
                 carriers_by_path=carriers_by_path,
                 available_carriers=available_carriers,
@@ -1136,7 +1172,13 @@ async def _run_campaign(
                 # every run that happens to be in guided mode.  The pinned control deliberately
                 # repeats one fixed condition to compare mechanisms, so it is exempt rather than the
                 # rule being weakened for the arm the comparison is about.
-                require_unobserved=guided and not isinstance(selector, PinnedSelector),
+                # The hits arm must be allowed to return to a cell that violated; that is the
+                # whole point of pressing a direction.  Every other guided arm keeps the rule.
+                require_unobserved=(
+                    guided
+                    and guidance != "hits"
+                    and not isinstance(selector, PinnedSelector)
+                ),
                 feedback=feedback,
                 feedback_withheld=guidance == "blind",
                 # What the last attempt got wrong, when the reason was not a combination.  The
