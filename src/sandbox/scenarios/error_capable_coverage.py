@@ -75,20 +75,20 @@ GUIDANCE_FULL = "full"
 GUIDANCE_RISK = "risk"
 GUIDANCE_BEHAVIOUR = "behaviour"
 GUIDANCE_BLIND = "blind"
-#: Steer by what has actually violated: the menu is narrowed to the family/mechanism pair with the
-#: highest observed violation rate, every fourth Episode explores the least-visited pair instead,
-#: and the unobserved-cell rule is dropped so a direction that violated can be returned to.
-GUIDANCE_HITS = "hits"
+
 
 #: A registry, not a closed list: an arm is a name plus what it lets the selector see.  A new arm
 #: is one entry here and one entry in a queue file -- the run entry never learns how many arms
 #: exist, and adding one is not a change to the command line contract.
+#: Every guided arm alternates **focus**: even Episodes press what has already violated, odd ones
+#: open something new.  The four profiles differ only in what the exploring half is allowed to see
+#: -- behaviour and risk together, one of them, or nothing at all.  The menu is never narrowed and
+#: the choice is always the selector's; what changes is which evidence the reply is asked to weigh.
 GUIDANCE_PROFILES: dict[str, str] = {
     GUIDANCE_FULL: "behaviour and risk: the treatment",
     GUIDANCE_RISK: "risk only; behaviour is neither shown nor scored",
     GUIDANCE_BEHAVIOUR: "behaviour only; risk is neither shown nor scored",
     GUIDANCE_BLIND: "no feedback at all: the selector sees the frozen menu",
-    GUIDANCE_HITS: "hits first: press the family/mechanism pair that has been violating",
 }
 
 

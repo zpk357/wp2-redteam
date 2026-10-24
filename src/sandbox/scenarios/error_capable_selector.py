@@ -515,6 +515,8 @@ class LLMSelector:
             "menu": frozen_menu(request),
             "output_schema": SelectorDecision.model_json_schema(),
         }
+        if request.focus is not None:
+            result["focus"] = request.focus
         if request.feedback is not None:
             # Projected, not dumped: `CoverageFeedback` still carries the joint rung for the run's
             # own reading, and a full dump would put it in front of the selector (`VT-34`).

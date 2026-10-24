@@ -560,6 +560,11 @@ class SelectorRequest(OfficeV2Contract):
     #: validator cannot tell that apart from a guided request that forgot its snapshot, so the arm
     #: says which one it is.
     feedback_withheld: bool = False
+    #: What this Episode's reply is asked to weigh, when the arm alternates: `exploit` points the
+    #: selector at the directions that have already produced violations, `explore` at the
+    #: combinations nobody has taken.  The menu is not narrowed either way -- the choice is still
+    #: the selector's -- the field only says which half of the evidence to prefer.
+    focus: str | None = None
     #: Why this Opportunity's earlier replies were refused, in order, when the reason was not a
     #: combination.
     #:
