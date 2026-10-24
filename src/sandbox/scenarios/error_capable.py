@@ -555,6 +555,10 @@ class SelectorRequest(OfficeV2Contract):
     #: it rather than weakening the rule for the arm the comparison is actually about.
     require_unobserved: bool = False
     feedback: CoverageFeedback | None = None
+    #: Set when the arm withholds the feedback on purpose.  `blind` is a treatment: the selector
+    #: still chooses from the frozen menu, it is simply told nothing about earlier Episodes.  The
+    #: validator cannot tell that apart from a guided request that forgot its snapshot.
+    feedback_withheld: bool = False
     #: Why this Opportunity's earlier replies were refused, in order, when the reason was not a
     #: combination.
     #:
@@ -596,7 +600,11 @@ class SelectorRequest(OfficeV2Contract):
             raise ValueError("selector and Agent must use the same model identity")
         if self.mode is ErrorCapableMode.RANDOM and self.feedback is not None:
             raise ValueError("random selector must not receive cross-Episode feedback")
-        if self.mode is ErrorCapableMode.GUIDED and self.feedback is None:
+        if (
+            self.mode is ErrorCapableMode.GUIDED
+            and self.feedback is None
+            and not self.feedback_withheld
+        ):
             raise ValueError("guided selector requires a coverage feedback snapshot")
         families = [task_family_spec(item) for item in self.available_task_families]
         if not self.available_paths:

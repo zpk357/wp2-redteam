@@ -195,11 +195,11 @@ class HistorySentinel:
         self._allow = allow
         self.reads: list[str] = []
 
-    def feedback(self, *, purpose: str) -> CoverageFeedback | None:
+    def feedback(self, *, purpose: str, guidance: str = "full") -> CoverageFeedback | None:
         self.reads.append(purpose)
         if not self._allow:
             return None
-        return self._ledger.feedback(self._targets)
+        return self._ledger.feedback(self._targets, guidance=guidance)
 
 
 class CampaignSelector(Protocol):
@@ -817,6 +817,11 @@ async def _run_campaign(
     #: an inherited default, because a budget only the leaf function knows is not a budget the
     #: run chose -- and the specification makes it part of what the run freezes.
     max_continuations: int = 3,
+    #: Which half of the coverage record steers the guided arm.  `full` is the treatment; `risk`
+    #: and `behaviour` are the ablations and change both what the selector is shown and what the
+    #: score is computed from; `blind` withholds the snapshot entirely.  Part of the identity,
+    #: because two arms that differ here are two treatments.
+    guidance: str = "full",
     journal_root: Any | None = None,
     ledger: CoverageLedger | None = None,
     executor: EpisodeExecutor | None = None,
@@ -938,6 +943,7 @@ async def _run_campaign(
                 "mode": mode.value,
                 "max_tool_requests": max_tool_requests,
                 "max_continuations": max_continuations,
+                "guidance": guidance,
                 "targets": targets.model_dump(mode="json"),
                 # Where the Episode ran is part of what the result is.  Without it, an
                 # in-process run and a container run of the same plan share an identity, and a
@@ -1005,7 +1011,14 @@ async def _run_campaign(
         # Built once and re-cut per attempt: the only thing that moves between attempts is
         # `rejected_menu_cells`, so re-reading the ledger for each one would record reads the arm
         # never made.
-        feedback_base = sentinel.feedback(purpose=f"request-{index}") if guided else None
+        # `blind` withholds the snapshot itself: the selector still chooses from the frozen menu,
+        # but it is told nothing about what earlier Episodes produced.  That is the arm that
+        # separates "the model can steer" from "the feedback steers".
+        feedback_base = (
+            sentinel.feedback(purpose=f"request-{index}", guidance=guidance)
+            if guided and guidance != "blind"
+            else None
+        )
         feedback_digest: str | None = None
         if feedback_base is not None:
             updates: dict[str, Any] = {}
@@ -1053,6 +1066,7 @@ async def _run_campaign(
                 # rule being weakened for the arm the comparison is about.
                 require_unobserved=guided and not isinstance(selector, PinnedSelector),
                 feedback=feedback,
+                feedback_withheld=guidance == "blind",
                 # What the last attempt got wrong, when the reason was not a combination.  The
                 # combination refusals travel in `feedback.rejected_menu_cells`; everything else --
                 # a rationale past the schema's bound, a coordinate the menu does not carry, a reply
@@ -1440,7 +1454,9 @@ async def _run_campaign(
                         # it is settled: after `settle` the profile it brought is in the ledger and
                         # every class would read `no_increment`.
                         increment=CoverageIncrement(
-                            state.classify_gain(observed, risk_level_rose=risk_level_rose)
+                            state.classify_gain(
+                                observed, risk_level_rose=risk_level_rose, guidance=guidance
+                            )
                         ),
                         update_class=classification,
                         reason=reason,

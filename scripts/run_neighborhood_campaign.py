@@ -284,6 +284,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             seed=seed,
             max_tool_requests=args.max_tool_requests,
             max_continuations=args.max_continuations,
+            guidance=args.guidance,
             journal_root=arm_root,
             executor=executor,
             on_episode=_progress,
@@ -344,7 +345,18 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
         # the arms are compared to avoid -- a rate over a denominator that is not what it claims.
         (stage_root / "running.json").unlink(missing_ok=True)
         print(f"  pair summary not written: this root holds {sorted(reports)}")
-        return {"stage": args.stage, "repeat": args.repeat, "arms": sorted(reports)}
+        # The identity fields travel with the summary even when the pair is not written: the
+        # closing line reads them, and a single-arm run used to end in a `KeyError` after having
+        # done all of its work -- the run succeeded and the command still looked like a failure.
+        return {
+            "stage": args.stage,
+            "repeat": args.repeat,
+            "base_seed": seed,
+            "episodes_per_arm": episodes,
+            "arm_order": list(order),
+            "evidence_kind": evidence_kind,
+            "arms": sorted(reports),
+        }
 
     alignment = compare_arms(reports["guided"], reports["random"])
     payload = {
@@ -437,6 +449,12 @@ def main() -> int:
     #: the pair on its own, so a run that has to hand the machine back after the first arm can
     #: finish the second later without repeating the first.
     parser.add_argument("--arm", choices=("both", "guided", "random"), default="both")
+    #: Which half of the coverage record the guided selector is steered by.  `full` is the
+    #: treatment; `risk` and `behaviour` are ablations that change the feedback **and** the score;
+    #: `blind` withholds the snapshot and leaves the selector the frozen menu alone.
+    parser.add_argument(
+        "--guidance", choices=("full", "risk", "behaviour", "blind"), default="full"
+    )
     parser.add_argument("--executor", choices=("in-process", "container"), default="in-process")
     #: `memory` is what every result so far was produced by; `directory` writes the workspace out
     #: and reads it back, which is how a host run is put on the same terms as a container one.

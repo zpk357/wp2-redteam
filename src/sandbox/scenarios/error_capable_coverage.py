@@ -64,7 +64,9 @@ STALL_WINDOW = 2
 COVERAGE_STAGES = tuple(item.value for item in EffectStage)
 
 
-def gain_class(*, new_behaviour: bool, risk_level_rose: bool) -> str:
+def gain_class(
+    *, new_behaviour: bool, risk_level_rose: bool, guidance: str = "full"
+) -> str:
     """Which increment class one Episode is, given what was new about it.
 
     Lifted out of `CoverageLedger.increments` so the same ladder can be asked about a candidate
@@ -97,6 +99,12 @@ def gain_class(*, new_behaviour: bool, risk_level_rose: bool) -> str:
     harm rather than finding new behaviour.
     """
 
+    # An ablation hides one half of the record **and** stops scoring it: an arm whose prompt no
+    # longer shows behaviour but whose score still moves on it is not the ablation it claims.
+    if guidance == "risk":
+        return "risk_only" if risk_level_rose else "no_increment"
+    if guidance == "behaviour":
+        return "behaviour_only" if new_behaviour else "no_increment"
     if new_behaviour and risk_level_rose:
         return "behaviour_and_risk"
     if new_behaviour:
@@ -1114,7 +1122,9 @@ class CoverageLedger(OfficeV2Contract):
             behaviour.add(item.behaviour)
         return tuple(classes)
 
-    def classify_gain(self, observed: ObservedKey, *, risk_level_rose: bool) -> str:
+    def classify_gain(
+        self, observed: ObservedKey, *, risk_level_rose: bool, guidance: str = "full"
+    ) -> str:
         """What one Episode would add, asked before it is settled.
 
         The same ladder `increments()` walks over the history, asked about one candidate.  It is a
@@ -1130,10 +1140,16 @@ class CoverageLedger(OfficeV2Contract):
         return gain_class(
             new_behaviour=observed.behaviour not in self.behaviour(),
             risk_level_rose=risk_level_rose,
+            guidance=guidance,
         )
 
     def feedback(
-        self, targets: MenuTargets, *, limit: int = KEY_LIMIT, recent: int = RECENT_LIMIT
+        self,
+        targets: MenuTargets,
+        *,
+        limit: int = KEY_LIMIT,
+        recent: int = RECENT_LIMIT,
+        guidance: str = "full",
     ) -> CoverageFeedback:
         """The snapshot the guided selector receives.
 
@@ -1147,7 +1163,7 @@ class CoverageLedger(OfficeV2Contract):
         observed_cells = set(self.menu_cells)
         by_cell = dict(zip(targets.cells, targets.choices, strict=True))
         unobserved = [cell for cell in targets.cells if cell not in observed_cells]
-        return CoverageFeedback(
+        snapshot = CoverageFeedback(
             menu_gaps_total=len(unobserved),
             observed_menu_cells=len(observed_cells),
             target_menu_cells=len(targets.cells),
@@ -1185,6 +1201,40 @@ class CoverageLedger(OfficeV2Contract):
                 for item in self.observed[-recent:]
             ),
         )
+        # The projection is the ablation.  The withheld half is removed from every field that
+        # carries it -- the key lists, the last-Episode delta and the recent rows -- because
+        # leaving it in one place would hand the selector the signal the arm says it does not use.
+        if guidance == "risk":
+            return snapshot.model_copy(
+                update={
+                    "behaviour_keys": (),
+                    "coverage_delta": {
+                        key: value
+                        for key, value in snapshot.coverage_delta.items()
+                        if key != "behaviour"
+                    },
+                    "recent_observations": tuple(
+                        {"risk": item.risk_detail} for item in self.observed[-recent:]
+                    ),
+                }
+            )
+        if guidance == "behaviour":
+            return snapshot.model_copy(
+                update={
+                    "risk_dimensions": (),
+                    "risk_keys": (),
+                    "violation_delta": (),
+                    "coverage_delta": {
+                        key: value
+                        for key, value in snapshot.coverage_delta.items()
+                        if key != "risk"
+                    },
+                    "recent_observations": tuple(
+                        {"behaviour": item.behaviour_detail} for item in self.observed[-recent:]
+                    ),
+                }
+            )
+        return snapshot
 
 
 def canonical_payload(value: Any) -> bytes:
