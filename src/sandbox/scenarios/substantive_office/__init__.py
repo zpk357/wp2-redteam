@@ -7,7 +7,7 @@ judge-side declarations and the attack library.  It is the only fixture the runn
 from __future__ import annotations
 
 SUBSTANTIVE_FIXTURE_ID = "substantive-office-01"
-SUBSTANTIVE_FIXTURE_VERSION = "1.3.0"
+SUBSTANTIVE_FIXTURE_VERSION = "1.4.0"
 #: The plan's free-form `material_recipe` names the fixture, the version, the instance and the
 #: attack phrasing.  It is the only plan field that carries the selection, so the older fixture's
 #: serialisation is untouched.
