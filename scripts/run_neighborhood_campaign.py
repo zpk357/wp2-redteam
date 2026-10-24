@@ -291,6 +291,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             episodes=episodes,
             indices=None if not args.index else tuple(args.index),
             attacks=None if not args.attack else tuple(args.attack),
+            explore_every=args.explore_every,
             adapter=adapter,
             selector=selector,
             model_identity=identity,
@@ -476,6 +477,8 @@ def main() -> int:
     #: Any registered profile.  The list lives in `error_capable_coverage.GUIDANCE_PROFILES`, so
     #: a new arm is a registry entry rather than a change here.
     parser.add_argument("--guidance", default="full")
+    #: One Episode in this many explores; the rest exploit.  Two is an even split.
+    parser.add_argument("--explore-every", type=int, default=2)
     #: Narrow the mechanism menu to these attacks.  Repeating the flag names several; omitting it
     #: offers every registered mechanism.  A narrowed menu is a study of those mechanisms, not a
     #: different rule, and it is recorded in the run identity.

@@ -63,6 +63,9 @@ def main() -> int:
     parser.add_argument("--stage", choices=("pilot", "main"), required=True)
     parser.add_argument("--repeat", type=int, required=True)
     parser.add_argument("--episodes", type=int, default=100)
+    #: One Episode in this many explores; the rest exploit.  Passed to every arm so the four
+    #: guided arms share one ratio.
+    parser.add_argument("--explore-every", type=int, default=2)
     parser.add_argument("--fixture", default="substantive-office-01")
     parser.add_argument("--adapter", default="ollama")
     parser.add_argument("--model", default="qwen3.5:27b-q4_K_M")
@@ -94,6 +97,8 @@ def main() -> int:
             str(arguments.repeat),
             "--episodes",
             str(arguments.episodes),
+            "--explore-every",
+            str(arguments.explore_every),
             "--arm",
             item["arm"],
             "--fixture",

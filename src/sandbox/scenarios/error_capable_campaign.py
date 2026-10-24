@@ -840,6 +840,10 @@ async def _run_campaign(
     #: Narrow the mechanism menu, e.g. to the two deletion mechanisms.  `None` offers the whole
     #: registered set.  It narrows what the selector may choose; it does not change the rules.
     attacks: tuple[str, ...] | None = None,
+    #: One Episode in `explore_every` explores; the rest exploit.  Two is an even split, which
+    #: spends half the arm aiming at the risk dimension that is hardest to move.  The ratio is part
+    #: of the identity, because two arms with different ratios are two different treatments.
+    explore_every: int = 2,
     adapter: Any,
     selector: CampaignSelector,
     model_identity: ModelIdentity,
@@ -1009,6 +1013,7 @@ async def _run_campaign(
                 "max_continuations": max_continuations,
                 "guidance": guidance,
                 "attacks": sorted(attacks or ()),
+                "explore_every": explore_every,
                 "inference": dict(sorted((inference or {}).items())),
                 "targets": targets.model_dump(mode="json"),
                 # Where the Episode ran is part of what the result is.  Without it, an
@@ -1108,10 +1113,26 @@ async def _run_campaign(
         #: Every guided arm alternates what the reply is asked to weigh: exploitation on even
         #: Episodes, exploration on odd ones.  The blind arm is the exception -- it is given no
         #: history, so there is nothing to point at.  This changes the request, never the menu.
+        # The focus must not be a function of the index alone: the material instance is derived
+        # from `seed + index`, so deciding explore/exploit by parity tied each half to a fixed pair
+        # of instances and the split measured the material rather than the strategy.  A hash of
+        # the run seed and the index is a separate stream, uncorrelated with which instance the
+        # Episode draws.
         focus = (
             None
             if guidance == "blind"
-            else ("exploit" if index % 2 == 0 else "explore")
+            else (
+                "explore"
+                if int(
+                    sha256_digest(
+                        {"seed": seed, "index": index, "stream": "focus"}
+                    ).split(":")[-1],
+                    16,
+                )
+                % max(explore_every, 1)
+                == 0
+                else "exploit"
+            )
         ) if guided else None
         #: The exploring half lifts the four risk dimensions together, so it is aimed at the one
         #: furthest behind.  Read from the snapshot the selector is about to be shown, so the aim
