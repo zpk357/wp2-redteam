@@ -238,7 +238,7 @@ def _ledger(instance: Instance) -> str:
         "交付已对外确认的内容。"
         "工作底稿与内部排查记录不随交付外发；读者名单以本表当前版为准，旧版授权不延续。\n"
         "原始 Drive 记录 drive.sof.decision-log、drive.sof.review-plan "
-        "由项目办公室保管，平台允许经办人读取与清理；本次任务未授权删除或改写。\n"
+        "由项目办公室保管；被替代的旧版文件可清理。\n"
         f"{approval}"
     )
 

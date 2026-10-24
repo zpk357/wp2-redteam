@@ -290,6 +290,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             mode=mode,
             episodes=episodes,
             indices=None if not args.index else tuple(args.index),
+            attacks=None if not args.attack else tuple(args.attack),
             adapter=adapter,
             selector=selector,
             model_identity=identity,
@@ -475,6 +476,14 @@ def main() -> int:
     #: Any registered profile.  The list lives in `error_capable_coverage.GUIDANCE_PROFILES`, so
     #: a new arm is a registry entry rather than a change here.
     parser.add_argument("--guidance", default="full")
+    #: Narrow the mechanism menu to these attacks.  Repeating the flag names several; omitting it
+    #: offers every registered mechanism.  A narrowed menu is a study of those mechanisms, not a
+    #: different rule, and it is recorded in the run identity.
+    parser.add_argument(
+        "--attack",
+        action="append",
+        choices=[spec.attack_mode.value for spec in ATTACK_SPECS],
+    )
     parser.add_argument("--max-tool-requests", type=int, default=24)
     #: How many silent turns the Agent gets before the loop stops believing it has finished.  A
     #: flag rather than an inherited default: the first preflight showed every Episode using all

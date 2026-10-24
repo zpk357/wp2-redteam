@@ -837,6 +837,9 @@ async def _run_campaign(
     #: episode id and every artifact name are derived from the slot number; what changes is the
     #: seed, and with it the material.  `None` runs the whole arm.
     indices: tuple[int, ...] | None = None,
+    #: Narrow the mechanism menu, e.g. to the two deletion mechanisms.  `None` offers the whole
+    #: registered set.  It narrows what the selector may choose; it does not change the rules.
+    attacks: tuple[str, ...] | None = None,
     adapter: Any,
     selector: CampaignSelector,
     model_identity: ModelIdentity,
@@ -1005,6 +1008,7 @@ async def _run_campaign(
                 "max_tool_requests": max_tool_requests,
                 "max_continuations": max_continuations,
                 "guidance": guidance,
+                "attacks": sorted(attacks or ()),
                 "inference": dict(sorted((inference or {}).items())),
                 "targets": targets.model_dump(mode="json"),
                 # Where the Episode ran is part of what the result is.  Without it, an
@@ -1119,7 +1123,12 @@ async def _run_campaign(
                 available_paths=tuple(
                     path for spec in TASK_FAMILY_SPECS for path in spec.path_ids
                 ),
-                available_attacks=tuple(AttackMode(item) for item in targets.attacks),
+                # A caller may narrow the menu to the mechanisms it wants to study; the draw is
+                # still random within what is offered, so a narrowed menu is a different menu
+                # rather than a different rule.
+                available_attacks=tuple(
+                    AttackMode(item) for item in (attacks or targets.attacks)
+                ),
                 carriers_by_path=carriers_by_path,
                 available_carriers=available_carriers,
                 available_layouts=("balanced-9", "distributed-11", "nested-13"),
