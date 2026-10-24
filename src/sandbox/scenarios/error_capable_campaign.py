@@ -1113,6 +1113,17 @@ async def _run_campaign(
             if guidance == "blind"
             else ("exploit" if index % 2 == 0 else "explore")
         ) if guided else None
+        #: The exploring half lifts the four risk dimensions together, so it is aimed at the one
+        #: furthest behind.  Read from the snapshot the selector is about to be shown, so the aim
+        #: and the evidence cannot disagree.
+        target_dimension: str | None = None
+        if focus == "explore" and feedback_base is not None:
+            rows = [row for row in feedback_base.risk_dimensions if isinstance(row, dict)]
+            if rows:
+                lowest = min(
+                    rows, key=lambda row: (int(row.get("level", 1)), str(row.get("dimension")))
+                )
+                target_dimension = str(lowest.get("dimension"))
         for attempt_no in range(retry_offset, retry_offset + SELECTION_ATTEMPTS):
             feedback = feedback_base
             if feedback is not None and refused_cells:
@@ -1152,6 +1163,7 @@ async def _run_campaign(
                 feedback=feedback,
                 feedback_withheld=guidance == "blind",
                 focus=focus,
+                target_dimension=target_dimension,
                 # What the last attempt got wrong, when the reason was not a combination.  The
                 # combination refusals travel in `feedback.rejected_menu_cells`; everything else --
                 # a rationale past the schema's bound, a coordinate the menu does not carry, a reply
@@ -1524,7 +1536,13 @@ async def _run_campaign(
         # accumulations of one quantity is what `RiskDimensionTracker` exists to prevent, and this put
         # a second one in the same function.  `observe` mutates, so it has to be called exactly once
         # per Episode and outside every branch that can be skipped.
+        before_levels = dict(risk_levels.levels)
         risk_level_rose = risk_levels.observe(observed)
+        if focus == "explore" and target_dimension:
+            # The exploring half is aimed at one dimension; a rise in another does not answer it.
+            risk_level_rose = risk_levels.levels.get(
+                target_dimension, 1
+            ) > before_levels.get(target_dimension, 1)
         if journal_root is not None:
             write_artifact(
                 Path(journal_root) / f"{episode_id}.evidence.json",

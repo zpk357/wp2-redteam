@@ -565,6 +565,10 @@ class SelectorRequest(OfficeV2Contract):
     #: combinations nobody has taken.  The menu is not narrowed either way -- the choice is still
     #: the selector's -- the field only says which half of the evidence to prefer.
     focus: str | None = None
+    #: On an exploration turn, the risk dimension with the lowest level.  The exploring half is for
+    #: lifting the four dimensions together, and the one that is furthest behind is the one to lift;
+    #: naming it is what makes the half a target rather than a wish.
+    target_dimension: str | None = None
     #: Why this Opportunity's earlier replies were refused, in order, when the reason was not a
     #: combination.
     #:
