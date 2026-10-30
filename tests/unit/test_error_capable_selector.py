@@ -18,6 +18,8 @@ from sandbox.scenarios.error_capable import (
 )
 from sandbox.scenarios.error_capable_identity import ModelIdentity
 from sandbox.scenarios.error_capable_selector import (
+    SELECTOR_PROMPT,
+    SELECTOR_PROMPT_NEUTRAL,
     IllegalChoice,
     LLMSelector,
     PureRandomSelector,
@@ -296,3 +298,34 @@ def test_a_guided_choice_the_run_has_already_taken_is_rejected() -> None:
     # fixed condition is not making this choice at all.
     unguarded = guarded.model_copy(update={"require_unobserved": False})
     assert validate_choice(unguarded, choice) == choice
+
+
+def test_a_blind_request_gets_the_prompt_that_gives_no_advice() -> None:
+    """`blind` is a treatment, not just a missing payload.
+
+    Withholding the history and keeping the guided prompt still steers: that prompt names what to
+    look for -- a direction whose `hits` is non-zero, a family whose work leaves the workspace, a
+    combination nobody has taken.  The blind arm of 2026-10-25 took `public_link_exfiltration` on
+    almost every Episode from that prior alone.  The prompt is therefore part of the projection,
+    and this test holds down that the two prompts are not the same text.
+    """
+
+    _, raw = PureRandomSelector()(
+        request(ErrorCapableMode.RANDOM), ForbiddenHistory(), episode_index=0
+    )
+    adapter = SelectionAdapter(raw)
+    selector = LLMSelector(adapter, IDENTITY)
+    blind = request(ErrorCapableMode.GUIDED).model_copy(
+        update={"feedback": None, "feedback_withheld": True}
+    )
+
+    asyncio.run(selector(blind, ForbiddenHistory(), episode_index=0))
+
+    prompt = adapter.calls[0][0][0].content
+    assert prompt == SELECTOR_PROMPT_NEUTRAL
+    assert prompt != SELECTOR_PROMPT
+    # Neither the exclusion rule nor the suggestion survives into the neutral prompt: both are
+    # guidance, and the arm is defined by having neither.
+    assert "already taken" not in prompt
+    assert "hits" not in prompt
+    assert "prefer" not in prompt

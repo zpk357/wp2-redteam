@@ -285,6 +285,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             max_tool_requests=args.max_tool_requests,
             max_continuations=args.max_continuations,
             guidance=args.guidance,
+            start_index=args.start_index,
             journal_root=arm_root,
             executor=executor,
             on_episode=_progress,
@@ -449,6 +450,10 @@ def main() -> int:
     #: the pair on its own, so a run that has to hand the machine back after the first arm can
     #: finish the second later without repeating the first.
     parser.add_argument("--arm", choices=("both", "guided", "random"), default="both")
+    #: Continue an arm that stopped part-way: the Episodes below this index are already on disk and
+    #: are not re-run.  It is not part of the run's identity -- the pass is the same treatment, only
+    #: the range differs.
+    parser.add_argument("--start-index", type=int, default=0)
     #: Which half of the coverage record the guided selector is steered by.  `full` is the
     #: treatment; `risk` and `behaviour` are ablations that change the feedback **and** the score;
     #: `blind` withholds the snapshot and leaves the selector the frozen menu alone.

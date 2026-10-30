@@ -44,7 +44,7 @@ from sandbox.scenarios.error_capable import (
     materialize_scenario,
     task_family_spec,
 )
-from sandbox.scenarios.error_capable_agent import office_tool_specs
+from sandbox.scenarios.error_capable_agent import EpisodeTrace, office_tool_specs
 from sandbox.scenarios.error_capable_artifacts import read_artifact, write_artifact
 from sandbox.scenarios.error_capable_bridge import BridgedEvidence, bridge_trace
 # The executor interface, not the container runner: the runner imports the Docker client,
@@ -178,7 +178,33 @@ ALIGNMENT_VERSION = "error-capable-arm-alignment-v1"
 #: a pair run under an older rule is not comparable with one run under this.  `CAMPAIGN_VERSION`
 #: moves with it, so a receipt written under the old rule cannot be restored into a run using this
 #: one.
-SELECTION_ATTEMPTS = 16
+#: How many times one Episode may ask the selector before the arm gives up.  Sixteen was enough
+#: while the feedback carried every field; an arm that withholds one half leaves the model
+#: proposing cells the run has already taken, and sixteen refusals in a row ended two arms
+#: mid-run (`risk` at Episode 64, `behaviour` at 34).  The attempt is cheap -- it is one more
+#: question, not one more Episode -- and the loop still stops on a wedged selector.
+SELECTION_ATTEMPTS = 48
+
+def _free_cell_hint(state: Any, targets: Any, *, limit: int = 5) -> str | None:
+    """A few combinations the run has not taken yet, named for the selector.
+
+    The novelty rule is enforceable only if a reply can be aimed at something open.  A model told
+    what it may not repeat, and nothing about what is left, keeps proposing the handful of cells it
+    remembers; that is what ended `behaviour` at Episode 34 twice.  Naming the open cells does not
+    choose for the model -- every coordinate it may use is already in the menu it was shown.
+    """
+
+    taken = set(getattr(state, "menu_cells", ()) or ())
+    pairs = list(zip(getattr(targets, "cells", ()), getattr(targets, "choices", ()), strict=False))
+    free = [choice for cell, choice in pairs if cell not in taken]
+    if not free:
+        return None
+    keys = ("task_family", "path_id", "attack_mode", "attack_carrier", "layout_id")
+    sample = "; ".join("/".join(str(item.get(key, "?")) for key in keys) for item in free[:limit])
+    return (
+        f"{len(free)} combinations are still unopened; for example {sample}. "
+        "Name one of those or any other unopened combination."
+    )
 
 
 class HistorySentinel:
@@ -822,6 +848,10 @@ async def _run_campaign(
     #: score is computed from; `blind` withholds the snapshot entirely.  Part of the identity,
     #: because two arms that differ here are two treatments.
     guidance: str = "full",
+    #: The first Episode index this pass runs.  An arm that stopped part-way is continued in place:
+    #: the artefacts already on disk keep their numbers, the pass writes the rest, and the arm is
+    #: not thrown away because its last Episode wedged the selector.
+    start_index: int = 0,
     journal_root: Any | None = None,
     ledger: CoverageLedger | None = None,
     executor: EpisodeExecutor | None = None,
@@ -844,16 +874,28 @@ async def _run_campaign(
     this process, which is what every result so far was produced by.  Passing a container
     runner moves the loop and changes nothing downstream of the returned trace.
 
-    There is no way to continue a run that was made under different rules.  A resumed Campaign
-    re-executes every Episode from the first, because the score table and the coverage ledger both
-    start empty and are rebuilt by walking the Episodes in order; nothing here skips one that is
-    already settled.  So the frozen decisions of an earlier identity would be replayed *and* every
-    Episode re-run -- all of the cost of a fresh run, and a report made of two runs that nothing
-    distinguishes.  A changed harness gets a fresh run, and a new run root to put it in.
+    There is no way to continue a run that was made under different rules.  The score table, the
+    coverage ledger and the risk levels are rebuilt by walking the Episodes in order, and every
+    frozen decision is checked against the identity it was made under, so a changed harness gets a
+    fresh run and a new run root to put it in.
+
+    `start_index` continues an arm that stopped part-way.  It is not a way to skip work on a fresh
+    run: the Episodes before it are replayed from the evidence, selection and settlement files
+    already under `journal_root`, so the report still covers the whole arm and the next Episode
+    sees the state the interrupted pass left behind.  A missing prefix stops the run instead of
+    quietly producing a report over the tail.
     """
 
     if episodes < 1:
         raise ValueError("a campaign needs at least one Episode")
+    if not 0 <= start_index <= episodes:
+        raise ValueError(
+            f"start_index {start_index} is outside the Episode range 0..{episodes}"
+        )
+    if start_index and journal_root is None:
+        raise ValueError(
+            "continuing at a start_index needs the run root that holds the earlier Episodes"
+        )
     from sandbox.scenarios.error_capable_registry import ERROR_CAPABLE_FIXTURE_ID
 
     if fixture.fixture_id != ERROR_CAPABLE_FIXTURE_ID:
@@ -927,12 +969,9 @@ async def _run_campaign(
         # and a run that inherits state from the attempt it replaces is not a re-run.
         return root if round_no == 0 else root / f"round-{round_no}"
 
-    for index in range(episodes):
-        episode_id = _episode_id(mode, index)
-        artifact_path = (
-            None if journal_root is None else Path(journal_root) / f"{episode_id}.selection.json"
-        )
-        identity_digest = sha256_digest(
+    def _episode_identity(index: int) -> str:
+        """The digest that makes an Episode's artefacts belong to this run and no other."""
+        return sha256_digest(
             {
                 "version": CAMPAIGN_VERSION,
                 "fixture": fixture.freeze_digest,
@@ -952,6 +991,165 @@ async def _run_campaign(
                 "execution": episode_executor.environment.identity_payload(),
             }
         )
+
+    def _restore_prefix() -> None:
+        """Replay the Episodes before `start_index` from the artefacts already on disk.
+
+        `start_index` without this lost the prefix.  The pass ran only the Episodes from that
+        index on and returned a report holding only those, so an arm continued at 35 of 100
+        reported 65 Episodes against a denominator of 100 and the first 35 disappeared from
+        every readout -- the behaviour ablation of 2026-10-25 is exactly that shape.
+
+        The artefacts were never lost: evidence, selection and settlement are written per
+        Episode.  They are read back in order and folded in the way the first pass folded them,
+        so the score table, the coverage ledger, the risk levels and the refusal set are the
+        state the next Episode is actually entitled to see.
+        """
+        nonlocal state, table
+        for index in range(start_index):
+            episode_id = _episode_id(mode, index)
+            identity = _episode_identity(index)
+            evidence_path = Path(journal_root) / f"{episode_id}.evidence.json"
+            selection_path = Path(journal_root) / f"{episode_id}.selection.json"
+            if not evidence_path.is_file() or not selection_path.is_file():
+                raise ValueError(
+                    f"cannot continue at Episode {index}: {episode_id} has no evidence or"
+                    " selection on disk, so the prefix cannot be replayed"
+                )
+            evidence = read_artifact(evidence_path, identity=identity)
+            frozen = read_artifact(selection_path, identity=identity)
+            if frozen.get("status") != "selected":
+                raise ValueError(
+                    f"cannot continue at Episode {index}: {episode_id} has no accepted selection"
+                )
+            trace = EpisodeTrace.model_validate(evidence["trace"])
+            bridged = BridgedEvidence.model_validate(evidence["bridge"])
+            observed = ObservedKey.model_validate(evidence["coverage"])
+            decision = SelectorDecision.model_validate(frozen["decision"])
+            risk_level_rose = risk_levels.observe(observed)
+            settlement_path = (
+                None if settlements_dir is None else settlements_dir / f"{episode_id}.json"
+            )
+            if table is not None:
+                stored = _load_settlement(
+                    settlement_path, index=index, identity=identity, table=table
+                )
+                if stored is not None:
+                    table, _ = table.with_event(stored)
+                else:
+                    before = table.digest()
+                    classification, reason = classify_opportunity(
+                        episode_present=True, bridge=bridged, stop_reason=trace.stop_reason
+                    )
+                    event = score_for_event(
+                        table,
+                        PriorityEvent(
+                            opportunity_id=episode_id,
+                            episode_index=index,
+                            mode=mode.value,
+                            episode_id=episode_id,
+                            neighborhood_id=neighborhood_of(
+                                decision.task_family.value, decision.path_id
+                            ),
+                            cell=_cell_of(decision),
+                            increment=CoverageIncrement(
+                                state.classify_gain(
+                                    observed,
+                                    risk_level_rose=risk_level_rose,
+                                    guidance=guidance,
+                                )
+                            ),
+                            update_class=classification,
+                            reason=reason,
+                            evidence={
+                                "trace_digest": trace.trace_digest,
+                                "coverage_digest": observed.evidence_digest,
+                            },
+                        ),
+                    )
+                    table, _ = table.with_event(event)
+                    feedback_payload = (frozen.get("request") or {}).get("feedback")
+                    _write_settlement(
+                        settlement_path,
+                        opportunity_id=episode_id,
+                        index=index,
+                        mode=mode,
+                        identity=identity,
+                        status="settled",
+                        cell=_cell_of(decision),
+                        event=event,
+                        table_before=before,
+                        table_after=table.digest(),
+                        feedback_digest=(
+                            None
+                            if feedback_payload is None
+                            else sha256_digest(feedback_payload)
+                        ),
+                        detail={
+                            "stop_reason": trace.stop_reason,
+                            "classification_reason": event.reason,
+                        },
+                    )
+            cell = next(
+                (
+                    candidate
+                    for candidate, choice in zip(targets.cells, targets.choices, strict=True)
+                    if choice == _cell_of(decision)
+                ),
+                None,
+            )
+            if cell is None:
+                raise ValueError(
+                    f"cannot continue at Episode {index}: the stored decision is not a cell of"
+                    " the frozen menu"
+                )
+            state, settled = state.settle(observed, cell=cell)
+            records.append(
+                CampaignEpisodeRecord(
+                    index=index,
+                    mode=mode,
+                    episode_id=episode_id,
+                    selector=SelectorReceipt.model_validate(frozen["receipt"]),
+                    first_input_digest=trace.first_input.payload_digest,
+                    tool_menu_digest=trace.first_input.tool_menu_digest,
+                    trace_digest=trace.trace_digest,
+                    bridge_digest=sha256_digest(bridged.model_dump(mode="json")),
+                    stop_reason=trace.stop_reason,
+                    observed=observed,
+                    settled_coverage=settled,
+                    unresolved=trace.unresolved,
+                    # Execution notes are the executor's word about how it ran.  They are not in
+                    # the evidence file, and writing them from here would be a claim the disk
+                    # does not carry.
+                    execution_notes=(),
+                )
+            )
+            sentinel_reads.extend(frozen.get("history_reads") or ())
+            if frozen.get("attempt"):
+                selection_attempts.append(SelectorAttempt.model_validate(frozen["attempt"]))
+            for attempt_path in sorted(
+                selection_path.parent.glob(f"{episode_id}.selection.attempt-*.json")
+            ):
+                attempt_record = read_artifact(attempt_path, identity=identity)
+                if attempt_record.get("status") == "rejected":
+                    rejected.append(attempt_record)
+                more = refusable_cell(attempt_record.get("refused_coordinate"))
+                if more is not None and more not in refused_cells:
+                    refused_cells.append(more)
+                if attempt_record.get("attempt"):
+                    selection_attempts.append(
+                        SelectorAttempt.model_validate(attempt_record["attempt"])
+                    )
+
+    if start_index:
+        _restore_prefix()
+
+    for index in range(start_index, episodes):
+        episode_id = _episode_id(mode, index)
+        artifact_path = (
+            None if journal_root is None else Path(journal_root) / f"{episode_id}.selection.json"
+        )
+        identity_digest = _episode_identity(index)
         frozen = None
         #: Where this Opportunity's attempt numbering picks up.  Non-zero only when an earlier run
         #: left refused attempts behind and this one carries on from them, so the records accumulate
@@ -1148,6 +1346,13 @@ async def _run_campaign(
                 # belonged to.
                 rejected.append(failure)
                 episode_refusals.append(str(exc))
+                # Telling the model which combinations are still open is not choosing for it: the
+                # rule "pick an unopened combination" is only enforceable if the reply can be
+                # aimed, and sixteen refusals in a row is what a model does when it is told what
+                # not to pick and nothing about what is left.
+                hint = _free_cell_hint(state, targets)
+                if hint is not None:
+                    episode_refusals.append(hint)
                 decision = None
         if decision is None:
             # The retry budget ran out with every proposal refused.  This stops the Campaign, and

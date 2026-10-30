@@ -782,11 +782,17 @@ def test_a_refusal_without_a_coordinate_still_changes_the_next_request() -> None
     assert first == (), "a first attempt has nothing to be told"
     # The one that matters: the second question is not the first question.
     assert second != first
-    assert second == ("rationale: String should have at most 1000 characters",)
-    # And it keeps growing rather than being deduplicated: refusing the same way twice is exactly
-    # the case the field exists for, so collapsing repeats would rebuild the defect.
-    assert third == second * 2
-    assert len(third) == 2
+    assert second[0] == "rationale: String should have at most 1000 characters"
+    # And the run also says which combinations are still open.  A model told only what it may not
+    # repeat keeps proposing the handful of cells it remembers, which is how `behaviour` ran out of
+    # 48 attempts at Episode 34 and how `risk` stopped at 64.  The hint is not a choice: every
+    # coordinate in it is already on the frozen menu the selector was shown.
+    assert len(second) == 2
+    assert "combinations are still unopened" in second[1]
+    # It keeps growing rather than being deduplicated: refusing the same way twice is exactly the
+    # case the field exists for, so collapsing repeats would rebuild the defect.
+    assert third[:2] == second
+    assert len(third) == 4
 
 
 def test_role_reads_preserve_sequence_and_match_the_actual_path() -> None:
@@ -1249,3 +1255,90 @@ def test_campaign_resumes_an_interrupted_tool_batch_without_reselecting(tmp_path
     calls = adapter.agent_calls
     assert run() == report
     assert adapter.agent_calls == calls and len(adapter.selection_payloads) == 1
+
+
+def test_continuing_at_a_start_index_replays_the_prefix_instead_of_dropping_it(tmp_path) -> None:
+    """`--start-index` has to carry the arm forward, not start a shorter arm at Episode N.
+
+    The 2026-10-25 ablation continued the `behaviour` arm at Episode 35 of 100, and the report came
+    out with 65 Episodes and a denominator of 100: the first 35 vanished from every readout even
+    though their evidence, selection and settlement files were on disk.  The prefix is replayed
+    from those files here, and the assertion is the shape a reader needs -- every index is
+    present, and the selector is not asked to choose the prefix again.
+    """
+
+    class _Counting(ScriptedSelector):
+        name = "counting-scripted-selector"
+
+        def __init__(self):
+            super().__init__(path_ids=PATH_IDS, attacks=ATTACKS)
+            self.calls = 0
+
+        def __call__(self, request, history, *, episode_index):  # noqa: ANN001
+            self.calls += 1
+            return super().__call__(request, history, episode_index=episode_index)
+
+    def run(episodes: int, start_index: int, selector: ScriptedSelector):
+        return asyncio.run(
+            run_campaign(
+                fixture=FIXTURE,
+                mode=ErrorCapableMode.GUIDED,
+                episodes=episodes,
+                adapter=DiscoveryScriptedAgent(),
+                selector=selector,
+                model_identity=IDENTITY,
+                seed=7,
+                journal_root=tmp_path,
+                start_index=start_index,
+            )
+        )
+
+    selector = _Counting()
+    first = run(2, 0, selector)
+    assert selector.calls == 2
+
+    resumed = run(4, 2, selector)
+    assert [item.index for item in resumed.episodes] == [0, 1, 2, 3]
+    assert resumed.opportunities == 4
+    assert len(resumed.ledger.settled) == 4
+    assert resumed.priority is not None and len(resumed.priority.applied) == 4
+    # The prefix is the same record, not a re-run that happens to look alike.
+    assert resumed.episodes[:2] == first.episodes
+    assert selector.calls == 4, "the prefix must be replayed, not selected again"
+
+
+def test_continuing_without_the_prefix_refuses_instead_of_reporting_the_tail(tmp_path) -> None:
+    """A report over the tail is not the arm.  A missing prefix stops the run and says why."""
+
+    with pytest.raises(ValueError, match="cannot continue at Episode 0"):
+        asyncio.run(
+            run_campaign(
+                fixture=FIXTURE,
+                mode=ErrorCapableMode.GUIDED,
+                episodes=2,
+                adapter=DiscoveryScriptedAgent(),
+                selector=_selector(),
+                model_identity=IDENTITY,
+                seed=7,
+                journal_root=tmp_path,
+                start_index=1,
+            )
+        )
+
+
+def test_the_free_cell_hint_names_unopened_cells_and_nothing_when_all_are_taken() -> None:
+    from sandbox.scenarios.error_capable_campaign import _free_cell_hint
+
+    keys = ("task_family", "path_id", "attack_mode", "attack_carrier", "layout_id")
+    taken = TARGETS.choices[0]
+    state = SimpleNamespace(menu_cells=(TARGETS.cells[0],))
+
+    hint = _free_cell_hint(state, TARGETS, limit=1)
+    assert hint is not None
+    assert hint.startswith(f"{len(TARGETS.cells) - 1} combinations are still unopened")
+    sample = hint.split("for example ", 1)[1].split(". Name", 1)[0]
+    assert sample == "/".join(TARGETS.choices[1][key] for key in keys)
+    assert "/".join(taken[key] for key in keys) not in hint
+
+    all_taken = SimpleNamespace(menu_cells=tuple(TARGETS.cells))
+    assert _free_cell_hint(all_taken, TARGETS) is None
