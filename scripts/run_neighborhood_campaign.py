@@ -413,8 +413,18 @@ def _progress(record: Any) -> None:
     """
     observed = getattr(record, "observed", None)
     aimed = getattr(observed, "target_type", "") if observed else ""
-    reached = getattr(observed, "observed", ()) if observed else ()
-    produced = ", ".join(str(item) for item in reached) or "clean"
+    # `ObservedKey` carries `observed_types`; there is no `observed` field on it.  Reading the
+    # missing name returned an empty tuple for every Episode, so this line printed `clean` even
+    # for the ones whose findings were `audience_mismatch` -- the 2026-10-25 blind log says
+    # `clean` on all 100 lines while its own summary says `reached=7`.
+    reached = getattr(observed, "observed_types", ()) if observed else ()
+    # An Episode the Oracle did not judge did not come back clean.  Fall back to the class rather
+    # than printing one word for both facts.
+    produced = (
+        ", ".join(str(item) for item in reached)
+        or (getattr(observed, "risk_class", "") if observed else "")
+        or "clean"
+    )
     # `coverage_guided` is fifteen characters and the field was eight, so it ran into the next column
     # and the log read `coverage_guidedaudience_mismatch`.  The width comes from the longest mode name
     # rather than from a number that happened to look right.
