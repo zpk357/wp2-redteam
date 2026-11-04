@@ -4,9 +4,6 @@ from importlib import import_module
 from typing import Any
 
 from sandbox.coverage.behavior import BehaviorFeatureExtractor
-from sandbox.coverage.correlation import BehaviorRiskCorrelator
-from sandbox.coverage.feedback import CampaignCoverageFeedbackBuilder
-from sandbox.coverage.heatmap import HeatmapGenerator
 from sandbox.coverage.models import (
     BehaviorFeature,
     BehaviorFeatureKind,
@@ -37,11 +34,6 @@ from sandbox.coverage.models import (
     RiskReachability,
     RiskStage,
     RiskTaxonomy,
-)
-from sandbox.coverage.office_risk import (
-    OFFICE_RISK_MAPPING_DIGEST,
-    OFFICE_RISK_MAPPING_VERSION,
-    OfficeRiskMapper,
 )
 from sandbox.coverage.v2_behavior import (
     V2_BEHAVIOR_FEATURE_SCHEMA_DIGEST,
@@ -151,10 +143,8 @@ __all__ = [
     "BehaviorFeatureExtractor",
     "BehaviorFeatureKind",
     "BehaviorProfile",
-    "BehaviorRiskCorrelator",
     "BehaviorRiskLink",
     "CampaignCoverageFeedback",
-    "CampaignCoverageFeedbackBuilder",
     "CampaignRiskScope",
     "CoverageInput",
     "CoverageInputResolver",
@@ -165,14 +155,10 @@ __all__ = [
     "EvidenceReference",
     "EvidenceRule",
     "HeatmapCell",
-    "HeatmapGenerator",
     "OfficeBaselineActionEvidence",
     "OfficeExecutionEvidence",
     "OfficeToolExecutionEvidence",
     "PathRiskHeatmapCell",
-    "OfficeRiskMapper",
-    "OFFICE_RISK_MAPPING_DIGEST",
-    "OFFICE_RISK_MAPPING_VERSION",
     "PrettyHeatmapCell",
     "PrettyHeatmapColumn",
     "PrettyHeatmapReport",
