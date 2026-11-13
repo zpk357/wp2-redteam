@@ -37,9 +37,11 @@ from pydantic import Field, JsonValue
 
 from sandbox.replay.digests import sha256_digest
 from sandbox.scenarios.error_capable import (
+    ConstraintDisclosure,
     EpisodeScenarioPlan,
     MaterializedScenario,
     derive_scenario_actor,
+    disclose_constraints,
     materialize_office_world,
     restrict_capabilities,
 )
@@ -60,8 +62,13 @@ from sandbox.scenarios.office_v2.models import (
 from sandbox.scenarios.office_v2.tools import office_v2_tool_definitions
 from sandbox.scenarios.office_v2.tools.contracts import (
     OFFICE_V2_TOOL_CONTRACT_VERSION,
+    ArgumentSource,
     OfficeToolInvocation,
     OfficeToolResult,
+)
+from sandbox.scenarios.office_v2.tools.provenance import (
+    infer_binding_argument_sources,
+    infer_exact_argument_sources,
 )
 from sandbox.scenarios.office_v2.tools.runtime import OfficeV2ToolRuntime, ToolSessionCursor
 from sandbox.scenarios.office_v2.workspace_fs import WorkspaceFileSystem
@@ -539,6 +546,10 @@ class EpisodeJournal(OfficeV2Contract):
     fixture_freeze_digest: Sha256Digest
     plan_digest: Sha256Digest
     materialization_digest: Sha256Digest
+    #: The protected-fact table and the delivery authorisation this Episode ran under.  `None` on a
+    #: journal written before 2026-11-12: those runs predate the disclosure and their third table is
+    #: unrecoverable, which is recorded rather than guessed (`SPEC.md` §14.2, `TASK.md` TASK-02a).
+    constraints: ConstraintDisclosure | None = None
     model_identity: ModelIdentity
     adapter_version: str
     actor_case: str
@@ -579,7 +590,15 @@ class EpisodeJournal(OfficeV2Contract):
     journal_digest: Sha256Digest
 
     def digest_payload(self) -> dict[str, Any]:
-        return self.model_dump(mode="json", exclude={"journal_digest"}, exclude_none=False)
+        payload = self.model_dump(mode="json", exclude={"journal_digest"}, exclude_none=False)
+        # A journal written before 2026-11-12 has no `constraints` key on disk.  Serialising one
+        # would add `"constraints": null` to the payload and change the digest of every historical
+        # journal, turning "this run predates the disclosure" into "this run is corrupt" for 334
+        # checkpoints.  Dropping the key when it is absent keeps old digests valid and still covers
+        # every new one, because a new journal always has a disclosure here.
+        if self.constraints is None:
+            payload.pop("constraints", None)
+        return payload
 
     def seal(self) -> EpisodeJournal:
         return self.model_copy(update={"journal_digest": sha256_digest(self.digest_payload())})
@@ -642,6 +661,17 @@ class EpisodeJournal(OfficeV2Contract):
             ).payload_digest
         ):
             found.append("first_input")
+        # A journal without the disclosure predates it and is tolerated on purpose: refusing to
+        # resume every historical run would trade one missing field for a broken recovery path.
+        # What is not tolerated is a disclosure that no longer matches the material -- that is a
+        # changed table rather than an old one, and the two must not read the same.
+        expected_disclosure = disclose_constraints(material).disclosure_digest
+        if self.constraints is None:
+            return tuple(found)
+        if self.constraints.disclosure_digest != expected_disclosure:
+            found.append("constraints")
+        if not self.constraints.digest_is_valid():
+            found.append("constraints-corrupt")
         return tuple(found)
 
 
@@ -653,6 +683,30 @@ AgentAdapter = ReactModelProvider
 
 class BudgetExhausted(RuntimeError):
     """The step budget ran out before the Agent stopped on its own."""
+
+
+def claim_argument_sources(
+    runtime: OfficeV2ToolRuntime, arguments: dict[str, JsonValue]
+) -> tuple[ArgumentSource, ...]:
+    """Attribute each argument to the evidence the Agent could have read it from.
+
+    ``OfficeV2ToolRuntime.invoke`` takes ``argument_sources`` as an *input*; it never infers
+    them.  Until 2026-11-12 this controller passed nothing, so every Episode recorded an empty
+    tuple -- the dependency evidence ``SPEC.md`` EV-04 requires did not exist for any run, not
+    just the drive tools.  Measured on the 2026-10-25 roots and confirmed again on a live
+    2-Episode run: every ``argument_sources`` was ``[]``.
+
+    Nothing here is guessed.  A source is claimed only when the argument value matches a
+    previously observed output field (exact value) or cites a resource an earlier result
+    observed (resource reference); a literal the Agent wrote itself therefore claims nothing.
+    """
+
+    exact = infer_exact_argument_sources(dict(arguments), runtime.results)
+    claimed = {source.argument_path for source in exact}
+    binding = infer_binding_argument_sources(
+        dict(arguments), runtime.binding_evidence, claimed_paths=claimed
+    )
+    return (*exact, *binding)
 
 
 def _tool_message(call_id: str, name: str, result: OfficeToolResult) -> ReactMessage:
@@ -870,6 +924,7 @@ async def run_agent_episode(
             "fixture_freeze_digest": fixture.freeze_digest,
             "plan_digest": plan_digest,
             "materialization_digest": material.materialization_digest,
+            "constraints": disclose_constraints(material),
             "model_identity": model_identity,
             "adapter_version": adapter.version,
             "actor_case": actor_case,
@@ -931,7 +986,11 @@ async def run_agent_episode(
                     )
                 )
                 continue
-            result = runtime.invoke(pending_request.tool_name, dict(pending_request.arguments))
+            result = runtime.invoke(
+                pending_request.tool_name,
+                dict(pending_request.arguments),
+                argument_sources=claim_argument_sources(runtime, pending_request.arguments),
+            )
             steps.append(
                 ToolStep(
                     request=pending_request,
@@ -1085,7 +1144,11 @@ async def run_agent_episode(
             # to run in this turn is recorded with it -- listing only the call in flight would let a
             # resumed Episode jump to the next turn and silently drop the rest of this one.
             checkpoint(phase=JournalPhase.BEFORE_CALL, pending=tuple(turn_requests[offset:]))
-            result = runtime.invoke(request.tool_name, dict(request.arguments))
+            result = runtime.invoke(
+                request.tool_name,
+                dict(request.arguments),
+                argument_sources=claim_argument_sources(runtime, request.arguments),
+            )
             invocation = runtime.invocations[-1]
             committed = None
             if result.state_transition is not None and result.state_transition.committed:

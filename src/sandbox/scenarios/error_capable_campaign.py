@@ -910,7 +910,14 @@ async def _run_campaign(
             raise ValueError(
                 "selector and Agent must share the same adapter and full model identity"
             )
-    elif not isinstance(selector, (ScriptedSelector, PureRandomSelector, PinnedSelector)):
+    elif not (
+        isinstance(selector, (ScriptedSelector, PureRandomSelector, PinnedSelector))
+        or getattr(selector, "is_contract_selector", False)
+    ):
+        # A deterministic selector that declares `is_contract_selector` is admitted
+        # on the same footing as `ScriptedSelector`: it makes no model call, so the
+        # "guided means a model" identity does not apply to it, and the declaration
+        # is explicit rather than inferred from the presence of `__call__`.
         raise ValueError(
             "guided requires an LLMSelector, an explicit contract ScriptedSelector, or a"
             " PinnedSelector control"
