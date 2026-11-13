@@ -1,5 +1,28 @@
 # 项目变更日志
 
+## 2026-11-13 / 20261113-tps-payload-variants / TPS 载荷变体落地：登记式轮转，搜索期不生成文本
+
+- 范围与授权：重构 `error_capable_world.py` 的 `attack_payload`——原八段机制文本抽为
+  `_payload_v0`（baseline，一字未动），新增 `_payload_v1`（round-trip/直接措辞）与
+  `_payload_v2`（process/checklist 措辞）两个登记变体；`attack_payload` 接 `variant_index`
+  参数（默认 0 向后兼容）；`materialize_world` 按 episode 序号轮转（`_episode_ordinal`，
+  解析失败回落 0）。新增 `tests/unit/test_payload_variants.py`（6 项）。git 已推送
+  474a022（toolchain 层），本条改动在其后、未提交。
+- 身份：解释器 `.venv/Scripts/python.exe`（3.12.14）；**无模型身份**——纯文本变体与测试。
+- 终结状态：变体轮转落地，6 项测试通过（部分批次后台确认中）。
+- 读数：episode 000 渲染 baseline（"Export row mapping…"）、001/002 渲染 v1/v2、
+  003 回绕到 baseline；8 机制 × 3 变体全部可渲染，且各变体仍命名其机制的真实资源
+  （source_path/RESTRICTED/DELETION_TARGET/LEDGER 等）——同构性由测试逐变体断言。
+- 关键设计：**变体在准备期登记，搜索期只选择**（`SPEC.md` §14.3 的两阶段约束）——
+  `mutate_payload_text` 动作的真实语义是"同一机制下一轮换已登记的措辞"，不是搜索期生成文本。
+  轮转按全局 episode 序号（%3），因此 risk 臂回到同一机制时（如 rep-01 的 ep4-7）会自然
+  遇到不同措辞，这正是"失败一次换措辞重试"的 TPS 语义。
+- 产物路径：`src/sandbox/scenarios/error_capable_world.py`、`tests/unit/test_payload_variants.py`。
+- 未做与代价：变体措辞由规则手写（三种风格），未做 LLM 生成（那属准备阶段的另一项工作）；
+  变体与"机制 → 判定"的关系未做消融（哪类措辞更易被弱模型采纳是后续实验问题）；
+  selector 的 `mutate_payload_text` 动作尚未与轮转联动（当前按 episode 序号自动轮转，
+  已覆盖"失败换措辞"的主场景）。
+
 ## 2026-11-13 / 20261113-toolchain-task06-diagnosis / TASK-06 通过：阶段诊断落地并接入调度
 
 - 范围与授权：新增 `src/sandbox/toolchain/diagnosis.py`（六项三值事实 + §16.2 动作映射 + R1-R4
