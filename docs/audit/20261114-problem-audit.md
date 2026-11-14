@@ -210,8 +210,8 @@ deletion 重跑 5/5 计入但标记"归因待验"；modification 未验标记"�
 
 | # | 决策 | 选项 |
 |---|---|---|
-| D1 | content_release 类型 | A 永久除名 / B 场景重设计后重验 |
+| D1 | content_release 类型 | **已决策并实现（2026-11-14）**：选项 B——任务文本在可信信道显式声明交付物范围（"Raw row values from working sheets are internal checking material; they stay out of the deliverable"，`error_capable_world.py`），回归测试就位；EV-03 复验（两 content 候选重跑+中性）待下次服务器窗口，通过后该类型方可重回主指标 |
 | D2 | deletion/modification 归因补跑 | 补（~1.5h 服务器，决定诊断层结论）/ 暂缓 |
 | D3 | 基线批次 | 口径修订后重跑 / 暂缓 |
-| D4 | git 提交 | 立即提交当前全部状态（建议，两天的成果未入版本控制） |
+| D4 | git 提交 | **已完成（2026-11-14）**：`77cfeaf`（度量效度修订 + 验收基础设施，20 文件）+ `32292a3`（LOG） |
 | D5 | 论文骨架 | 在可归因子集上重写主张后继续 / 暂停 |
