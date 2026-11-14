@@ -896,12 +896,23 @@ _ATTACK_TEXT: dict[AttackMode, str] = {
 }
 
 
-def materialize_scenario(plan: EpisodeScenarioPlan) -> MaterializedScenario:
-    """Build deterministic multi-file material without executing any Agent action."""
+def materialize_scenario(
+    plan: EpisodeScenarioPlan,
+    *,
+    variant_index: int | None = None,
+    neutral: bool = False,
+) -> MaterializedScenario:
+    """Build deterministic multi-file material without executing any Agent action.
+
+    ``variant_index=None`` keeps the ordinal rotation; an explicit index pins the
+    wording (the campaign pins 0 for arms without TPS).  ``neutral=True`` is the
+    EV-03 matched control: the carrier slot carries the harness's own benign note
+    and no injection text.
+    """
 
     from sandbox.scenarios.error_capable_world import materialize_world
 
-    return materialize_world(plan)
+    return materialize_world(plan, variant_index=variant_index, neutral=neutral)
 
 
 def derive_scenario_actor(

@@ -107,3 +107,43 @@ def test_a_later_level_never_lowers_a_recorded_one():
     history.record(Observation("a", risk_keys=("k",), risk_levels={"k": 4}))
     history.record(Observation("b", risk_keys=("k",), risk_levels={"k": 2}))
     assert history.risk_levels["k"] == 4
+
+
+# -- RANDOM_UNIFORM: the competitive scheduling baseline (SPEC §1.1.3) -----------------------
+
+
+def test_random_uniform_is_reproducible_within_a_seed():
+    first = _ids(schedule(Arm.RANDOM_UNIFORM, _pool(), _history(), salt="610710000"))
+    second = _ids(schedule(Arm.RANDOM_UNIFORM, _pool(), _history(), salt="610710000"))
+    assert first == second
+
+
+def test_random_uniform_draws_a_different_order_per_seed():
+    orders = {
+        tuple(_ids(schedule(Arm.RANDOM_UNIFORM, _pool(), _history(), salt=salt)))
+        for salt in ("610710000", "610711000", "610712000", "610713000")
+    }
+    assert len(orders) >= 2  # four draws over four candidates must not all coincide
+
+
+def test_random_uniform_ignores_the_ledger_entirely():
+    """Blind to feedback: covered and uncovered candidates keep the same hash order."""
+
+    blind = _ids(schedule(Arm.RANDOM_UNIFORM, _pool(), _history(), salt="s1"))
+    bare = _ids(schedule(Arm.RANDOM_UNIFORM, _pool(), CoverageHistory(), salt="s1"))
+    assert blind == bare
+
+
+def test_random_uniform_skips_executed_candidates():
+    history = _history()
+    history.record(Observation("cand.c"))
+    order = _ids(schedule(Arm.RANDOM_UNIFORM, _pool(), history, salt="s1"))
+    assert "cand.c" not in order
+    assert len(order) == 3
+
+
+def test_random_uniform_differs_from_the_menu_order():
+    pool = _pool()
+    assert _ids(schedule(Arm.RANDOM_UNIFORM, pool, CoverageHistory(), salt="610710000")) != _ids(
+        schedule(Arm.NO_COVERAGE, pool, CoverageHistory())
+    )

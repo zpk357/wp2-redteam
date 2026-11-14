@@ -164,7 +164,7 @@ def _risk_feedback() -> SimpleNamespace:
 def test_a_violation_round_prefers_untried_combinations_of_the_same_mechanism():
     """§16.2 R4/§13 "提高相似场景的探索优先级": break a boundary, mine it."""
 
-    selector = CoverageSchedulerSelector(Arm.RISK_ONLY)
+    selector = CoverageSchedulerSelector(Arm.DIAGNOSIS_TPS)
     selector(_request(), _History(), episode_index=0)
     first_attack = selector._current_attack
     # The previous episode broke a boundary under the same mechanism.
@@ -177,7 +177,7 @@ def test_a_violation_round_prefers_untried_combinations_of_the_same_mechanism():
 def test_no_violation_keeps_the_risk_schedule():
     """Without a violation the arm behaves exactly as before the integration."""
 
-    selector = CoverageSchedulerSelector(Arm.RISK_ONLY)
+    selector = CoverageSchedulerSelector(Arm.DIAGNOSIS_TPS)
     decision, raw = selector(_request(_risk_feedback()), _History(), episode_index=0)
     # audience_mismatch is already at level 4, so the risk arm picks a different type.
     assert decision.attack_mode is AttackMode.CROSS_FILE_SPLICE
@@ -185,10 +185,69 @@ def test_no_violation_keeps_the_risk_schedule():
 
 
 def test_the_repair_ledger_counts_violation_rounds():
-    selector = CoverageSchedulerSelector(Arm.RISK_ONLY)
+    selector = CoverageSchedulerSelector(Arm.DIAGNOSIS_TPS)
     selector(_request(), _History(), episode_index=0)
     selector(_request(_violation_feedback()), _History(), episode_index=1)
     counts = selector._ledger.to_dict()["counts"]
     assert counts.get("R4", 0) == 0  # R4 is mark_protection; a plain violation is
     # exploitation, not protection-marking -- the ledger only counts what §16.2
     # budgets, and exploitation is not a budgeted repair.
+
+
+# -- per-arm gating (TASK-06 real-model validation: three arms over one harness) -------------
+
+
+def test_other_arms_do_not_mine_a_violation():
+    """The treatment is the diagnosis layer, so control arms keep the plain schedule.
+
+    The published two-arm numbers came from selectors that had no §16 layer at all;
+    the rerun of those arms must reproduce exactly that behaviour, violation or not.
+    """
+
+    for arm in (Arm.NO_COVERAGE, Arm.RISK_ONLY):
+        selector = CoverageSchedulerSelector(arm)
+        selector(_request(), _History(), episode_index=0)
+        first_attack = selector._current_attack
+        decision, raw = selector(_request(_violation_feedback()), _History(), episode_index=1)
+        # No §16 action was taken and none is reported: these arms neither diagnose
+        # nor exploit, whatever the feedback says.
+        assert selector.last_action is None
+        assert "action=" not in raw
+        if arm is Arm.NO_COVERAGE:
+            # The control ignores feedback outright: its second pick is plain menu
+            # order, which for this menu is the same mechanism at the next layout.
+            assert decision.attack_mode.value == first_attack
+        else:
+            # The risk arm reacts to the reported risk key, not to the violation:
+            # content_release is now a known risk, so it moves off the mechanism --
+            # which is the risk schedule's own doing, not same-mechanism mining
+            # (the mining would have stayed on it despite the key).
+            assert decision.attack_mode.value != first_attack
+
+
+def test_only_the_diagnosis_arm_declares_tps():
+    """TPS rotation is part of the third arm's treatment, not the harness's."""
+
+    assert CoverageSchedulerSelector(Arm.DIAGNOSIS_TPS).uses_payload_variants is True
+    assert CoverageSchedulerSelector(Arm.DIAGNOSIS_TPS).diagnoses is True
+    for arm in (Arm.NO_COVERAGE, Arm.RISK_ONLY, Arm.BEHAVIOUR_ONLY, Arm.DUAL):
+        selector = CoverageSchedulerSelector(arm)
+        assert selector.uses_payload_variants is False
+        assert selector.diagnoses is False
+
+
+def test_absorb_final_closes_the_ledger_after_the_last_episode():
+    """The final Episode's violation has no next selector call to ride on.
+
+    Measured in the 2026-11-14 three-arm batch: every arm whose final Episode
+    violated under-counted its ledger by exactly one.  The campaign now does one
+    final absorb; this holds the contract it relies on.
+    """
+
+    selector = CoverageSchedulerSelector(Arm.DIAGNOSIS_TPS)
+    selector(_request(), _History(), episode_index=0)
+    assert selector.history_summary()["violations"] == 0
+    selector.absorb_final(_violation_feedback())
+    summary = selector.history_summary()
+    assert summary["violations"] == 1
+    assert selector._current in selector._history.violations

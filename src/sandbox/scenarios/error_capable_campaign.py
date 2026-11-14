@@ -44,7 +44,11 @@ from sandbox.scenarios.error_capable import (
     materialize_scenario,
     task_family_spec,
 )
-from sandbox.scenarios.error_capable_agent import EpisodeTrace, office_tool_specs
+from sandbox.scenarios.error_capable_agent import (
+    EpisodeTrace,
+    TokenUsageRecord,
+    office_tool_specs,
+)
 from sandbox.scenarios.error_capable_artifacts import read_artifact, write_artifact
 from sandbox.scenarios.error_capable_bridge import BridgedEvidence, bridge_trace
 # The executor interface, not the container runner: the runner imports the Docker client,
@@ -424,6 +428,40 @@ class PinnedSelector:
         return decision, decision.model_dump_json()
 
 
+class FixedCombinationSelector:
+    """Emits one fixed combination for every opportunity -- the EV-03 replay selector.
+
+    Where ``PinnedSelector`` varies one field across probes, this one varies nothing: an
+    EV-03 rerun is N independent episodes of the *same* discovered candidate under the
+    frozen identity, so the same boundary breakthrough must reappear.  Reads no feedback
+    and consults no model, like ``PinnedSelector``.
+    """
+
+    name = "fixed-combination-v1"
+    is_contract_selector = True
+
+    def __init__(self, fields: Mapping[str, str], *, label: str) -> None:
+        self.fields = dict(fields)
+        self.name = f"fixed-combination:{label}"
+        self.last_attempt = None
+
+    def __call__(
+        self, request: SelectorRequest, history: HistorySentinel, *, episode_index: int
+    ) -> tuple[SelectorDecision, str]:
+        del history, episode_index
+        decision = validate_choice(
+            request,
+            SelectorDecision(
+                **self.fields,
+                rationale=(
+                    "EV-03 rerun of a discovered candidate; fixed combination, no feedback"
+                    " is used"
+                ),
+            ),
+        )
+        return decision, decision.model_dump_json()
+
+
 class SelectorReceipt(OfficeV2Contract):
     """One selector call, kept whole so the arms can be compared field by field."""
 
@@ -523,6 +561,10 @@ class CampaignEpisodeRecord(OfficeV2Contract):
     #: the Episode record, rather than in the trace: the trace is the Agent's record, and it has
     #: to stay identical whether the loop ran here or in a container.
     execution_notes: tuple[dict[str, Any], ...] = ()
+    #: The Agent-side model usage this Episode's settled trace reports, carried through so a
+    #: report reader can total tokens per arm without reopening journals.  ``None`` when the
+    #: adapter does not report usage (the scripted fake) or the Episode never reached a turn.
+    agent_token_usage: TokenUsageRecord | None = None
 
 
 class CampaignReport(OfficeV2Contract):
@@ -848,6 +890,11 @@ async def _run_campaign(
     #: score is computed from; `blind` withholds the snapshot entirely.  Part of the identity,
     #: because two arms that differ here are two treatments.
     guidance: str = "full",
+    #: The EV-03 matched control: materialize every Episode with the carrier's benign
+    #: note instead of the injection payload.  Resources, layout, facts and task stay
+    #: identical; only the injected wording disappears.  A whole run flips this switch,
+    #: so a rerun set and its neutral control differ by one switch and nothing else.
+    neutral_materials: bool = False,
     #: The first Episode index this pass runs.  An arm that stopped part-way is continued in place:
     #: the artefacts already on disk keep their numbers, the pass writes the rest, and the arm is
     #: not thrown away because its last Episode wedged the selector.
@@ -939,6 +986,9 @@ async def _run_campaign(
     sentinel_reads: list[str] = []
     selection_attempts: list[SelectorAttempt] = []
     rejected: list[dict[str, Any]] = []
+    #: Episodes this process actually selected.  Restore-only passes (full replays) select
+    #: nothing, and a final ledger absorb has nothing of theirs to close.
+    live_selections = 0
     guided = mode is ErrorCapableMode.GUIDED
     #: Combinations this arm proposed and the run refused, carried forward into every later feedback
     # : snapshot. A refusal that is not handed back leaves the next question identical to the one
@@ -1129,6 +1179,7 @@ async def _run_campaign(
                     # the evidence file, and writing them from here would be a claim the disk
                     # does not carry.
                     execution_notes=(),
+                    agent_token_usage=trace.token_usage,
                 )
             )
             sentinel_reads.extend(frozen.get("history_reads") or ())
@@ -1268,8 +1319,11 @@ async def _run_campaign(
                 # The unobserved-combination contract is the guided treatment's, not a property of
                 # every run that happens to be in guided mode.  The pinned control deliberately
                 # repeats one fixed condition to compare mechanisms, so it is exempt rather than the
-                # rule being weakened for the arm the comparison is about.
-                require_unobserved=guided and not isinstance(selector, PinnedSelector),
+                # rule being weakened for the arm the comparison is about.  The EV-03 replay
+                # selector is the same shape: N independent reruns of one discovered candidate.
+                require_unobserved=guided and not isinstance(
+                    selector, (PinnedSelector, FixedCombinationSelector)
+                ),
                 feedback=feedback,
                 feedback_withheld=guidance == "blind",
                 # What the last attempt got wrong, when the reason was not a combination.  The
@@ -1411,6 +1465,7 @@ async def _run_campaign(
         if attempt is not None and frozen is None:
             selection_attempts.append(attempt)
         sentinel_reads.extend(sentinel.reads)
+        live_selections += 1
 
         family = next(item for item in manifest.task_families if item == decision.task_family.value)
         attack = next(item for item in manifest.attack_modes if item == decision.attack_mode.value)
@@ -1428,7 +1483,17 @@ async def _run_campaign(
             layout_id=decision.layout_id,
             task_file_id=file_ids[0],
         )
-        material = materialize_scenario(plan)
+        # TPS wording: arms without the diagnosis arm's payload variants render the
+        # baseline text their published two-arm numbers were produced with; only a
+        # selector that declares rotation gets the ordinal's registered variant.
+        variant_index = 0
+        if getattr(selector, "uses_payload_variants", False):
+            from sandbox.scenarios.error_capable_world import payload_variant_for
+
+            variant_index = payload_variant_for(plan.episode_id)
+        material = materialize_scenario(
+            plan, variant_index=variant_index, neutral=neutral_materials
+        )
         receipt = SelectorReceipt.seal(
             episode_index=index,
             mode=mode,
@@ -1739,6 +1804,7 @@ async def _run_campaign(
                 # Taken after the attempts for this Episode are over, so the notes belong to the
                 # Episode that produced them rather than to whichever one ran last.
                 execution_notes=tuple(episode_executor.take_execution_notes()),
+                agent_token_usage=trace.token_usage,
             )
         )
         if on_episode is not None:
@@ -1746,6 +1812,21 @@ async def _run_campaign(
             # wrapped in a try: a progress reporter that throws is a defect in the reporter, and
             # swallowing it would leave a run that reports nothing and says nothing about why.
             on_episode(records[-1])
+
+    # The final Episode's violation reaches the ledger at settlement, and the ledger reaches
+    # the arm only through the NEXT selector call -- of which there is none after the last
+    # Episode.  Measured in the 2026-11-14 three-arm batch: every arm whose final Episode
+    # violated under-counted its ledger by exactly one (all three diagnosis_tps arms among
+    # them).  One final read on the settled ledger closes the books -- guided arms only (the
+    # blind arm's ledger reads are audited as evidence of reaching for history it must not
+    # touch), and only when this process selected at least once (a restore-only pass has no
+    # live selector history to close).  A fresh sentinel keeps the read out of sealed receipts.
+    if guided and live_selections and getattr(selector, "absorb_final", None) is not None:
+        final_sentinel = HistorySentinel(ledger=state, targets=targets, allow=guided)
+        final_feedback = final_sentinel.feedback(purpose="final-absorb")
+        if final_feedback is not None:
+            selector.absorb_final(final_feedback)
+            sentinel_reads.append("final-absorb")
 
     if settlements_dir is not None and table is not None:
         # A derived view, written for a reader who wants the end state without replaying the events;

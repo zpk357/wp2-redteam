@@ -66,8 +66,10 @@ class CoverageSchedulerSelector:
     #: treatment layered on the arm.
     is_contract_selector = True
 
-    def __init__(self, arm: Arm) -> None:
+    def __init__(self, arm: Arm, *, seed: int = 0) -> None:
         self.arm = arm
+        #: Run seed; only the RANDOM_UNIFORM arm consumes it (hash-order salt).
+        self.seed = seed
         self._pool: list[SchedulableCandidate] = []
         self._coords: dict[str, dict[str, str]] = {}
         self._history = CoverageHistory()
@@ -77,6 +79,13 @@ class CoverageSchedulerSelector:
         #: The action §16.2 selected for the previous episode (kept for the ledger
         #: dump; the selection itself is driven by the facts, not by the action).
         self.last_action: Action | None = None
+        #: TASK-06 real-model validation: only the diagnosis arm runs the §16
+        #: facts/actions and the same-mechanism exploitation.  Every other arm
+        #: keeps the exact behaviour its published two-arm numbers came from.
+        self.diagnoses = arm is Arm.DIAGNOSIS_TPS
+        #: TPS (registered payload variants) rotate only for the diagnosis arm;
+        #: the campaign reads this flag to pick the materialized wording.
+        self.uses_payload_variants = self.diagnoses
 
     def __call__(
         self, request: Any, history: Any, *, episode_index: int
@@ -91,27 +100,43 @@ class CoverageSchedulerSelector:
         # and let the action steer this selection.  The feedback carries no raw
         # trace, so most facts stay UNKNOWN -- which is exactly what the three-
         # valued design is for: unanswerable rows route to review/normal schedule
-        # instead of spending a repair on a guess.
-        facts = self._facts_from_feedback(feedback)
-        action, _allowed = next_action(facts, self._ledger)
-        self.last_action = action
+        # instead of spending a repair on a guess.  Only the diagnosis arm pays
+        # for any of this: the other arms neither diagnose nor exploit, so their
+        # ordering is the arm schedule alone and their runs stay comparable with
+        # the published two-arm experiment.
+        facts = self._facts_from_feedback(feedback) if self.diagnoses else None
+        if facts is not None:
+            action, _allowed = next_action(facts, self._ledger)
+            self.last_action = action
+        else:
+            action = None
 
-        if facts.violation is Trivalent.YES and self._current_attack:
+        if (
+            facts is not None
+            and facts.violation is Trivalent.YES
+            and self._current_attack
+        ):
             # MARK_PROTECTION-adjacent exploitation: the previous episode broke a
             # boundary under this mechanism, so untried combinations of the same
             # mechanism come before the risk schedule (§13/§16 "提高相似场景的
             # 探索优先级").  The risk schedule orders whatever remains.
             pending = [
-                item for item in schedule(self.arm, self._pool, self._history)
+                item
+                for item in schedule(
+                    self.arm, self._pool, self._history, salt=str(self.seed)
+                )
                 if self._attack_of(item) == self._current_attack
             ]
             rest = [
-                item for item in schedule(self.arm, self._pool, self._history)
+                item
+                for item in schedule(
+                    self.arm, self._pool, self._history, salt=str(self.seed)
+                )
                 if self._attack_of(item) != self._current_attack
             ]
             ordered = pending + rest
         else:
-            ordered = schedule(self.arm, self._pool, self._history)
+            ordered = schedule(self.arm, self._pool, self._history, salt=str(self.seed))
 
         if not ordered:
             raise RuntimeError("candidate pool exhausted before the budget ran out")
@@ -121,6 +146,7 @@ class CoverageSchedulerSelector:
         self._history.executed.append(candidate.candidate_id)
 
         combination = self._coords[candidate.candidate_id]
+        action_note = "" if action is None else f"action={action.value} "
         decision = SelectorDecision(
             task_family=TaskFamily(combination["task_family"]),
             path_id=combination["path_id"],
@@ -128,15 +154,29 @@ class CoverageSchedulerSelector:
             attack_carrier=combination["attack_carrier"],
             layout_id=combination["layout_id"],
             rationale=(
-                f"arm={self.arm.value} action={action.value} "
+                f"arm={self.arm.value} {action_note}"
                 f"selected {candidate.candidate_id} (episode {episode_index})"
             ),
         )
-        return decision, f"scheduler[{self.arm.value}] action={action.value} -> {candidate.candidate_id}"
+        raw_note = "" if action is None else f" action={action.value}"
+        return (
+            decision,
+            f"scheduler[{self.arm.value}]{raw_note} -> {candidate.candidate_id}",
+        )
 
     def _attack_of(self, candidate: SchedulableCandidate) -> str | None:
         combination = self._coords.get(candidate.candidate_id)
         return combination.get("attack_mode") if combination else None
+
+    def absorb_final(self, feedback: Any) -> None:
+        """Absorb the last Episode's ledger delta -- there is no next selector call.
+
+        Absorption normally rides on the next selection's request; after the final
+        Episode there is none, so a violation settled by the run's last Episode never
+        reached the arm's history.  Measured in the 2026-11-14 three-arm batch: every
+        arm whose final Episode violated under-counted its ledger by exactly one.
+        """
+        self._absorb(feedback)
 
     def _facts_from_feedback(self, feedback: Any) -> StageFacts:
         """Infer what the feedback can tell about the previous episode.

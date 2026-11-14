@@ -23,6 +23,7 @@ ordering at all.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -33,6 +34,17 @@ class Arm(StrEnum):
     BEHAVIOUR_ONLY = "behaviour_only"
     RISK_ONLY = "risk_only"
     DUAL = "dual"
+    #: TASK-06 real-model validation arm: the risk schedule plus the §16 diagnosis
+    #: actions (violation rounds mine the same mechanism) and TPS payload rotation.
+    #: The base ordering is the risk rule; the diagnosis layer lives in
+    #: ``evolution.py`` and the variant rotation in the campaign, both gated on
+    #: this arm so the control arms stay byte-identical to the two-arm run.
+    DIAGNOSIS_TPS = "diagnosis_tps"
+    #: The competitive scheduling baseline (SPEC §1.1.3): uniform random ordering over
+    #: the pending pool, seeded for reproducibility and blind to the ledger.  Ordering
+    #: by ``sha256(salt:candidate_id)`` is uniform, stable within a run and different
+    #: across seeds -- a real baseline, not the menu sweep ``mode=random`` gives.
+    RANDOM_UNIFORM = "random_uniform"
 
 
 @dataclass(frozen=True)
@@ -109,22 +121,30 @@ def schedule(
     history: CoverageHistory,
     *,
     limit: int | None = None,
+    salt: str = "",
 ) -> list[SchedulableCandidate]:
     """Order the pool for one arm, dropping candidates already executed.
 
     Every arm skips a candidate it has already run: re-running is the repeat
     exploration the experiment counts, not a scheduling decision.  Ties keep pool
-    order so the arms differ only by their stated rule.
+    order so the arms differ only by their stated rule.  ``salt`` is only used by
+    ``RANDOM_UNIFORM`` (the run seed) so different seeds draw different uniform
+    orders while a given seed's order is reproducible.
     """
 
     pending = [item for item in pool if item.candidate_id not in history.executed]
     if arm is Arm.NO_COVERAGE:
         ordered = list(pending)
+    elif arm is Arm.RANDOM_UNIFORM:
+        ordered = sorted(pending, key=lambda item: _random_rank(item, salt))
     else:
         rank = {
             Arm.BEHAVIOUR_ONLY: _behaviour_rank,
             Arm.RISK_ONLY: _risk_rank,
             Arm.DUAL: _dual_rank,
+            # The diagnosis arm shares the risk rule: its difference is the §16
+            # exploitation layer and TPS, not a third ordering of its own.
+            Arm.DIAGNOSIS_TPS: _risk_rank,
         }.get(arm)
         if rank is None:  # pragma: no cover - StrEnum makes this unreachable
             raise ValueError(f"unknown arm: {arm}")
@@ -135,6 +155,12 @@ def schedule(
             )
         ]
     return ordered[:limit] if limit is not None else ordered
+
+
+def _random_rank(candidate: SchedulableCandidate, salt: str) -> str:
+    """A seeded, uniform, stable hash order over the pool."""
+
+    return hashlib.sha256(f"{salt}:{candidate.candidate_id}".encode("utf-8")).hexdigest()
 
 
 def _behaviour_rank(

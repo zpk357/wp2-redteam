@@ -387,11 +387,38 @@ class ToolStep(OfficeV2Contract):
     committed: CommittedDeliverable | None = None
 
 
+class TokenUsageRecord(OfficeV2Contract):
+    """Agent-side model usage over one Episode, as the adapter reported it.
+
+    COST-01..03: TASK-05 could not report a per-token figure because the Agent's
+    own usage never reached the record -- the selector side had a ledger, the
+    Agent side had nothing.  Adapters that expose ``last_token_usage`` now feed
+    this, one row per generate attempt that returned a fresh report; adapters
+    that do not (the scripted fake) leave the episode's usage ``None``.
+    """
+
+    provider_calls: int = Field(default=0, ge=0)
+    input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+
+    def absorb(self, reported: dict) -> "TokenUsageRecord":
+        """The record after one more reported call; frozen models return, not mutate."""
+
+        return TokenUsageRecord(
+            provider_calls=self.provider_calls + 1,
+            input_tokens=self.input_tokens + int(reported.get("prompt_tokens", 0) or 0),
+            output_tokens=self.output_tokens + int(reported.get("completion_tokens", 0) or 0),
+        )
+
+
 class TurnRecord(OfficeV2Contract):
     index: int = Field(ge=0)
     assistant_text: str | None = Field(default=None, max_length=32_000)
     stop_reason: str | None = Field(default=None, max_length=128)
     tool_request_count: int = Field(ge=0)
+    #: The turn's own model usage, ``None`` when the adapter does not report one.
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
 
 
 class EpisodeTrace(OfficeV2Contract):
@@ -457,6 +484,11 @@ class EpisodeTrace(OfficeV2Contract):
     #: a claim needs a value a reader can check afterwards -- the state digest already covers
     #: what the workspace contained, but not that anything ever put it on a disk.
     workspace_tree_digest: str | None = None
+    #: The Agent-side usage this Episode spent, over every generate attempt that reported
+    #: fresh numbers (successful turns and turn repairs alike).  ``None`` when the adapter
+    #: reports nothing, so an old record and a fake run stay indistinguishable from a
+    #: zero that would pretend the model was free.
+    token_usage: TokenUsageRecord | None = None
     trace_digest: Sha256Digest
 
     def digest_payload(self) -> dict[str, Any]:
@@ -909,6 +941,33 @@ async def run_agent_episode(
         (turn.stop_reason or "").casefold() in {"length", "max_tokens", "truncated"}
         for turn in turns
     )
+    # COST-01: what the Agent-side model calls cost.  Seeded from the restored turns so a
+    # resumed episode keeps the prefix's spend; grown below from the adapter's fresh
+    # reports.  A repair attempt that returned usage before failing counts too -- money
+    # spent on a refused turn is still money spent.
+    usage = TokenUsageRecord()
+    for _turn in turns:
+        if _turn.input_tokens is not None or _turn.output_tokens is not None:
+            usage = usage.absorb(
+                {
+                    "prompt_tokens": _turn.input_tokens or 0,
+                    "completion_tokens": _turn.output_tokens or 0,
+                }
+            )
+
+    def _absorb_usage(before: Any) -> None:
+        """Count the adapter's usage report if this attempt produced a fresh one.
+
+        Identity, not equality: the provider replaces the dict on every parse, so a
+        report is fresh exactly when the object changed.  A transport failure that
+        leaves the previous call's dict in place counts nothing twice.
+        """
+
+        nonlocal usage
+        reported = getattr(adapter, "last_token_usage", None)
+        if reported is not None and reported is not before and isinstance(reported, dict):
+            usage = usage.absorb(reported)
+
     menu = {spec.name: spec for spec in specs}
 
     def snapshot(**changes: Any) -> EpisodeJournal:
@@ -1012,11 +1071,14 @@ async def run_agent_episode(
             break
         checkpoint(phase=JournalPhase.AWAITING_MODEL)
         turn = None
+        usage_before = getattr(adapter, "last_token_usage", None)
         for repair in range(PROVIDER_TURN_REPAIRS + 1):
             try:
                 turn = await adapter.generate(tuple(messages), specs, seed=seed)
+                _absorb_usage(usage_before)
                 break
             except Exception as error:  # noqa: BLE001 - a provider failure is a record, not a crash
+                _absorb_usage(usage_before)
                 provider_repairs.append(
                     f"provider turn refused (repair {repair} of {PROVIDER_TURN_REPAIRS}):"
                     f" {type(error).__name__}: {error}"
@@ -1044,12 +1106,19 @@ async def run_agent_episode(
             )
             stop_reason = "provider-turn-unusable"
             break
+        reported = getattr(adapter, "last_token_usage", None)
         turns.append(
             TurnRecord(
                 index=turn_index,
                 assistant_text=turn.assistant_text,
                 stop_reason=turn.stop_reason,
                 tool_request_count=len(turn.tool_calls),
+                input_tokens=(
+                    reported.get("prompt_tokens") if isinstance(reported, dict) else None
+                ),
+                output_tokens=(
+                    reported.get("completion_tokens") if isinstance(reported, dict) else None
+                ),
             )
         )
         final_turn_had_tool_call = bool(turn.tool_calls)
@@ -1208,6 +1277,7 @@ async def run_agent_episode(
         continuations=continuations,
         unresolved=tuple(unresolved),
         provider_repairs=tuple(provider_repairs),
+        token_usage=usage if usage.provider_calls else None,
         # Proves the disks the Agent read still equals the state it is scored against, and records
         # which tree that was.  Raises rather than reports: a mismatch here is a broken
         # experiment, not a finding about the Agent.

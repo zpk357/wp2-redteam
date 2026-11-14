@@ -81,7 +81,26 @@ async def _run(args: argparse.Namespace) -> int:
         )
         evidence_kind = PROVIDER_ROW
 
-    selector = CoverageSchedulerSelector(Arm(args.arm))
+    # Baseline selectors share the harness with the scheduler arms; only the ordering
+    # rule differs.  `llm_select` is the model's own menu choice (the pre-TASK-05
+    # guided selector); `pure_random` is the harness's uniform sampler, which by
+    # contract only runs in random mode.
+    mode = (
+        ErrorCapableMode.RANDOM
+        if args.mode == "random" or args.arm == "pure_random"
+        else ErrorCapableMode.GUIDED
+    )
+    if args.arm == "llm_select":
+        from sandbox.scenarios.error_capable_selector import LLMSelector
+
+        selector = LLMSelector(adapter=adapter, model_identity=identity)
+    elif args.arm == "pure_random":
+        from sandbox.scenarios.error_capable_selector import PureRandomSelector
+
+        selector = PureRandomSelector()
+        mode = ErrorCapableMode.RANDOM
+    else:
+        selector = CoverageSchedulerSelector(Arm(args.arm), seed=seed)
     arm_root = Path(args.root) / args.stage / f"rep-{args.repeat:02d}" / args.arm
     arm_root.mkdir(parents=True, exist_ok=True)
 
@@ -98,7 +117,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     report = await run_campaign(
         fixture=fixture,
-        mode=ErrorCapableMode.GUIDED,
+        mode=mode,
         episodes=episodes,
         adapter=adapter,
         selector=selector,
@@ -107,12 +126,26 @@ async def _run(args: argparse.Namespace) -> int:
         max_tool_requests=args.max_tool_requests,
         max_continuations=args.max_continuations,
         guidance="full",
+        neutral_materials=args.neutral_materials,
         journal_root=arm_root,
         executor=InProcessExecutor(
             adapter=adapter, model_identity=identity, write_workspace=args.workspace == "directory"
         ),
         on_episode=_progress,
     )
+
+    # COST-03: the Agent-side usage each settled episode's trace reported, totalled per arm.
+    # Selector-side spend stays in selection_cost; adapters that report nothing leave rows
+    # out, and the episodes_with_usage count says so instead of implying a zero.
+    usage_rows = [
+        record.agent_token_usage for record in report.episodes if record.agent_token_usage
+    ]
+    agent_cost = {
+        "episodes_with_usage": len(usage_rows),
+        "provider_calls": sum(row.provider_calls for row in usage_rows),
+        "input_tokens": sum(row.input_tokens for row in usage_rows),
+        "output_tokens": sum(row.output_tokens for row in usage_rows),
+    }
 
     out = {
         "arm": args.arm,
@@ -126,6 +159,7 @@ async def _run(args: argparse.Namespace) -> int:
         # Selector-side token usage: the Agent's own usage is not on the trace, so
         # the report's cost ledger is the only figure the run can actually show.
         "selection_cost": report.selection_cost(),
+        "agent_cost": agent_cost,
         "readouts": {
             "target_reach": report.target_reach(),
             "risk_dimension_curve": report.risk_dimension_curve(),
@@ -139,9 +173,12 @@ async def _run(args: argparse.Namespace) -> int:
         newline="\n",
     )
     summary = selector.history_summary()
+    agent_total = agent_cost["input_tokens"] + agent_cost["output_tokens"]
     print(
         f"  arm={args.arm} episodes={len(report.episodes)} "
         f"violations={summary['violations']} tokens={summary['tokens']} "
+        f"agent_tokens={agent_total} "
+        f"(calls={agent_cost['provider_calls']}, episodes={agent_cost['episodes_with_usage']}) "
         f"repeat={summary['repeat_exploration']}"
     )
     print(f"  written {path}")
@@ -152,7 +189,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", choices=("pilot", "main"), required=True)
     parser.add_argument("--repeat", type=int, required=True)
-    parser.add_argument("--arm", choices=[item.value for item in Arm], required=True)
+    parser.add_argument(
+        "--arm",
+        choices=[item.value for item in Arm] + ["llm_select", "pure_random"],
+        required=True,
+    )
+    parser.add_argument("--mode", choices=("guided", "random"), default="guided")
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--adapter", choices=("fake", "ollama"), default="fake")
     parser.add_argument("--episodes", type=int, default=0)
@@ -164,6 +206,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-ctx", type=int, default=12288)
     parser.add_argument("--num-predict", type=int, default=2048)
     parser.add_argument("--workspace", choices=("memory", "directory"), default="memory")
+    parser.add_argument(
+        "--neutral-materials",
+        action="store_true",
+        help="EV-03 matched control: replace the carrier's injection payload with the"
+        " harness's benign note; resources, layout, facts and task stay identical.",
+    )
     return parser.parse_args(argv)
 
 

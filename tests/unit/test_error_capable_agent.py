@@ -35,6 +35,7 @@ from sandbox.scenarios.error_capable_agent import (
     PROVIDER_TURN_REPAIRS,
     DiscoveryScriptedAgent,
     FirstInput,
+    TokenUsageRecord,
     audit_first_input,
     office_tool_specs,
     run_agent_episode,
@@ -162,6 +163,100 @@ def _run(plan, material, adapter=None):
             seed=1,
         )
     )
+
+
+class _UsageAgent(_SequenceAgent):
+    """A scripted provider that reports usage, the way OllamaReactProvider does."""
+
+    version = "sequence-agent-usage"
+
+    def __init__(self, calls: list[tuple[str, dict]]) -> None:
+        super().__init__(calls)
+        self.last_token_usage: dict[str, int] | None = None
+        self.reports: list[dict[str, int]] = []
+        self.generate_calls = 0
+
+    async def generate(self, messages, tools, *, seed):  # noqa: ANN001, ANN201
+        self.generate_calls += 1
+        self.last_token_usage = {
+            "prompt_tokens": 100 + self.generate_calls,
+            "completion_tokens": 7,
+        }
+        self.reports.append(dict(self.last_token_usage))
+        return await super().generate(messages, tools, seed=seed)
+
+
+def test_turns_and_the_trace_carry_the_adapter_token_usage() -> None:
+    """COST-01/02: the Agent's spend reaches the record, one row per reported call."""
+
+    plan, material = _plan()
+    agent = _UsageAgent([])
+    trace = _run(plan, material, adapter=agent)
+    assert agent.generate_calls >= 1
+    assert trace.token_usage is not None
+    assert trace.token_usage.provider_calls == agent.generate_calls
+    assert trace.token_usage.input_tokens == sum(
+        report["prompt_tokens"] for report in agent.reports
+    )
+    assert trace.token_usage.output_tokens == sum(
+        report["completion_tokens"] for report in agent.reports
+    )
+    # Every successful turn carries exactly its own call's report.
+    assert len(trace.turns) == agent.generate_calls
+    for turn, report in zip(trace.turns, agent.reports):
+        assert turn.input_tokens == report["prompt_tokens"]
+        assert turn.output_tokens == report["completion_tokens"]
+
+
+def test_a_repaired_turn_counts_the_calls_it_spent() -> None:
+    """A refused attempt that already reported usage still cost money."""
+
+    class _Flaky(_UsageAgent):
+        def __init__(self, calls: list[tuple[str, dict]]) -> None:
+            super().__init__(calls)
+            self.refused = False
+
+        async def generate(self, messages, tools, *, seed):  # noqa: ANN001, ANN201
+            if not self.refused:
+                self.refused = True
+                # A fresh report the loop can see even though the turn is refused.
+                self.last_token_usage = {"prompt_tokens": 50, "completion_tokens": 5}
+                self.reports.append(dict(self.last_token_usage))
+                raise RuntimeError("provider hiccup before the turn could be read")
+            return await super().generate(messages, tools, seed=seed)
+
+    plan, material = _plan()
+    agent = _Flaky([])
+    trace = _run(plan, material, adapter=agent)
+    assert trace.token_usage is not None
+    # One report per generate attempt, whatever it returned.
+    assert trace.token_usage.provider_calls == len(agent.reports)
+    assert trace.token_usage.input_tokens == sum(
+        report["prompt_tokens"] for report in agent.reports
+    )
+    assert trace.token_usage.output_tokens == sum(
+        report["completion_tokens"] for report in agent.reports
+    )
+    # The settled turn records its own (second) attempt; the aggregate holds both,
+    # and the refused first attempt produced no turn row.
+    assert len(trace.turns) == agent.generate_calls
+    assert trace.turns[0].input_tokens == agent.reports[1]["prompt_tokens"]
+
+
+def test_an_adapter_without_usage_leaves_the_trace_usage_none() -> None:
+    """A fake run must not read as a free model: absent usage stays absent."""
+
+    plan, material = _plan()
+    trace = _run(plan, material)
+    assert trace.token_usage is None
+    assert all(turn.input_tokens is None for turn in trace.turns)
+
+
+def test_token_usage_record_absorbs_reported_rows() -> None:
+    record = TokenUsageRecord().absorb({"prompt_tokens": 10, "completion_tokens": 2}).absorb(
+        {"prompt_tokens": 3, "completion_tokens": 1}
+    )
+    assert (record.provider_calls, record.input_tokens, record.output_tokens) == (2, 13, 3)
 
 
 @pytest.mark.parametrize("read_timing", ["before", "after", "never"])

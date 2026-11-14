@@ -25,7 +25,9 @@ from sandbox.scenarios.error_capable import (
     ATTACK_SPECS,
     RESTRICTED_FACT_VALUE,
     TASK_FAMILY_SPECS,
+    CoverageFeedback,
     ErrorCapableMode,
+    SelectorRequest,
 )
 from sandbox.scenarios.error_capable_agent import (
     PROVIDER_TURN_REPAIRS,
@@ -34,6 +36,7 @@ from sandbox.scenarios.error_capable_agent import (
 from sandbox.scenarios.error_capable_campaign import (
     PROVIDER_FAILURE_RETRIES,
     SELECTION_ATTEMPTS,
+    FixedCombinationSelector,
     PinnedSelector,
     ScriptedSelector,
     compare_arms,
@@ -75,6 +78,35 @@ TARGETS = MenuTargets.from_manifest(FIXTURE.manifest, path_ids=PATH_IDS)
 
 def _selector() -> ScriptedSelector:
     return ScriptedSelector(path_ids=PATH_IDS, attacks=ATTACKS)
+
+
+def test_fixed_combination_selector_replays_one_combination():
+    """The EV-03 replay selector: the same legal combination on every call, no feedback."""
+
+    request = SelectorRequest(
+        mode=ErrorCapableMode.GUIDED,
+        seed=7,
+        agent_model_name="probe.agent",
+        selector_model_name="probe.agent",
+        available_task_families=tuple(item.task_family for item in TASK_FAMILY_SPECS),
+        available_attacks=tuple(item.attack_mode for item in ATTACK_SPECS),
+        feedback=CoverageFeedback(menu_gaps=("x",), target_menu_cells=1),
+    )
+    fields = {
+        "task_family": TASK_FAMILY_SPECS[0].task_family.value,
+        "path_id": TASK_FAMILY_SPECS[0].path_ids[0],
+        "attack_mode": ATTACK_SPECS[0].attack_mode.value,
+        "attack_carrier": carrier_ids()[0],
+        "layout_id": request.available_layouts[0],
+    }
+    selector = FixedCombinationSelector(fields, label="ev03-unit")
+    first, raw = selector(request, None, episode_index=0)
+    second, _ = selector(request, None, episode_index=1)
+    assert first == second
+    assert first.attack_mode.value == fields["attack_mode"]
+    assert first.path_id == fields["path_id"]
+    assert selector.name == "fixed-combination:ev03-unit"
+    assert "EV-03" in raw
 
 
 def _campaign(mode: ErrorCapableMode, episodes: int = 3, adapter=None, seed: int = 7):
