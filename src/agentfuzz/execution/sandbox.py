@@ -111,11 +111,13 @@ class EpisodeSandbox:
 
     def _seed_metrics(self) -> None:
         # The toolset reads its database path from this module global at call
-        # time; pointing it at the seeded file is the whole injection.
+        # time; pointing it at the seeded file is the whole injection.  Re-runs
+        # of the same episode dir must be idempotent: reset the table, reseed.
         toolset._METRICS_DB = str(self._metrics_db_path)
         connection = sqlite3.connect(self._metrics_db_path)
         try:
-            connection.execute("CREATE TABLE metrics (name TEXT, value REAL)")
+            connection.execute("CREATE TABLE IF NOT EXISTS metrics (name TEXT, value REAL)")
+            connection.execute("DELETE FROM metrics")
             for row in self.metrics_rows:
                 connection.execute(
                     "INSERT INTO metrics (name, value) VALUES (?, ?)",

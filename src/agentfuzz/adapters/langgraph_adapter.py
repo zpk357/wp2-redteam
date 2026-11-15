@@ -23,6 +23,8 @@ class LangGraphReactAdapter:
         self._chat_model = chat_model
         self.model = model_label
         self.last_token_usage: dict[str, int] | None = None
+        self._bound_model: Any = None
+        self._bound_specs: list[ToolSpec] | None = None
 
     async def generate(
         self,
@@ -49,7 +51,14 @@ class LangGraphReactAdapter:
                         name=message.name or "tool",
                     )
                 )
-        response = await self._chat_model.ainvoke(converted)
+        # Bind once per tool-set: without this the model never sees the tools and
+        # answers in prose (measured: the first TASK-08 run emitted a bash block
+        # instead of a tool call, gate FAIL).  bind_tools converts the OpenAI-style
+        # schemas via convert_to_openai_tool, which ChatOllama passes onto the wire.
+        if self._bound_model is None or self._bound_specs != tools:
+            self._bound_model = bind_tools(self._chat_model, list(tools))
+            self._bound_specs = list(tools)
+        response = await self._bound_model.ainvoke(converted)
         usage = getattr(response, "usage_metadata", None)
         self.last_token_usage = (
             {key: int(value) for key, value in usage.items()} if isinstance(usage, dict) else None

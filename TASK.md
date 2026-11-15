@@ -572,7 +572,7 @@ diagnosis 15**——"诊断+TPS 无净增益"的结论作废；可归因子集�
 
 ---
 
-## TASK-08 · NL-1 测试 Agent 与 M0 对接 `进行中 2026-11-15`
+## TASK-08 · NL-1 测试 Agent 与 M0 对接 `已通过 2026-11-15`
 
 **对应**：导师方案第 1-3 天。M0 静态四件已完成（12 工具、4 Sink、162 条静态
 候选链、42 条依赖边，SPEC §13.4）——本任务补齐运行时。
@@ -586,6 +586,34 @@ diagnosis 15**——"诊断+TPS 无净增益"的结论作废；可归因子集�
 
 **判据**：在真实 LLM 上执行一条含两步以上工具调用的链，轨迹完整落盘
 （`storage/results.db` 或 JSON 产物均可，须含每次工具调用的参数与返回）。
+
+**增量（2026-11-15，本地 fake 验证完成）**：runtime 骨架落地——`execution/sandbox.py`
+（路径围栏、shell 垫片、受控 fetch、指标库注入）、`execution/trace_collector.py`
+（稳定 digest；修复 digest↔to_dict 互递归）、`adapters/react_loop.py`（provider
+中立 + $n 数据传播）、`adapters/langgraph_adapter.py`（真模型入口 + ollama 工厂）、
+`adapters/provider.py`（协议 + ScriptedProvider + $n 替换）。本地 fake 测试 6 项
+全绿（三步链全 trace、$n 传播、路径围栏拒绝、受控 fetch 服务/拒绝、adapter 消息
+转换）。**顺带修复 toolset 一处潜在运行时缺陷**：query_metrics 缺 row_factory，
+dict(元组) 必崩——与声明的 returns ROWS 不符（M0 分析不受影响：签名与 Sink 未变）。
+**结果（2026-11-15，真 LLM 验收集）**：`scripts/run_agentfuzz_episode.py`——qwen3.5:27b
+（冻结身份 `64ae5b1d651f`）经 LangGraphReactAdapter 驱动沙箱工具集，**三步链全部成功**：
+
+```
+#0 read_workspace_file {path: doc.md}           ok
+#1 summarize          {text: <文档全文>}          ok
+#2 write_workspace_file {path: summary.md, content: <摘要>}  ok
+stop_reason: agent-stopped（4 轮 LLM，含一次"报告完成"收尾轮）
+trace_digest: sha256:aa494a7aacf184576844f3ec1369034962145a80c36d66d4802cbd919774d883
+```
+
+数据传播可见（summarize 的参数就是读到的原文，write 的内容就是摘要产物）；
+`summary.md` 与轨迹 JSON 均落盘（`/root/ae/runs/agentfuzz/`）。判据 PASS。
+
+**过程中修复两处缺陷**：① langgraph_adapter 的 `generate()` 未绑定工具——模型看到
+裸 chat model，用手写 bash 回答（0 工具调用，gate FAIL）；修复为按工具集绑定一次
+（`bind_tools` → convert_to_openai_tool → ollama 线上载荷验证 12 工具在列）。
+② sandbox 的 metrics 种子库重跑同目录时 `CREATE TABLE` 崩——改幂等（IF NOT EXISTS
++ 清表重种）。本地 6 项测试保持全绿。
 
 ---
 

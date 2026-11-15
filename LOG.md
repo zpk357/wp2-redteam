@@ -1,5 +1,35 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task08-acceptance / TASK-08 判据达成：真 LLM 三步链通过，工具绑定缺陷修复
+
+- 范围与授权：用户开服务器窗口（"继续工作"）。TASK-08 判据（真 LLM 执行一条
+  两步以上工具链并落盘轨迹）达成。新增 `scripts/run_agentfuzz_episode.py` 验收
+  runner（预置工作区文档 + LangGraphReactAdapter + run_episode + gate 判定）。
+- **结果**：qwen3.5:27b（`64ae5b1d651f`，ollama `sof-ollama-gpu`）驱动沙箱工具集，
+  三步链全 ok：read_workspace_file(doc.md) → summarize(全文) → write_workspace_file
+  (summary.md)；4 轮 LLM；数据传播可见；trace 落盘
+  `/root/ae/runs/agentfuzz/traces/task08-acceptance.trace.json`（digest
+  `sha256:aa494a7a…`）；`summary.md` 产物正确。gate PASS。
+- **过程中修复两处缺陷**：① langgraph_adapter.generate() 从未绑定工具（bind_tools
+  助手写了但没调用）——模型看到裸 chat model，用纯文本 bash 回答，0 工具调用；
+  修复为按工具集缓存绑定，线上载荷拦截验证 12 工具在列（诊断脚本
+  `_tmp_srv/probe_wire.py`）。② sandbox metrics 种子库重跑同目录 `CREATE TABLE`
+  崩——改幂等。诊断过程：先读轨迹文本（模型手写 bash 块）→ 怀疑绑定 → 线上
+  载荷探针证伪绑定丢失 → 定位到适配器未调用 bind_tools。
+- 服务器环境：langchain-ollama 1.1.0 新装（venv 3.12.13）；agentfuzz 代码整树同步
+  `/root/ae/t3/src/agentfuzz/`。
+- 身份：模型 `qwen3.5:27b-q4_K_M`（`64ae5b1d651f`）；解释器本地 3.12.14 / 服务器
+  3.12.13。
+- 终结状态：TASK-08 `已通过`（TASK.md 已写结果与缺陷修复）；本地 6 项 runtime
+  测试全绿。
+- 产物路径：`scripts/run_agentfuzz_episode.py`（新增）、
+  `src/agentfuzz/adapters/langgraph_adapter.py`（修复）、
+  `src/agentfuzz/execution/sandbox.py`（幂等修复）、服务器
+  `/root/ae/runs/agentfuzz/`。
+- 未做与代价：未提交 git（沿例）；验收集仅 1 集单任务（多任务/多 seed 的链稳定
+  性属 TASK-09 深化范围）；LangGraph StateGraph 未真正使用（自研 asyncio 循环 +
+  langchain 模型层，是否引入 StateGraph 待 TASK-09 定）；office 线仍挂起。
+
 ## 2026-11-15 / 20261115-task08-runtime / TASK-08 本地增量：agentfuzz 运行时骨架落地（sandbox/trace/loop/adapter）
 
 - 范围与授权：TASK-08 本地增量（fake 验证管道，真 LLM 留待下个服务器窗口）。
