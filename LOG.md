@@ -1,5 +1,24 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-office-archived / 项目归一：office 线整体归档至分支，主线仅 agentfuzz（导师方案）
+
+- 范围与授权：用户裁定"只要一个，按导师方案来"。执行：建分支
+  `archive/office-line`（完整快照，可随时找回）→ 主线移除 office 线全部在册
+  文件（599 项：agent_image、src/sandbox、integration/design 测试、office 单测
+  与脚本、conftest、.dockerignore、agent_variants）→ 重写 README（agentfuzz
+  单线呈现）与 pyproject.toml（agentfuzz 最小打包，asyncio_mode=auto 补回）→
+  editable 重装 → **40 项测试全绿**（含 analysis 套件）。
+- 归档内容：office 线全部代码/测试/脚本（结构化 v1、office v2、error_capable、
+  toolchain 四代实现）与其数据管线；**判定器思想与差分方法论已由 agentfuzz 的
+  differential_validator 承接**；office 实验数据在本地备份与归档分支，不在主线。
+- 归档后主线 = 52 个在册文件：agentfuzz 源码 27 + 测试 2（40 项用例）+ 脚本 5
+  + 文档（SPEC/TASK/LOG/README/授权范围/审计/报告）+ 工程配置。
+- 终结状态：项目归一完成。**导师方案 = 项目 = agentfuzz，无第二条线**。
+- 未做与代价：office 线的条件性证据（R 9 vs C 0、D 15 vs R 9）随归档定格为
+  "挂起线的历史数据"——其 deletion/modification 归因补验不再排队（如论文需要
+  附录数据，从归档分支恢复工具即可）；conftest.py（trace_factory fixture）随
+  office 归档；pyproject 的 office 依赖（docker/fastapi/uvicorn）清除。
+
 ## 2026-11-15 / 20261115-task13-final / TASK-13 收官（负结果）：三轮判据未通过，产出模型鲁棒性轮廓四点
 
 - 范围与授权：第三轮（拆门变异）收官——变异体完美（"Mandatory requirement:
