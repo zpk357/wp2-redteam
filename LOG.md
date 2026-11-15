@@ -1,5 +1,27 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task11-stage-diagnosis / TASK-11 首件：stage_diagnosis 迁移落地（五级判定 + 动作映射）
+
+- 范围与授权：服务器断开（TASK-10 真 LLM L3 待下窗口），转 TASK-11 本地件。
+  新增 `src/agentfuzz/feedback/stage_diagnosis.py`——`ExecutionStage` 五级判定
+  （injection_not_read / chain_partial / chain_complete / params_affected /
+  effect_observed，全部从 trace + 沙箱读出判定：载体进入 = fetch 命中
+  carrier_url 或读注入文件；链 = 目标子序列；params = 相对基线的 Sink 调用
+  签名增量；effect = 探针命中）+ `stage_action`（六动作映射，含重复/新增覆盖
+  标志分支，来自覆盖库——TASK-11 调度器接入点）。
+- 迁移关系：office 路线 `diagnosis.py` 的三值事实/动作表 → agentfuzz 的五级
+  阶段模型（导师表的"读到了不照做"细化为五级，每级一个动作）。测试 2 项
+  （五级判定全路径 + 动作映射），agentfuzz 套件 12 项全绿。
+- 身份：解释器 `.venv/Scripts/python.exe`（3.12.14）；无模型身份。
+- 终结状态：TASK-11 阶段诊断完成；剩 behavior_coverage / risk_coverage（覆盖键
+  六元组）与 scheduler（六项评分 + 每链修复上限 + 预算控制）。
+- 产物路径：`src/agentfuzz/feedback/stage_diagnosis.py`、
+  `tests/unit/test_agentfuzz_runtime.py`（12 项）。
+- 未做与代价：TASK-10 真 LLM L3 判据未动（服务器不可达，runner 已就绪待推）；
+  覆盖库存储（results.db）未实现——scheduler 接入时定；diagnosis.py 的三值
+  UNKNOWN 语义在五级模型中不再需要（trace 可全判定）——与 SPEC §16 的关系在
+  论文写作时说明。
+
 ## 2026-11-15 / 20261115-task10-skeleton / TASK-10 骨架落地：差分验证管道（场景对/探针/L1-L3 判定）
 
 - 范围与授权：TASK-10 本地增量（fake 管道，真 LLM L3 留待服务器窗口）。三模块：

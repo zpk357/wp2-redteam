@@ -674,11 +674,20 @@ CMDi 场景（注入组 run_shell 命中标记探针 → L3；基组零命中）
 
 ---
 
-## TASK-11 · NL-4 双覆盖与反馈调度 `待开始`
+## TASK-11 · NL-4 双覆盖与反馈调度 `进行中 2026-11-15（阶段诊断迁移完成）`
 
 **对应**：导师方案第 10-12 天。覆盖键定义见 SPEC §0.3（六元组 behavior_key /
 risk_key）；阶段→动作映射见 §0.4（`diagnosis.py` 的 §16.2 迁移）；调度评分
 公式见 §0.6（六项加权，手工权重）。
+
+**阶段诊断迁移完成（2026-11-15）**：`feedback/stage_diagnosis.py`——五级
+`ExecutionStage`（injection_not_read → chain_partial → chain_complete →
+params_affected → effect_observed）从 trace + 沙箱读出判定（载体进入判定 =
+fetch_document 命中 carrier_url 或读工作区注入文件；链 = 目标子序列；params =
+相对基线的 Sink 调用签名增量；effect = 探针命中），`stage_action` 一对一映射
+到六个动作（CHANGE_CARRIER / TPS_REPAIR / CHANGE_INJECTION_FIELD / MUTATE_PAYLOAD
+/ DEMOTE_CASE / PROMOTE_CASE，重复与新增覆盖标志来自覆盖库）。测试 2 项（五级
+判定与动作映射全路径）。agentfuzz 套件 12 项全绿。
 
 **做**：
 1. `feedback/behavior_coverage.py` / `feedback/risk_coverage.py`
