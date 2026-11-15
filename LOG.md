@@ -1,5 +1,28 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-payload-mutator / payload_mutator 落地：导师"必须"模块全清单收官
+
+- 范围与授权：服务器断开后的本地收尾。新增
+  `src/agentfuzz/generation/payload_mutator.py`——注入指令变异器（导师方案
+  generation/payload_mutator.py，"必须"级）：按失败注记改写载体文档中的指令块，
+  使其更难被跳过（期限/顺序/权威框架），**业务内容必须原样保留**（首行锚点守卫，
+  变异体丢锚点即回退）；provider 失败/空回复/未变化/守卫拒绝四种情形全部回退
+  原文——变异永远不会让载体变得更差（沿 tps_solver 的回退纪律）。
+- 测试：新增 2 项（改写保留锚点与请求动作；锚点丢弃/空回复/provider 异常三种
+  回退路径），agentfuzz 套件 **18 项全绿**。
+- **导师"必须"模块清单至此全齐**：Sink 识别 ✅（M0）、工具依赖图 ✅（M0）、
+  TPS ✅（tps_solver）、注入点选择 ✅（scenario_manager）、Sink 效果验证 ✅
+  （effect_probes）、行为覆盖 ✅（coverage）、风险覆盖 ✅（coverage）。
+  延后项（CodeQL/SQLi 全面支持/共享状态推断）按计划延后。
+- 身份：解释器 `.venv/Scripts/python.exe`（3.12.14）；无模型身份（ScriptedProvider）。
+- 终结状态：mutator 落地。**待服务器窗口的接入点**：D 臂修复重试的静态修复语
+  替换为 mutate_payload 的真变异（round-2 未转化的下一层手段）；task_generator
+  （LLM 生成任务）仍为低优先级延后项。
+- 产物路径：`src/agentfuzz/generation/payload_mutator.py`、
+  `tests/unit/test_agentfuzz_runtime.py`（18 项）。
+- 未做与代价：变异的真模型效果未验证（接入 D 臂后需消融对比）；变异提示词的
+  措辞是第一版（有效性待真模型调优）；本轮无服务器交互。
+
 ## 2026-11-15 / 20261115-task12-round2 / TASK-12 第二轮收官：D 臂修复首次开火（未转化），四臂无差异为独立集设计必然
 
 - 范围与授权：第二轮修正落地并重跑（3 基线参照 + 4 臂 × 6 集 + D 臂 1 次修复
