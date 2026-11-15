@@ -165,3 +165,24 @@ class TraceCollector:
             stop_reason=self.stop_reason,
             sandbox=sandbox,
         )
+
+def summarize_trace(trace, *, max_calls: int = 12) -> str:
+    """Compact, solver-readable summary of one Episode trace."""
+
+    import json as _json
+
+    lines = [
+        f"stop_reason: {trace.stop_reason}",
+        f"llm_turns: {len(trace.llm_turns)}",
+        f"tool_calls: {len(trace.tool_calls)}",
+    ]
+    if not trace.tool_calls:
+        lines.append("no tool calls were made")
+    for call in trace.tool_calls[:max_calls]:
+        lines.append(
+            f"call#{call.index} {call.name} status={call.status} "
+            f"args={_json.dumps(call.arguments, ensure_ascii=False)[:120]}"
+        )
+        if call.error:
+            lines.append(f"  error: {call.error[:160]}")
+    return "\n".join(lines)

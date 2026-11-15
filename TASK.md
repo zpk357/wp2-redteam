@@ -617,7 +617,7 @@ trace_digest: sha256:aa494a7aacf184576844f3ec1369034962145a80c36d66d4802cbd91977
 
 ---
 
-## TASK-09 · NL-2 TPS 与轨迹采集 `进行中 2026-11-15（可重复性数据先行）`
+## TASK-09 · NL-2 TPS 与轨迹采集 `已通过 2026-11-15`
 
 **对应**：导师方案第 4-6 天。
 
@@ -633,6 +633,15 @@ summarize → write 三步链）连跑 **5 次**：gate PASS ×**5/5**（100% �
 （`sha256:03057cb5…`——temp 0 + 同 seed 下"LLM×工具链"交互的语义级复现；
 此前逐位复现只在 office 线的臂实验里见过，agentfuzz 空间首证）。
 判据的"数据半边"到手；剩 tps_solver 与轨迹深化（本地，TASK-09 剩余）。
+
+**tps_solver 落地（2026-11-15，本地完成）**：`generation/tps_solver.py`——按失败轨迹
+局部修复任务 Prompt（导师"必须"级模块）。设计要点：goal-preserving（system prompt
+明令不改目标、不出沙箱、不加不安全指令）；失败回退原任务（空回复或 provider 异常
+都不会让循环拿到更差的 prompt）；输入是 `summarize_trace(trace)`——轨迹采集深化：
+新增紧凑摘要函数（stop_reason + 逐调用 args/status/error，供 solver 与后续阶段
+诊断共用）。测试 2 项（失败轨迹→修复含工具名；空回复→回退原任务），agentfuzz
+套件 8 项全绿。判据核对：✅ 链可重复触发（100% 成功率，见上）✅ 成功率入台账
+✅ tps_solver 落地。TASK-09 完成。
 
 ---
 

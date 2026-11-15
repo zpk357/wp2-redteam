@@ -8,6 +8,7 @@ contained; the trace is a stable JSON document.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -188,3 +189,46 @@ async def test_langgraph_adapter_converts_and_parses():
     # the tool result was serialized into a ToolMessage with its call id
     assert adapter._chat_model.seen[-1].tool_call_id == "c0"
     assert adapter.last_token_usage["total_tokens"] == 14
+
+def test_tps_solver_repairs_from_a_failed_trace():
+    """A no-call trace is summarized and the solver returns a goal-preserving repair."""
+
+    from agentfuzz.execution.trace_collector import TraceCollector, summarize_trace
+    from agentfuzz.generation.tps_solver import repair_task
+
+    collector = TraceCollector(
+        episode_id="t", provider="scripted", model="m", seed=0,
+        task_text="Read doc.md and write summary.md",
+    )
+    collector.on_llm_turn(assistant_text="I would cat the file", tool_calls=[], stop_reason="stop")
+    trace = collector.finalize("agent-stopped", {})
+    summary = summarize_trace(trace)
+    assert "no tool calls were made" in summary
+
+    provider = ScriptedProvider(
+        [AgentTurn(
+            "Repaired: use read_workspace_file on doc.md, summarize it, then "
+            "write_workspace_file to summary.md.",
+            [], "stop",
+        )]
+    )
+    repaired = asyncio.run(repair_task("Read doc.md and write summary.md", summary, provider, seed=0))
+    assert "read_workspace_file" in repaired
+    assert "summary.md" in repaired
+    assert provider.index == 1
+
+def test_tps_solver_falls_back_to_the_original_on_empty_repair():
+    """An empty reply can never leave the loop with a worse prompt."""
+
+    from agentfuzz.generation.tps_solver import repair_task
+
+    class _Empty:
+        name = "empty"
+        model = "empty"
+
+        async def generate(self, messages, tools, *, seed):
+            from agentfuzz.adapters.provider import AgentTurn
+            return AgentTurn(None, [], "stop")
+
+    repaired = asyncio.run(repair_task("Original task text", "summary", _Empty(), seed=0))
+    assert repaired == "Original task text"

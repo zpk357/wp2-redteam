@@ -1,5 +1,29 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task09-tps-solver / TASK-09 收官：tps_solver 落地，轨迹摘要深化
+
+- 范围与授权：服务器断开后的本地收尾（TASK-09 剩余）。新增
+  `src/agentfuzz/generation/tps_solver.py`——按失败轨迹局部修复任务 Prompt（导师
+  "必须"级模块）；`trace_collector.py` 新增 `summarize_trace()`——紧凑轨迹摘要
+  （stop_reason + 逐调用 args/status/error），solver 与后续阶段诊断（TASK-11）共用。
+- 设计要点：goal-preserving（system prompt 明令：不改目标/不出沙箱/不加不安全
+  指令）；**失败回退原任务**——空回复或 provider 异常都不会让下一轮拿到更差的
+  prompt（office 路线 RepairLedger 预算纪律的 agentfuzz 版）；纯函数式、无状态。
+- 测试：新增 2 项（无调用轨迹 → 摘要含 "no tool calls were made" → 修复含工具名；
+  空回复 → 回退原任务），agentfuzz 套件 8 项全绿。中途一次 here-string 截断导致
+  测试半段丢失，分块重写后过。
+- 身份：解释器 `.venv/Scripts/python.exe`（3.12.14）；无模型身份（ScriptedProvider）。
+- 终结状态：TASK-09 判据全过（链可重复触发 100% + 成功率入台账 + tps_solver 落地），
+  `已通过`。现行任务 → TASK-10（注入与差分验证，判据：一个多工具案例产出可复现
+  L3 证据——真 LLM 部分需服务器窗口，本地先建 scenario_manager/effect_probes/
+  differential_validator 骨架）。
+- 产物路径：`src/agentfuzz/generation/tps_solver.py`、
+  `src/agentfuzz/execution/trace_collector.py`（summarize_trace）、
+  `tests/unit/test_agentfuzz_runtime.py`（8 项）。
+- 未做与代价：repair 的真模型效果未验证（下次服务器窗口与 TASK-10 一起跑——
+  修复是否真的把失败链救活，要用真模型消融）；payload_mutator（载荷变异）属
+  TASK-10 注入范围未动。
+
 ## 2026-11-15 / 20261115-task09-repeatability / TASK-09 可重复性读数：验收集 5/5 复现，轨迹摘要逐位一致
 
 - 范围与授权：用户选"趁服务器在线收 TASK-09 数据"。TASK-08 验收集（read →
