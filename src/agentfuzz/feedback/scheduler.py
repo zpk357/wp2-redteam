@@ -37,6 +37,15 @@ class FeedbackScheduler:
         self.weights = dict(weights or DEFAULT_WEIGHTS)
         self.max_repairs_per_chain = max_repairs_per_chain
         self.last_stage: dict[str, str] = {}
+        self.demoted: set[str] = set()
+
+    def demote(self, case_id: str) -> None:
+        """The advisor DEMOTE action: a case whose repair failed is dropped
+        from selection -- measured in the 2026-11-15 budget rounds, where an
+        unconvertible case burned 5 episodes (2 base + 1 failed repair + 2
+        pointless re-picks) without producing a finding."""
+
+        self.demoted.add(case_id)
 
     def record(
         self,
@@ -109,7 +118,13 @@ class FeedbackScheduler:
             c for c in candidates
             if self.db.case(c)["repairs_since_progress"] < self.max_repairs_per_chain
         ]
-        pool = uncapped or list(candidates)  # everything capped: pick the least bad
+        pool = [c for c in uncapped if c not in self.demoted]
+        if not pool:
+            pool = [c for c in uncapped if c not in self.demoted] or [
+                c for c in candidates if c not in self.demoted
+            ]
+        if not pool:
+            pool = list(candidates)  # everything demoted/capped: least bad
         fresh = [c for c in pool if self.db.case(c)["confirmed"] == 0]
         pool = fresh or pool
         best = sorted(pool, key=lambda c: (-self._score(c), c))[0]
