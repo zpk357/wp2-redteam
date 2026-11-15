@@ -674,7 +674,7 @@ CMDi 场景（注入组 run_shell 命中标记探针 → L3；基组零命中）
 
 ---
 
-## TASK-11 · NL-4 双覆盖与反馈调度 `进行中 2026-11-15（阶段诊断迁移完成）`
+## TASK-11 · NL-4 双覆盖与反馈调度 `已通过 2026-11-15`
 
 **对应**：导师方案第 10-12 天。覆盖键定义见 SPEC §0.3（六元组 behavior_key /
 risk_key）；阶段→动作映射见 §0.4（`diagnosis.py` 的 §16.2 迁移）；调度评分
@@ -688,6 +688,17 @@ fetch_document 命中 carrier_url 或读工作区注入文件；链 = 目标子�
 到六个动作（CHANGE_CARRIER / TPS_REPAIR / CHANGE_INJECTION_FIELD / MUTATE_PAYLOAD
 / DEMOTE_CASE / PROMOTE_CASE，重复与新增覆盖标志来自覆盖库）。测试 2 项（五级
 判定与动作映射全路径）。agentfuzz 套件 12 项全绿。
+
+**覆盖键与调度器落地（2026-11-15，本地完成）**：`feedback/coverage.py`——
+六元组 behavior_key / risk_key 提取（从 trace 的 walked chain 前缀 + ChainContext
+场景事实），CoverageDB（双键集 + 逐 case 统计）；`feedback/scheduler.py`——
+六项加权评分（N_b=未达阶段数 / N_r=未确认 / P=历史可达率 / U=1/(1+尝试) /
+C=tokens / D=无进展修复数，手工权重）+ `record`（吸收轨迹、判新增覆盖、
+无进展计数）+ `select`（**修复上限排除**：超过 per-chain 上限的候选落选，
+全部落选时选最轻）。判据核对：✅ 按失败阶段选择不同动作——TPS_REPAIR ×4 的
+stage 决定序列，与随机变异策略可区分；✅ 修复上限触发后调度器切换到新候选；
+✅ 新覆盖重置计数、U 项优先未探索候选（设计语义：新候选先拿探索预算）。
+agentfuzz 套件 16 项全绿。TASK-11 完成。
 
 **做**：
 1. `feedback/behavior_coverage.py` / `feedback/risk_coverage.py`

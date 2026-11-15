@@ -12,6 +12,8 @@ import asyncio
 import json
 from pathlib import Path
 
+from agentfuzz.feedback.coverage import ChainContext
+
 from agentfuzz.adapters.provider import AgentTurn, ScriptedProvider
 from agentfuzz.adapters.react_loop import run_episode
 from agentfuzz.analysis.tool_extractor import extract_toolset
@@ -391,3 +393,100 @@ def test_stage_diagnosis_params_and_effect():
     assert stage is ExecutionStage.EFFECT_OBSERVED
     assert stage_action(stage, new_coverage=True) is FeedbackAction.PROMOTE_CASE
     assert stage_action(stage, duplicate_finding=True) is FeedbackAction.DEMOTE_CASE
+
+CTX = ChainContext(
+    target_chain=("fetch_document", "run_shell"),
+    sink_tool="run_shell",
+    sink_type="cmdi",
+    injection_position="fetch_document.url",
+    source_trust_level="tool_return",
+)
+
+
+def test_coverage_keys_extract_the_six_tuples():
+    from agentfuzz.feedback.coverage import behavior_key, risk_key
+
+    trace = {"tool_calls": [
+        {"name": "fetch_document", "arguments": {"url": "http://docs.test/report"}},
+        {"name": "run_shell", "arguments": {"command": "echo INJ-MARKER-42"}},
+    ]}
+    bk = behavior_key(trace, "params_affected", CTX)
+    rk = risk_key(trace, "params_affected", CTX, "command_effect")
+    assert bk == (
+        "fetch_document", "", "run_shell", "direct",
+        "fetch_document.url", "params_affected",
+    )
+    assert rk == ("cmdi", "tool_return", "fetch_document.url", "command_effect", "params_affected")
+
+
+def test_scheduler_switches_after_the_repair_cap(tmp_path: Path):
+    from agentfuzz.feedback.coverage import behavior_key, risk_key
+    from agentfuzz.feedback.scheduler import FeedbackScheduler
+    from agentfuzz.feedback.stage_diagnosis import FeedbackAction
+
+    scheduler = FeedbackScheduler(max_repairs_per_chain=4)
+    trace = {"tool_calls": [
+        {"name": "fetch_document", "arguments": {"url": "http://docs.test/report"}},
+    ]}
+    bk = behavior_key(trace, "chain_partial", CTX)
+    rk = risk_key(trace, "chain_partial", CTX, None)
+    actions = []
+    for _ in range(4):
+        record = scheduler.record(
+            "caseA", stage="chain_partial", behavior_key=bk, risk_key=rk, tokens=100
+        )
+        actions.append(record["action"])
+    # the actions are stage-determined: four TPS repairs, not random choices
+    assert actions == [FeedbackAction.TPS_REPAIR] * 4
+    # the cap now excludes caseA: the scheduler switches to the fresh caseB
+    chosen, action = scheduler.select(["caseA", "caseB"])
+    assert chosen == "caseB"
+    assert action is None  # caseB is untried: no stage to demand an action yet
+
+def test_new_coverage_resets_the_repair_counter(tmp_path: Path):
+    from agentfuzz.feedback.coverage import behavior_key, risk_key
+    from agentfuzz.feedback.scheduler import FeedbackScheduler
+
+    scheduler = FeedbackScheduler(max_repairs_per_chain=4)
+    trace_partial = {"tool_calls": [
+        {"name": "fetch_document", "arguments": {"url": "http://docs.test/report"}},
+    ]}
+    for _ in range(2):
+        scheduler.record(
+            "caseA",
+            stage="chain_partial",
+            behavior_key=behavior_key(trace_partial, "chain_partial", CTX),
+            risk_key=risk_key(trace_partial, "chain_partial", CTX, None),
+            tokens=100,
+        )
+    # progress: the chain completes, producing keys never seen before
+    trace_full = {"tool_calls": [
+        {"name": "fetch_document", "arguments": {"url": "http://docs.test/report"}},
+        {"name": "run_shell", "arguments": {"command": "echo INJ-MARKER-42"}},
+    ]}
+    record = scheduler.record(
+        "caseA",
+        stage="params_affected",
+        behavior_key=behavior_key(trace_full, "params_affected", CTX),
+        risk_key=risk_key(trace_full, "params_affected", CTX, "command_effect"),
+        tokens=120,
+    )
+    assert record["new_behavior"] is True and record["new_risk"] is True
+    case = scheduler.db.case("caseA")
+    assert case["repairs_since_progress"] == 0
+    # the unexplored-degree term favors fresh candidates: caseB gets its
+    # exploration budget first, but caseA is eligible again (cap was reset)
+    chosen, _ = scheduler.select(["caseA", "caseB"])
+    assert chosen == "caseB"
+    assert scheduler.select(["caseA"])[0] == "caseA"
+
+
+def test_untried_candidates_get_the_exploration_budget(tmp_path: Path):
+    from agentfuzz.feedback.scheduler import FeedbackScheduler
+
+    scheduler = FeedbackScheduler()
+    chosen, action = scheduler.select(["freshX", "freshY"])
+    # both untried and identical: deterministic tie-break by id, no action yet
+    assert chosen == "freshX"
+    assert action is None
+    assert scheduler._score("freshX") == scheduler._score("freshY")

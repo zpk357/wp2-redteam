@@ -1,5 +1,29 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task11-scheduler / TASK-11 收官：覆盖键六元组 + 反馈调度器落地（16 测试全绿）
+
+- 范围与授权：TASK-11 剩余两件本地落地。`feedback/coverage.py`——六元组
+  behavior_key / risk_key 提取（walked chain 前缀 + ChainContext 场景事实：
+  target_chain / sink 工具与类型 / 注入位置 / 信任级 / 依赖类型）+ CoverageDB
+  （双键集 + 逐 case 统计：attempts/confirmed/stages_seen/tokens/无进展计数）。
+  `feedback/scheduler.py`——六项加权评分（N_b=未达阶段数、N_r=未确认、P=历史
+  可达率、U=1/(1+attempts)、C=tokens、D=无进展修复数；手工权重，SPEC §0.6）+
+  record（吸收 + 判新增 + 无进展计数）+ select（**per-chain 修复上限排除**，
+  全落选时选最轻；确定性平局按 id）。
+- 判据核对：按失败阶段选择不同动作（TPS_REPAIR ×4 stage 决定序列，与随机变异
+  可区分）✅；修复上限触发后切换候选 ✅；新覆盖重置计数 ✅；U 项优先未探索候选
+  ✅（设计语义：新候选先拿探索预算——测试断言按此修正过一次）。
+- 身份：解释器 `.venv/Scripts/python.exe`（3.12.14）；无模型身份。
+- 终结状态：TASK-11 `已通过`（agentfuzz 套件 16 项全绿）。现行任务 → TASK-12
+  （四臂消融实验：A Lite/B 行为/C 双覆盖/D 完整，判据：四臂对比表 + 复现证据，
+  跑前冻结测试集/模型/预算——真 LLM 部分需服务器窗口，本地先建消融 runner）。
+- 产物路径：`src/agentfuzz/feedback/{coverage,scheduler}.py`、
+  `tests/unit/test_agentfuzz_runtime.py`（16 项）。
+- 未做与代价：覆盖键的 dependency_type 目前取 ChainContext 声明值（M0 依赖图的
+  逐边接入是后续深化）；评分权重是手工拍的第一版（敏感性实验属 TASK-12 的
+  消融范围）；select 的平局策略是 id 排序（无随机性——可复现优先）；SQLite 存储
+  （results.db）仍未建——消融实验的历史持久化时再定。
+
 ## 2026-11-15 / 20261115-task11-stage-diagnosis / TASK-11 首件：stage_diagnosis 迁移落地（五级判定 + 动作映射）
 
 - 范围与授权：服务器断开（TASK-10 真 LLM L3 待下窗口），转 TASK-11 本地件。
