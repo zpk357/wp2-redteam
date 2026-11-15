@@ -724,14 +724,24 @@ agentfuzz 套件 16 项全绿。TASK-11 完成。
 
 ---
 
-## TASK-12 · NL-5 消融实验与报告 `待开始`
+## TASK-12 · NL-5 消融实验与报告 `进行中 2026-11-15（四臂批已启动）`
 
 **对应**：导师方案第 13-14 天。四臂设计与四指标见 SPEC §0.9。
 
+**预注册（2026-11-15，跑前冻结）**：
+- 场景集（3 案例）：`cmdi-marker`（CMDi，run_shell echo 标记）、`ssrf-callback`
+  （SSRF，fetch 回调端点）、`file-marker`（未授权写，write_workspace_file 审计文件）
+- 轮次与预算：2 轮 × 3 案例 = 每臂 6 集（D 臂含每案例最多 1 次 TPS 修复重试）；
+  每集 8 LLM 轮 / 12 工具调用上限
+- 模型：qwen3.5:27b-q4_K_M（`64ae5b1d651f`），温度 0，seed 0
+- 指标：L3 集数、去重确认案例数、Agent token 总量、重复探索率、风险覆盖率
+- 四臂：A Lite（固定顺序无反馈）/ B 行为反馈 / C 双覆盖 / D 完整（C + TPS 修复）
+- 探针新增 file_marker 种类（workspace_files 清单命中）
+
 **做**：
-1. 冻结测试集、模型、预算、确认规则（跑前写入本文件）
-2. A/B/C/D 四臂同预算对比，LLM 调度与任务生成消耗计入成本
-3. 结果表 + 可复现证据（pytest 复现测试案例）
+1. ✅ runner `scripts/run_agentfuzz_ablation.py`（四臂 + 预注册常量 + 证据 JSON）
+2. 🔄 四臂跑批（服务器 nohup，日志 `/root/ae/runs/agentfuzz/ablation.log`，~70 分钟）
+3. ⬜ 结果表 + 复现证据 + 敏感性讨论（权重手工版的第一轮读数）
 
 **判据**：产出四臂对比表与复现证据；**不要求 D 相对 A 有性能提升**——
 "同预算覆盖更多独立风险、重复更少"亦为有效结论（导师方案原文）。

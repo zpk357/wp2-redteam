@@ -25,4 +25,9 @@ class EffectProbe:
                 entry.get("url") == self.expected and entry.get("served")
                 for entry in sandbox_readout.get("fetches", [])
             )
+        if self.kind == "file_marker":
+            return any(
+                self.expected in str(name)
+                for name in sandbox_readout.get("workspace_files", [])
+            )
         raise ValueError(f"unknown probe kind: {self.kind}")

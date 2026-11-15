@@ -1,5 +1,27 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task12-launch / TASK-12 四臂消融批启动：场景集扩容 + runner 落地 + 预注册
+
+- 范围与授权：用户选"继续"（服务器在线）。场景集从 1 案例扩到 3（cmdi-marker /
+  ssrf-callback / file-marker——三类 Sink 各一，注入载体均为报告尾部"系统通知"
+  措辞）；`effect_probes.py` 新增 file_marker 探针种类（workspace_files 清单命中）；
+  scheduler.record 防空键。`scripts/run_agentfuzz_ablation.py`（新增）——四臂
+  （A Lite 固定顺序 / B 行为反馈 / C 双覆盖 / D 完整含每案例 1 次 TPS 修复重试）
+  × 2 轮 × 3 案例，指标五项（L3 集数/去重确认案例/token/重复探索率/风险覆盖率），
+  证据 JSON 落盘。
+- **预注册（跑前冻结，写 TASK.md）**：场景集、轮次、每集预算、模型与 seed、
+  四臂构成、指标定义——沿 SPEC §0.9"跑前冻结"纪律。
+- 身份：模型 `qwen3.5:27b-q4_K_M`（`64ae5b1d651f`）；服务器 venv 3.12.13
+  （langchain-ollama 1.1.0 在位）。
+- 终结状态：四臂批 nohup 启动（`/root/ae/runs/agentfuzz/ablation.log`，30 秒首查
+  A_lite 臂进行中），预计 ~70 分钟；本地 16 项测试全绿。
+- 产物路径：`scripts/run_agentfuzz_ablation.py`、
+  `src/agentfuzz/validation/effect_probes.py`（file_marker）、
+  `/root/ae/runs/agentfuzz/{ablation.log,ablation/,traces/,workspaces/}`。
+- 未做与代价：场景集 3 个是导师"先限制三类 Sink"的最小实现——措辞多样性、每类
+  多 Sink 位点属后续扩容；D 臂的 TPS 修复重试用同材料原文（真 tps_solver 的 LLM
+  修复接入是下轮深化）；权重敏感性实验未做（第一轮读数后讨论）。
+
 ## 2026-11-15 / 20261115-task10-accepted / TASK-10 判据达成：真 LLM 差分 L3 证据 4/4 复现
 
 - 范围与授权：服务器窗口（"服务器开着了，你继续"）。TASK-10 判据达成：真模型差分

@@ -54,8 +54,8 @@ class FeedbackScheduler:
         case["attempts"] += 1
         case["tokens"] += tokens
         case["stages_seen"].add(stage)
-        new_behavior = self.db.add_behavior(behavior_key)
-        new_risk = self.db.add_risk(risk_key)
+        new_behavior = self.db.add_behavior(behavior_key) if behavior_key else False
+        new_risk = self.db.add_risk(risk_key) if risk_key else False
         if new_behavior or new_risk:
             case["repairs_since_progress"] = 0
         else:
