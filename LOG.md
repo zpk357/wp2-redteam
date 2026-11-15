@@ -1,5 +1,27 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task13-tps-repair / TASK-13 第四轮准备：D 臂修复改按导师映射（chain_partial -> TPS 任务修复）
+
+- 范围与授权：用户指出期望未达成（要"覆盖反馈 > 基线"的数据）。复盘发现关键
+  失误：TASK-13 三轮的 D 臂修复全部用 mutate_payload，而导师动作表里
+  **chain_partial 对应的是 TPS 修复任务 Prompt**（tps_solver 已实现但从未在
+  消融中验证转化能力）。弱案例前提（base 确定性失败）已验证成立——换上
+  TPS 修复，转化成为可能。
+- 实现：run_budget_ablation.py 抽出 stage_repair()（可单测的导师映射）：
+  chain_partial -> tps_solver 修复任务文本（fail_note 指向"文档指令被忽略，
+  修复后任务须显式要求遵循文档全部指令"）、params_affected/chain_complete ->
+  变异载荷、effect_observed -> 无；_episode 支持 task_text 覆写；D 块重接。
+- 测试：新增映射测试（chain_partial->TPS 且修复文本含指令遵循要求；
+  params_affected->变异且业务前缀存活；effect_observed->无），agentfuzz 套件
+  **41 项全绿**。
+- 身份：无模型身份（fake 验证）；服务器断开中。
+- 终结状态：待下个服务器窗口跑 A vs D（16 集 + TPS 修复调用，约 40 分钟）。
+  预期：A 2/3（无修复，弱案例不转化）vs D 3/3（TPS 修复转化）——若转化，
+  即为"覆盖反馈 + 阶段修复在同预算下的确认增量"硬数据；若不转化，如实记录
+  并转向更易感模型档位。
+- 未做与代价：TPS 修复文本的措辞是第一版（真模型效果待验证）；A 臂数据可从
+  第二轮确定性复用（已两次证实），但正式对比仍按同轮跑。
+
 ## 2026-11-15 / 20261115-office-archived / 项目归一：office 线整体归档至分支，主线仅 agentfuzz（导师方案）
 
 - 范围与授权：用户裁定"只要一个，按导师方案来"。执行：建分支
