@@ -1,5 +1,33 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task10-skeleton / TASK-10 骨架落地：差分验证管道（场景对/探针/L1-L3 判定）
+
+- 范围与授权：TASK-10 本地增量（fake 管道，真 LLM L3 留待服务器窗口）。三模块：
+  `validation/scenario_manager.py`（ScenarioPair——同一合法任务 × 基线/注入两种
+  载体，资源/端点/种子/预算全同）、`validation/effect_probes.py`（shell_command
+  子串探针 + fetch_endpoint 精确探针）、`validation/differential_validator.py`
+  （run_case 双组执行 → L1 目标链子序列 / L2 注入组独有目标链调用 / L3 全探针
+  注入组命中且基组零命中；DifferentialResult.to_dict 含双组 trace+sandbox 全证据）。
+- 沙箱扩展：seed_files（注入载体预置进工作区）+ workspace_files 清单进读出
+  （文件标记探针的落点）；react_loop 穿线 seed_files。
+- **provider 工厂按组调用**（`provider_factory(injected)`）：真模型两组返回同一
+  模型（行为差异必须来自材料——这是差分设计的效度核心）；ScriptedProvider 用
+  组标志分剧本。调试中揪出并修复两个管道缺陷：① stateful fake 跨组泄漏轮次
+  （同一实例两组复用，注入组拿到耗尽的空转）→ 工厂化；② 差分组内引用错位
+  （write 的 $n 引用随注入组多一次调用而错位）→ 动态序号。
+- 测试：新增 2 项——CMDi 场景正例（注入组 run_shell 命中 INJ-MARKER-42 探针 →
+  verdict L3，基组零命中）+ 归因方向负例（两组良性 → 低于 L3）。agentfuzz 套件
+  10 项全绿。
+- 身份：解释器 `.venv/Scripts/python.exe`（3.12.14）；无模型身份（ScriptedProvider）。
+- 终结状态：TASK-10 骨架完成，判据（真 LLM L3 证据）留待下个服务器窗口——
+  核心风险点：qwen 在注入材料下是否真实跟随指令（基组不触发、注入组触发的差分
+  是否成立）；差分设计正是 office 线 content_release 教训的 agentfuzz 化。
+- 产物路径：`src/agentfuzz/validation/`（三模块）、sandbox/react_loop 扩展、
+  `tests/unit/test_agentfuzz_runtime.py`（10 项）。
+- 未做与代价：payload_mutator 未动（TASK-11 的"效果未发生→变异载荷"分支用）；
+  file_marker 探针未实现（workspace_files 清单已就位，实现是十行）；真模型差分
+  行为未验证；证据 JSON 的落盘位置与命名规范未定（TASK-10 收官时与 L3 案例一起定）。
+
 ## 2026-11-15 / 20261115-task09-tps-solver / TASK-09 收官：tps_solver 落地，轨迹摘要深化
 
 - 范围与授权：服务器断开后的本地收尾（TASK-09 剩余）。新增

@@ -82,8 +82,10 @@ class EpisodeSandbox:
         endpoints: dict[str, str] | None = None,
         contracts: dict[str, ToolContract] | None = None,
         episode_id: str = "episode",
+        seed_files: dict[str, str] | None = None,
     ) -> None:
         self.root = Path(root)
+        self.seed_files = dict(seed_files or {})
         self.documents = dict(documents or {})
         self.metrics_rows = list(metrics_rows or [])
         self.endpoints = dict(endpoints or {})
@@ -99,6 +101,7 @@ class EpisodeSandbox:
 
     def __enter__(self) -> "EpisodeSandbox":
         self.root.mkdir(parents=True, exist_ok=True)
+        self._seed_files()
         self._seed_metrics()
         self._install_backend()
         self._install_fetch_shim()
@@ -108,6 +111,14 @@ class EpisodeSandbox:
         if self._urlopen_original is not None:
             urllib.request.urlopen = self._urlopen_original
             self._urlopen_original = None
+
+    def _seed_files(self) -> None:
+        """Pre-seed workspace files (injection carriers, working docs)."""
+
+        for name, body in self.seed_files.items():
+            target = self.resolve(name)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(body, encoding="utf-8")
 
     def _seed_metrics(self) -> None:
         # The toolset reads its database path from this module global at call
@@ -225,9 +236,15 @@ class EpisodeSandbox:
     # -- read-outs ---------------------------------------------------------------------------------
 
     def to_dict(self) -> dict[str, Any]:
+        files = sorted(
+            str(item.relative_to(self.root))
+            for item in self.root.rglob("*")
+            if item.is_file() and item.name != "metrics.db"
+        )
         return {
             "episode_id": self.episode_id,
             "fetches": [item.to_dict() for item in self.fetches],
             "shell_log": list(self.shell_log),
             "published": list(self.published),
+            "workspace_files": files,
         }

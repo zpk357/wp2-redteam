@@ -645,7 +645,7 @@ summarize → write 三步链）连跑 **5 次**：gate PASS ×**5/5**（100% �
 
 ---
 
-## TASK-10 · NL-3 注入与差分验证 `待开始`
+## TASK-10 · NL-3 注入与差分验证 `进行中 2026-11-15（骨架 + fake 管道落地）`
 
 **对应**：导师方案第 7-9 天。
 
@@ -658,6 +658,19 @@ summarize → write 三步链）连跑 **5 次**：gate PASS ×**5/5**（100% �
    为确认发现；每案例的对照与注入必须同任务同资源同布局
 
 **判据**：至少一个多工具安全测试案例产出完整、可复现的 L3 证据。
+
+**骨架（2026-11-15，本地 fake 管道落地）**：三个模块就位——`validation/scenario_manager.py`
+（ScenarioPair：同一合法任务 × 基线/注入两种载体物化，其余全同）、`validation/effect_probes.py`
+（效果探针：shell_command 子串命中 + fetch_endpoint 精确命中，读沙箱读出）、
+`validation/differential_validator.py`（run_case：基线/注入双组执行 → L1 目标链子序列 /
+L2 注入组独有目标链调用 / L3 全部探针注入组命中且基组零命中）。**provider 工厂按组调用**
+（真模型两组同模型，行为差异必须来自材料；fake 用组标志分剧本）——stateful adapter 不可能
+跨组泄漏轮次。沙箱补 seed_files（注入载体预置）与 workspace_files 清单。测试 2 项：
+CMDi 场景（注入组 run_shell 命中标记探针 → L3；基组零命中）+ 归因方向负例（两组都良性 →
+低于 L3）。本地 10 项全绿。
+**剩余**：真 LLM 的 L3 证据（构造 qwen 真实跟随注入指令的场景，下次服务器窗口）；真模型下
+"基组不触发、注入组触发"的差分是否成立是本判据的核心风险点（office 线 content_release 教训
+的 agentfuzz 版——差分设计正是为此而设）。
 
 ---
 

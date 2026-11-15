@@ -61,6 +61,7 @@ async def run_react_episode(
     contracts: dict[str, ToolContract],
     collector: TraceCollector,
     seed: int = 0,
+    seed_files: dict[str, str] | None = None,
     max_llm_turns: int = DEFAULT_MAX_LLM_TURNS,
     max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
 ) -> LoopResult:
@@ -126,6 +127,7 @@ def run_episode(
     documents: dict[str, str] | None = None,
     metrics_rows: list[dict[str, Any]] | None = None,
     endpoints: dict[str, str] | None = None,
+    seed_files: dict[str, str] | None = None,
     trace_dir: Path | None = None,
     max_llm_turns: int = DEFAULT_MAX_LLM_TURNS,
     max_tool_calls: int = DEFAULT_MAX_TOOL_CALLS,
@@ -146,6 +148,7 @@ def run_episode(
         endpoints=endpoints,
         contracts=contracts,
         episode_id=episode_id,
+        seed_files=seed_files,
     ) as sandbox:
         result = asyncio.run(
             run_react_episode(
@@ -156,6 +159,7 @@ def run_episode(
                 contracts=contracts,
                 collector=collector,
                 seed=seed,
+                seed_files=seed_files,
                 max_llm_turns=max_llm_turns,
                 max_tool_calls=max_tool_calls,
             )
