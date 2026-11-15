@@ -1,5 +1,13 @@
 # TASK.md — 任务台账
 
+**路线切换（2026-11-15）**：采纳导师方案（详见 SPEC §0），主路线重写为
+**ChainFuzzer-Lite + 双覆盖反馈 + 差分效果验证**，agentfuzz 为唯一现行方向。
+TASK-01~07（office 业务路线）封存为可行性验证历史——其判定器链、可归因度量
+方法论（EV-03 中性对照）与实验基础设施的方法论价值独立成立（审计
+`docs/audit/20261114-problem-audit.md`）；其挂起项（deletion/modification 归因
+补验、基线批次、content 场景 EV-03 复验）转为**挂起**，若论文需要 office 附录
+数据再启动。现行任务为 TASK-08~12，对应导师 14 天 MVP 的四个阶段。
+
 施工顺序见 `AGENTS.md`。**一次只允许一条任务处于 `进行中`。**
 任务判据必须是"一个数字"或"一条可运行命令"，不接受"基本完成"。
 
@@ -558,3 +566,81 @@ diagnosis 15**——"诊断+TPS 无净增益"的结论作废；可归因子集�
 2. 竞争基线：RANDOM_UNIFORM + PureRandomSelector(random mode) + LLMSelector 三臂
    × 3 seed × 8 集 = 72 集
 3. 泛化：第二模型两臂 16-32 集（模型选定后）
+
+**路线切换后的状态（2026-11-15）**：上述三项随 office 路线**挂起**（非作废——
+若论文需要 office 附录数据再启动）；现行任务见 TASK-08~12。
+
+---
+
+## TASK-08 · NL-1 测试 Agent 与 M0 对接 `进行中 2026-11-15`
+
+**对应**：导师方案第 1-3 天。M0 静态四件已完成（12 工具、4 Sink、162 条静态
+候选链、42 条依赖边，SPEC §13.4）——本任务补齐运行时。
+
+**做**：
+1. LangGraph 测试 Agent：6-10 个工具（`adapters/langgraph_adapter.py`；
+   雏形 `agent_image/app/adapter/langgraph_react_runtime.py` 已存在）
+2. agentfuzz 工具集接入 Episode 运行时（`execution/sandbox.py`、
+   `execution/trace_collector.py`），所有副作用工具指向模拟文件系统/测试
+   数据库/受控端点（SPEC §0.7 安全边界）
+
+**判据**：在真实 LLM 上执行一条含两步以上工具调用的链，轨迹完整落盘
+（`storage/results.db` 或 JSON 产物均可，须含每次工具调用的参数与返回）。
+
+---
+
+## TASK-09 · NL-2 TPS 与轨迹采集 `待开始`
+
+**对应**：导师方案第 4-6 天。
+
+**做**：
+1. `execution/trace_collector.py`：工具调用、参数、返回值、执行状态全量记录
+2. `generation/tps_solver.py`：按失败位置局部修复 Prompt（LLM，固定 API）
+
+**判据**：目标链可重复触发，记录每次运行的成功率（数字入台账）。
+
+---
+
+## TASK-10 · NL-3 注入与差分验证 `待开始`
+
+**对应**：导师方案第 7-9 天。
+
+**做**：
+1. `execution/scenario_manager.py`：工具返回内容替换、测试文件注入
+2. `validation/effect_probes.py`：受控网络回调、文件标记、沙箱标记
+3. `validation/differential_validator.py`：正常/注入对照执行、Δ 比较、
+   L1/L2/L3 判定
+4. 设计约束（office 教训迁移）：对照执行不可选择性丢弃；L3 且证据完整才计
+   为确认发现；每案例的对照与注入必须同任务同资源同布局
+
+**判据**：至少一个多工具安全测试案例产出完整、可复现的 L3 证据。
+
+---
+
+## TASK-11 · NL-4 双覆盖与反馈调度 `待开始`
+
+**对应**：导师方案第 10-12 天。覆盖键定义见 SPEC §0.3（六元组 behavior_key /
+risk_key）；阶段→动作映射见 §0.4（`diagnosis.py` 的 §16.2 迁移）；调度评分
+公式见 §0.6（六项加权，手工权重）。
+
+**做**：
+1. `feedback/behavior_coverage.py` / `feedback/risk_coverage.py`
+2. `feedback/stage_diagnosis.py`（execution_stage 五级判定）
+3. `feedback/scheduler.py`（六项评分 + 每链最大修复次数 + 预算控制）
+
+**判据**：能根据失败阶段选择不同的下一轮操作，而非统一随机变异
+（对照：同输入下调度器的动作序列与随机变异策略可区分）。
+
+---
+
+## TASK-12 · NL-5 消融实验与报告 `待开始`
+
+**对应**：导师方案第 13-14 天。四臂设计与四指标见 SPEC §0.9。
+
+**做**：
+1. 冻结测试集、模型、预算、确认规则（跑前写入本文件）
+2. A/B/C/D 四臂同预算对比，LLM 调度与任务生成消耗计入成本
+3. 结果表 + 可复现证据（pytest 复现测试案例）
+
+**判据**：产出四臂对比表与复现证据；**不要求 D 相对 A 有性能提升**——
+"同预算覆盖更多独立风险、重复更少"亦为有效结论（导师方案原文）。

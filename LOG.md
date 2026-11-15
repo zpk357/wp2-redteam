@@ -1,5 +1,31 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-route-rewrite / D6 裁决落地：主路线重写为 ChainFuzzer-Lite（SPEC v0.3 + TASK-08~12）
+
+- 范围与授权：用户提供导师方案文本，经评估为"分期 B"（主战场转 agentfuzz，office
+  证据封存为可行性验证历史），用户确认"完全按照老师的方案来"后落地。三项产出：
+  ① **SPEC v0.3**——新增 §0 主路线规格（0.1 目标边界/0.2 模块优先级/0.3 双覆盖键
+  六元组/0.4 阶段反馈映射/0.5 差分验证器与 L1-L2-L3/0.6 调度评分公式/0.7 工程结构
+  与技术栈/0.8 十四天里程碑/0.9 四臂消融设计/0.10 专利特征边界/0.11 与旧条文关系）；
+  §13/§14/§15/§16 加状态横幅。**关键发现**：agentfuzz 方向曾被 §14 于 11-12 否决
+  （三条理由：IP 落点/打不赢规模/瓶颈不在链上），导师方案对三条理由逐条回应
+  （对象不变/主张重定位为增量消融/瓶颈转化为阶段反馈信号），回应记录进 §0.11；
+  §14.3 空间禁令修订为 office/agentfuzz 双空间限定。② **TASK.md 重排**——路线切换
+  块 + TASK-08~12（对应导师 14 天 MVP 四阶段，判据沿用导师验收原文）；
+  TASK-01~07 封存为 office 路线历史，挂起项转挂起。③ 审计 D6 标记已裁决。
+- 资产迁移映射（新增工作的实际起点）：M0 静态四件（SPEC §13.4）= TASK-08 的既有
+  基础；`diagnosis.py`（§16.2）= stage_diagnosis 迁移基础；EV-03 中性对照教训 =
+  differential_validator 设计约束；COST 账本 = 调度公式 C 项与 token 效率指标；
+  langgraph_react_runtime = langgraph_adapter 雏形。
+- 身份：无模型身份（文档重写）。
+- 终结状态：SPEC v0.3 与 TASK-08~12 落地；现行方向唯一且明确。
+- 产物路径：`SPEC.md`（§0 新增、§13-16 横幅、版本头）、`TASK.md`（路线切换块 +
+  TASK-08~12）、`docs/audit/20261114-problem-audit.md`（D6 裁决）。
+- 未做与代价：office 线挂起项全部转挂起（deletion/modification 归因、基线、
+  content 复验——若论文需要 office 附录再启动）；agentfuzz 的 M1 代码（LangGraph
+  agent、TPS、差分验证器等）全部未写，TASK-08 起步；老师 14 天计划以
+  "集中开发"为前提，当前并行事务（论文、push）需自行排序。
+
 ## 2026-11-14 / 20261114-content-boundary-fix / content_release 场景缺陷修复：交付物范围写入可信任务信道
 
 - 范围与授权：审计 P0-1 根因处置（D1 = 选项 B）。`error_capable_world.py` 的任务文本
