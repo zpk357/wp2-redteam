@@ -40,3 +40,21 @@ Thumbs.db
 Desktop.ini
 *.orig
 .pytest-debug-pair/
+
+# Session scratch (2026-11-14): server helper holds credentials; patent and EV-03
+# working sets are recovered from context, not from version control.
+/_tmp_srv/
+/_tmp_patent/
+/.tmp-patent-review/
+/.pt_final/
+/.pt_final2/
+/.pytest-tmp2/
+/.pytest-tmp3/
+/.pytest-tmp4/
+/.pytest-tmp5/
+/.pytest-tmp6/
+/.pytest-tmp7/
+/.pytest-tmp8/
+
+# Local result archives from server batches.
+/runs/

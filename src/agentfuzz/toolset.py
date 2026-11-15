@@ -90,6 +90,7 @@ def build_query(metric: str) -> str:
 def query_metrics(sql: str) -> list[dict[str, Any]]:
     """Run a metrics query and return its rows."""
     with sqlite3.connect(_METRICS_DB) as connection:
+        connection.row_factory = sqlite3.Row
         cursor = connection.cursor()
         cursor.execute(sql)
         return [dict(row) for row in cursor.fetchall()]

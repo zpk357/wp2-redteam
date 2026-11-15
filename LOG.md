@@ -1,5 +1,33 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task08-runtime / TASK-08 本地增量：agentfuzz 运行时骨架落地（sandbox/trace/loop/adapter）
+
+- 范围与授权：TASK-08 本地增量（fake 验证管道，真 LLM 留待下个服务器窗口）。
+  新增 `agentfuzz/execution/`（sandbox + trace_collector）、`agentfuzz/adapters/`
+  （provider 协议 + ScriptedProvider + react_loop + langgraph_adapter）、
+  `agentfuzz/storage/` 占位。sandbox 包含：路径围栏（绝对路径/越界拒绝）、shell
+  垫片（cat/ls/echo 三动词解释器，记录全部命令，替代真实 subprocess）、受控
+  fetch（urllib 补丁按 episode 安装/恢复，注册端点服务、未知端点拒绝且无网络
+  出口）、指标库注入（`toolset._METRICS_DB` 指向种子 SQLite）。trace 为单 JSON
+  文档 + 稳定 digest。react_loop 为 provider 中立 React 循环（预算双限制 +
+  $n 数据传播）。langgraph_adapter 为真模型入口（消息转换 + bind_tools +
+  usage_metadata token 记录 + ollama 工厂）。
+- 顺带修复 toolset 一处潜在运行时缺陷：`query_metrics` 无 `row_factory`，
+  `dict(元组)` 必崩——与声明的 returns ROWS 不符。签名与 Sink 未变，M0 分析
+  不受影响。另修复 trace_collector 的 digest↔to_dict 互递归。
+- 测试：新增 `tests/unit/test_agentfuzz_runtime.py` 6 项全绿（三步链完整 trace、
+  $n 数据传播、shell 垫片记录与拒绝、路径围栏、受控 fetch 服务/拒绝、adapter
+  消息转换与 token 记录）。
+- 身份：解释器 `.venv/Scripts/python.exe`（3.12.14）；无模型身份（fake 验证）。
+- 终结状态：TASK-08 代码范围完成，判据（真 LLM 执行）留待下个服务器窗口；
+  TASK-08 保持进行中。
+- 产物路径：`src/agentfuzz/{execution,adapters,storage}/`、
+  `tests/unit/test_agentfuzz_runtime.py`。
+- 未做与代价：LangGraph StateGraph 尚未真正使用（loop 为自研 asyncio 循环，
+  langchain 仅做消息/模型层——是否引入 StateGraph 属实现细节，待 TASK-09
+  与轨迹持久化一起定）；真模型行为（温度 0 下链的稳定性、注入的 L2/L3 效果）
+  全部未验证；任务生成器（task_generator）与差分验证器属 TASK-10 范围未动。
+
 ## 2026-11-15 / 20261115-route-rewrite / D6 裁决落地：主路线重写为 ChainFuzzer-Lite（SPEC v0.3 + TASK-08~12）
 
 - 范围与授权：用户提供导师方案文本，经评估为"分期 B"（主战场转 agentfuzz，office
