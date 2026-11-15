@@ -617,7 +617,7 @@ trace_digest: sha256:aa494a7aacf184576844f3ec1369034962145a80c36d66d4802cbd91977
 
 ---
 
-## TASK-09 · NL-2 TPS 与轨迹采集 `待开始`
+## TASK-09 · NL-2 TPS 与轨迹采集 `进行中 2026-11-15（可重复性数据先行）`
 
 **对应**：导师方案第 4-6 天。
 
@@ -626,6 +626,13 @@ trace_digest: sha256:aa494a7aacf184576844f3ec1369034962145a80c36d66d4802cbd91977
 2. `generation/tps_solver.py`：按失败位置局部修复 Prompt（LLM，固定 API）
 
 **判据**：目标链可重复触发，记录每次运行的成功率（数字入台账）。
+
+**可重复性读数（2026-11-15，先于 tps_solver 落地）**：TASK-08 验收集（read →
+summarize → write 三步链）连跑 **5 次**：gate PASS ×**5/5**（100% 成功率），全部
+`agent-stopped` / 4 轮 LLM / 3 次调用，**trace_digest 五次逐位一致**
+（`sha256:03057cb5…`——temp 0 + 同 seed 下"LLM×工具链"交互的语义级复现；
+此前逐位复现只在 office 线的臂实验里见过，agentfuzz 空间首证）。
+判据的"数据半边"到手；剩 tps_solver 与轨迹深化（本地，TASK-09 剩余）。
 
 ---
 

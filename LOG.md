@@ -1,5 +1,20 @@
 # 项目变更日志
 
+## 2026-11-15 / 20261115-task09-repeatability / TASK-09 可重复性读数：验收集 5/5 复现，轨迹摘要逐位一致
+
+- 范围与授权：用户选"趁服务器在线收 TASK-09 数据"。TASK-08 验收集（read →
+  summarize → write 三步链）连跑 5 次（独立 episode-id repeat-1..5）：
+  gate PASS ×5/5（成功率 100%），全部 `agent-stopped` / 4 轮 LLM / 3 次调用，
+  **trace_digest 五次逐位一致**（`sha256:03057cb5…`）——temp 0 + 同 seed 下
+  "LLM×工具链"交互语义级复现（agentfuzz 空间首证；此前逐位复现只在 office
+  臂实验见过）。五份轨迹已落盘 `/root/ae/runs/agentfuzz/traces/`。
+- 身份：模型 `qwen3.5:27b-q4_K_M`（`64ae5b1d651f`）。
+- 终结状态：TASK-09 判据的"数据半边"到手（成功率入台账）；tps_solver 与轨迹
+  深化转本地（TASK-09 剩余）。服务器无其他待办，可断开。
+- 产物路径：TASK.md TASK-09 可重复性读数块；服务器轨迹五份。
+- 未做与代价：单任务单场景的可重复性（多任务/多链稳定性属后续）；温度 0 的
+  复现不推广到更高温度；无代码改动（纯读数轮）。
+
 ## 2026-11-15 / 20261115-task08-acceptance / TASK-08 判据达成：真 LLM 三步链通过，工具绑定缺陷修复
 
 - 范围与授权：用户开服务器窗口（"继续工作"）。TASK-08 判据（真 LLM 执行一条
