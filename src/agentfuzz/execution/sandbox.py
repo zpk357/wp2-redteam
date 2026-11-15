@@ -95,6 +95,7 @@ class EpisodeSandbox:
         self.shell_log: list[dict[str, Any]] = []
         self.published: list[dict[str, Any]] = []
         self._urlopen_original: Any = None
+        self._metrics_db_original: Any = None
         self._metrics_db_path = self.root / "metrics.db"
 
     # -- lifecycle ---------------------------------------------------------------------------
@@ -108,9 +109,15 @@ class EpisodeSandbox:
         return self
 
     def __exit__(self, *exc: Any) -> None:
+        # restore EVERY process-global the episode touched: the fetcher and the
+        # toolset metrics path (a stale db path would leak into any code that
+        # reads it outside an episode).
         if self._urlopen_original is not None:
             urllib.request.urlopen = self._urlopen_original
             self._urlopen_original = None
+        if self._metrics_db_original is not None:
+            toolset._METRICS_DB = self._metrics_db_original
+            self._metrics_db_original = None
 
     def _seed_files(self) -> None:
         """Pre-seed workspace files (injection carriers, working docs)."""
@@ -124,6 +131,8 @@ class EpisodeSandbox:
         # The toolset reads its database path from this module global at call
         # time; pointing it at the seeded file is the whole injection.  Re-runs
         # of the same episode dir must be idempotent: reset the table, reseed.
+        if self._metrics_db_original is None:
+            self._metrics_db_original = getattr(toolset, "_METRICS_DB", None)
         toolset._METRICS_DB = str(self._metrics_db_path)
         connection = sqlite3.connect(self._metrics_db_path)
         try:

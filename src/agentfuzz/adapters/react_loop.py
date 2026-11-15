@@ -93,10 +93,18 @@ async def run_react_episode(
                 break
             name = str(call.get("name"))
             raw_arguments = call.get("arguments") or {}
-            arguments = {
-                key: substitute(value, results) if isinstance(value, str) else value
-                for key, value in raw_arguments.items()
-            }
+            arguments = {}
+            for key, value in raw_arguments.items():
+                if isinstance(value, str):
+                    try:
+                        arguments[key] = substitute(value, results)
+                    except (IndexError, KeyError, ValueError):
+                        # an unresolvable $n reference must not kill the
+                        # episode: pass the literal through and let the tool
+                        # answer it
+                        arguments[key] = value
+                else:
+                    arguments[key] = value
             try:
                 result = sandbox.call_tool(name, arguments)
                 status, error = "ok", None

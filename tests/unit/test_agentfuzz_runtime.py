@@ -613,3 +613,53 @@ def test_stage_repair_follows_the_advisor_mapping(tmp_path: Path):
     assert rba.stage_repair(
         weak, ExecutionStage.EFFECT_OBSERVED, trace, _Tps(), seed=0
     )["kind"] == "none"
+
+def test_unresolvable_substitution_passes_through_instead_of_killing_the_episode(tmp_path: Path):
+    """A $n reference past the end must not crash the run (measured defect)."""
+
+    provider = ScriptedProvider(
+        [
+            AgentTurn(None, [{"name": "summarize", "arguments": {"text": "$9"}}], "tool_calls"),
+        ]
+    )
+    result = run_episode(
+        episode_id="ep-subst",
+        task_text="t",
+        provider=provider,
+        seed=0,
+        workspace_root=tmp_path,
+        contracts=CONTRACTS,
+    )
+    call = result.trace.tool_calls[0]
+    assert call.status == "ok"
+    assert call.arguments["text"] == "$9"  # the literal passed through
+
+
+def test_scheduler_avoids_confirmed_cases(tmp_path: Path):
+    from agentfuzz.feedback.coverage import behavior_key
+    from agentfuzz.feedback.scheduler import FeedbackScheduler
+    from agentfuzz.feedback.stage_diagnosis import ExecutionStage
+
+    scheduler = FeedbackScheduler(max_repairs_per_chain=4)
+    trace = {"tool_calls": [{"name": "run_shell", "arguments": {"command": "echo x"}}]}
+    ctx = ChainContext(
+        target_chain=("fetch_document", "run_shell"), sink_tool="run_shell",
+        sink_type="cmdi", injection_position="fetch_document.url",
+        source_trust_level="tool_return",
+    )
+    bk = behavior_key(trace, "effect_observed", ctx)
+    rk = ()
+    scheduler.record("caseDone", stage="effect_observed", behavior_key=bk, risk_key=rk, tokens=10)
+    # caseDone is confirmed: with an unconfirmed alternative it must not be picked
+    chosen, _ = scheduler.select(["caseDone", "caseTodo"])
+    assert chosen == "caseTodo"
+
+
+def test_sandbox_restores_the_metrics_global(tmp_path: Path):
+    from agentfuzz import toolset
+    from agentfuzz.execution.sandbox import EpisodeSandbox
+
+    before = getattr(toolset, "_METRICS_DB", None)
+    with EpisodeSandbox(tmp_path / "sb", contracts={}, seed_files={}):
+        assert toolset._METRICS_DB != before
+    assert toolset._METRICS_DB == before

@@ -98,16 +98,20 @@ class FeedbackScheduler:
     def select(self, candidates: list[str]) -> tuple[str, FeedbackAction | None]:
         """Pick the next case and the action its last stage demands.
 
-        Candidates past their repair cap are excluded; the cap is what makes the
-        loop switch away from a failed sample instead of drilling it forever.
+        Two exclusion rules, in order: candidates past their repair cap are out
+        (the cap keeps the loop from drilling one failed sample forever), and
+        already-confirmed candidates are out while any unconfirmed one remains
+        (re-running a confirmed case cannot add a finding -- measured in the
+        2026-11-15 budget rounds, where the D arm burned two episodes this way).
         """
 
-        eligible = [
+        uncapped = [
             c for c in candidates
             if self.db.case(c)["repairs_since_progress"] < self.max_repairs_per_chain
         ]
-        if not eligible:
-            eligible = list(candidates)  # everything capped: pick the least bad
-        best = sorted(eligible, key=lambda c: (-self._score(c), c))[0]
+        pool = uncapped or list(candidates)  # everything capped: pick the least bad
+        fresh = [c for c in pool if self.db.case(c)["confirmed"] == 0]
+        pool = fresh or pool
+        best = sorted(pool, key=lambda c: (-self._score(c), c))[0]
         action = self.action_for(best) if best in self.last_stage else None
         return best, action
