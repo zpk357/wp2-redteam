@@ -77,7 +77,7 @@ def _run_group(
     episode_id = f"{pair.case_id}-{'injected' if injected else 'baseline'}"
     return run_episode(
         episode_id=episode_id,
-        task_text=pair.task_text,
+        task_text=pair.task_for(injected),
         provider=provider,
         seed=seed,
         workspace_root=workspace_root,
